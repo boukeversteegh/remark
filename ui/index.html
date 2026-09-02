@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>remark</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230969da' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4'/%3E%3Cpath d='M2 6h4'/%3E%3Cpath d='M2 10h4'/%3E%3Cpath d='M2 14h4'/%3E%3Cpath d='M2 18h4'/%3E%3Cpath d='M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand"><span class="brandmark" id="brandmark"></span><span class="wordmark">remark</span></div>
+  <button id="outlineBtn" class="iconbtn" title="Toggle outline panel"></button>
+  <button id="openBtn" class="iconbtn" title="Open a markdown file…"></button>
+  <div id="filename" title=""></div>
+  <div class="spacer"></div>
+  <button id="unreadBtn" class="pill unread-pill hidden" title="Jump to the next unread comment"></button>
+  <div class="seg" id="modeSeg">
+    <button data-mode="inline" title="Comments in the document flow"></button>
+    <button data-mode="margin" title="Comments in a side margin, like Word review"></button>
+  </div>
+  <div class="tools">
+    <button id="collapseAll" class="iconbtn" title="Collapse all threads"></button>
+    <button id="expandAll" class="iconbtn" title="Expand all threads"></button>
+  </div>
+  <label class="me" title="Comments you write are signed with this name">as<input id="meInput" size="9" spellcheck="false"></label>
+  <div id="status" class="statuschip"></div>
+</header>
+
+<div id="landing" class="hidden">
+  <div class="landing-card">
+    <div class="hero" id="heroIcon"></div>
+    <h1>remark</h1>
+    <p class="tagline">A discussion tool built on top of markdown — threads live in the file, conflict-free, in plain text.</p>
+    <button id="browseBtn" type="button"></button>
+    <form id="openForm">
+      <input id="pathInput" placeholder="…or paste a path: D:\path\to\review.md" spellcheck="false">
+      <button type="submit">Open</button>
+    </form>
+    <div id="recent"></div>
+  </div>
+</div>
+
+<main id="main" class="hidden mode-inline">
+  <nav id="outline"></nav>
+  <div id="docwrap">
+    <article id="doc"></article>
+    <div id="divider" title="Drag to resize · double-click to reset"></div>
+    <aside id="rail"></aside>
+  </div>
+</main>
+
+<div id="conflicts" class="hidden"></div>
+
+<script src="/vendor/marked.js"></script>
+<script src="/vendor/purify.js"></script>
+<script src="/icons.js"></script>
+<script src="/parser.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
