@@ -504,6 +504,21 @@ function hasOpenEditor(item) {
 // whole subtree is read; replies stay open. The computed default is locked
 // in, so later read-state changes never move the UI — collapsing happens
 // only on explicit action. A subtree with an open editor never folds.
+// deliberate fold/unfold choices persist across restarts, per file, in
+// localStorage; computed defaults and programmatic expansions stay
+// session-only so future defaults aren't frozen
+function persistCollapse(key, val) {
+  if (!S.collapsedSaved) S.collapsedSaved = {};
+  S.collapsedSaved[key] = val;
+  try {
+    const valid = new Set(S.parsed.items.map(i => i.key));
+    const out = {};
+    for (const k in S.collapsedSaved) if (valid.has(k)) out[k] = S.collapsedSaved[k];
+    S.collapsedSaved = out;
+    localStorage.setItem('remark:collapsed:' + S.path, JSON.stringify(out));
+  } catch (e) { /* storage full/blocked: state stays session-only */ }
+}
+
 function isCollapsed(item) {
   if (hasOpenEditor(item)) {
     S.collapsed.set(item.key, false);
@@ -511,6 +526,11 @@ function isCollapsed(item) {
   }
   const manual = S.collapsed.get(item.key);
   if (manual !== undefined) return manual;
+  if (S.collapsedSaved && item.key in S.collapsedSaved) {
+    const saved = S.collapsedSaved[item.key];
+    S.collapsed.set(item.key, saved);
+    return saved;
+  }
   const def = !item.parent && threadStats(item).unread === 0;
   S.collapsed.set(item.key, def);
   return def;
@@ -542,6 +562,7 @@ function buildItem(item) {
   head.addEventListener('click', e => {
     if (e.target.closest('button, input, a')) return;
     S.collapsed.set(item.key, !collapsed);
+    persistCollapse(item.key, !collapsed);
     render();
   });
 
@@ -551,6 +572,7 @@ function buildItem(item) {
   tw.title = collapsed ? 'Expand' : 'Collapse';
   tw.addEventListener('click', () => {
     S.collapsed.set(item.key, !collapsed);
+    persistCollapse(item.key, !collapsed);
     render();
   });
   head.appendChild(tw);
@@ -1648,11 +1670,17 @@ function wireTopbar() {
     });
   }
   $('#collapseAll').addEventListener('click', () => {
-    for (const b of S.parsed.blocks) if (b.type === 'thread') S.collapsed.set(b.thread.key, true);
+    for (const b of S.parsed.blocks) if (b.type === 'thread') {
+      S.collapsed.set(b.thread.key, true);
+      persistCollapse(b.thread.key, true);
+    }
     render();
   });
   $('#expandAll').addEventListener('click', () => {
-    for (const it of S.parsed.items) S.collapsed.set(it.key, false);
+    for (const it of S.parsed.items) {
+      S.collapsed.set(it.key, false);
+      persistCollapse(it.key, false);
+    }
     render();
   });
   $('#unreadBtn').addEventListener('click', jumpUnread);
@@ -1690,6 +1718,9 @@ async function init() {
   S.outlineAll = !!PREFS.outlineAll;
   S.hideResolved = !!PREFS.hideResolved;
   S.zoom = PREFS.zoom || 1;
+  try {
+    S.collapsedSaved = JSON.parse(localStorage.getItem('remark:collapsed:' + S.path) || '{}');
+  } catch (e) { S.collapsedSaved = {}; }
   applyZoom();
   if (!S.path) { showLanding(); return; }
   applyChrome();

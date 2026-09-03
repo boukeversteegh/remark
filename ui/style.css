@@ -628,15 +628,18 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
    of the last comment: flush with the card and below its own divider */
 .cfoot {
   min-height: 20px; border-top: 1px solid var(--border-soft);
-  margin: 0 -14px 0 -11px; padding: 8px 14px 8px 14px;
+  margin: 0 -14px 0 -11px; padding: 8px 11px 8px 11px;
 }
 /* a nested comment's reply slot (and the editor that replaces it) sits at
    the indent its reply will land on, with the subthread border running
    down beside it — only the root's slot spans the card */
+/* one alignment rule for every reply slot: the input's left edge sits
+   where the boxes it appends to begin (root: flush-row content inset;
+   nested: just inside the continued subthread border) */
 .citem .citem > .cfoot, .citem .citem > .editor {
   margin-left: 22px; margin-right: 0;
   border-left: 2px solid var(--border-soft);
-  padding-left: 22px; padding-right: 0;
+  padding-left: 0; padding-right: 0;
 }
 /* when the slot is the last row, its border runs on through the parent's
    bottom padding to meet the next divider (gap stays close to the 8px top) */
