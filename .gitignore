@@ -21,3 +21,4 @@ Thumbs.db
 # Local live-discussion files
 /discussion.md
 *~
+/discussion-*.png

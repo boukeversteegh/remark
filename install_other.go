@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+// Unix replaces running binaries by unlinking the inode, so hot reinstalls
+// leave nothing behind to sweep.
+func sweepOldBinaries() {}
+
 // runInstall copies the binary to ~/.local/bin (the conventional per-user bin
 // directory) and reminds about PATH when needed.
 func runInstall() {

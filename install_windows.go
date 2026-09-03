@@ -51,11 +51,7 @@ func runInstall() {
 			fmt.Fprintln(os.Stderr, "remark install:", err)
 			os.Exit(1)
 		}
-		if stale, _ := filepath.Glob(dest + ".old*"); stale != nil {
-			for _, s := range stale {
-				os.Remove(s) // best effort; locked ones vanish on a later run
-			}
-		}
+		sweepOldBinaries()
 		fmt.Println("installed", dest)
 	} else {
 		fmt.Println("already running from", dest)
@@ -94,6 +90,19 @@ func runInstall() {
 	}
 	broadcastEnvChange()
 	fmt.Println("added to PATH —", dir, "(new terminals will see it)")
+}
+
+// sweepOldBinaries deletes the ".old" images hot reinstalls leave behind.
+// A Windows binary cannot delete its own running image, so instead EVERY
+// remark start attempts the sweep: files still backing a live process are
+// locked and refuse deletion (which is exactly right), dead ones vanish.
+func sweepOldBinaries() {
+	dir := filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs", "remark")
+	if stale, _ := filepath.Glob(filepath.Join(dir, "remark.exe.old*")); stale != nil {
+		for _, s := range stale {
+			os.Remove(s)
+		}
+	}
 }
 
 func broadcastEnvChange() {
