@@ -24,6 +24,8 @@ list items, so you participate by editing the file with your normal tools.
 Usage:
   remark [flags] [file.md]      open a file in its own window
   remark monitor <files...>     watch files, print each new human comment
+  remark recent                 list recent files, one path per line —
+                                feed it to monitor to watch them all
   remark install                copy the binary to a per-user location and
                                 add it to your PATH
 
@@ -125,6 +127,18 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "install" {
 		runInstall()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "recent" {
+		// one path per line, so an agent can do:
+		//   remark monitor $(remark recent) -as <name>
+		var rec []string
+		prefsGetKey("recents", &rec)
+		for _, p := range rec {
+			if _, err := os.Stat(p); err == nil {
+				fmt.Println(p)
+			}
+		}
 		return
 	}
 	port := flag.Int("port", 7333, "preferred port (falls back to next free)")
