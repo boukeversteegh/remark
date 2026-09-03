@@ -420,6 +420,7 @@ function buildThread(block) {
 
 function hasOpenEditor(item) {
   if (S.editorsOpen.has('reply:' + item.key)) return true;
+  if (S.editorsOpen.has('edit:' + item.key)) return true;
   return item.children.some(hasOpenEditor);
 }
 
@@ -518,6 +519,17 @@ function buildItem(item) {
     head.appendChild(nc);
   }
 
+  // own comments get a hover-revealed edit pencil in the header corner
+  const editing = S.editorsOpen.has('edit:' + item.key) && isMe(item.author);
+  if (!collapsed && isMe(item.author) && !editing) {
+    const eb = document.createElement('button');
+    eb.className = 'replybtn inhead';
+    eb.innerHTML = iconHTML('pencil');
+    eb.title = 'Edit your comment';
+    eb.addEventListener('click', () => toggleEditor('edit:' + item.key));
+    head.appendChild(eb);
+  }
+
   // leaf comments get Reply in the header corner, before the status pills
   if (!collapsed && item.children.length === 0) {
     const reply = document.createElement('button');
@@ -573,10 +585,15 @@ function buildItem(item) {
 
   el.appendChild(head);
 
+  // editing swaps the body text for a composer; children keep rendering
+  // below it (the edit op writes the new body as one block before them)
+  if (editing) el.appendChild(buildEditor('edit:' + item.key, item));
+
   // segments preserve order: an interjection (a reply placed half-way
   // through a comment) renders exactly where it sits in the markdown
   for (const seg of item.segments) {
     if (seg.type === 'text') {
+      if (editing) continue;
       const body = document.createElement('div');
       body.className = 'cbody';
       const chunks = mdChunks(seg.md);
@@ -645,7 +662,8 @@ function toggleEditor(key) {
 function buildEditor(key, target) {
   const isReply = key.startsWith('reply:');
   const isInterject = key.startsWith('ipara:');
-  const isNewThread = !isReply && !isInterject;
+  const isEdit = key.startsWith('edit:');
+  const isNewThread = !isReply && !isInterject && !isEdit;
   const tKey = key + ':title';
   const wrap = document.createElement('div');
   wrap.className = 'editor' + (isNewThread ? ' newthread' : '');
@@ -667,8 +685,10 @@ function buildEditor(key, target) {
   }
 
   const ta = document.createElement('textarea');
-  ta.placeholder = isReply ? 'Reply… (markdown, Ctrl+Enter to send)' : 'New comment… (markdown, Ctrl+Enter to send)';
-  ta.value = S.drafts[key] || '';
+  ta.placeholder = isEdit ? 'Edit… (markdown, Ctrl+Enter to save)'
+    : isReply ? 'Reply… (markdown, Ctrl+Enter to send)' : 'New comment… (markdown, Ctrl+Enter to send)';
+  // edits prefill with the comment's raw markdown body (title line included)
+  ta.value = isEdit && !(key in S.drafts) ? target.rawBody : (S.drafts[key] || '');
   const autosize = () => {
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight + 2, 340) + 'px';
@@ -681,7 +701,7 @@ function buildEditor(key, target) {
   requestAnimationFrame(autosize);
   wrap.addEventListener('keydown', e => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); }
-    if (e.key === 'Escape') close(false);
+    if (e.key === 'Escape') close(isEdit); // Esc on an edit restores the original
   });
   wrap.appendChild(ta);
 
@@ -705,7 +725,7 @@ function buildEditor(key, target) {
   opChk.checked = isNewThread;
   opLabel.appendChild(opChk);
   opLabel.appendChild(document.createTextNode('needs resolution'));
-  bar.insertBefore(opLabel, bar.children[1]);
+  if (!isEdit) bar.insertBefore(opLabel, bar.children[1]); // edits keep the item's form
 
   let previewing = false;
   const previewBtn = document.createElement('button');
@@ -729,12 +749,12 @@ function buildEditor(key, target) {
   bar.appendChild(previewBtn);
   const cancel = document.createElement('button');
   cancel.className = 'cancel';
-  cancel.textContent = 'Discard';
+  cancel.textContent = isEdit ? 'Cancel' : 'Discard';
   cancel.addEventListener('click', () => close(true));
   const sendBtn = document.createElement('button');
   sendBtn.className = 'send';
-  sendBtn.innerHTML = iconHTML('send-horizontal');
-  sendBtn.appendChild(document.createTextNode('Send'));
+  sendBtn.innerHTML = iconHTML(isEdit ? 'check' : 'send-horizontal');
+  sendBtn.appendChild(document.createTextNode(isEdit ? 'Save' : 'Send'));
   sendBtn.addEventListener('click', send);
   bar.appendChild(cancel);
   bar.appendChild(sendBtn);
@@ -751,7 +771,15 @@ function buildEditor(key, target) {
     if (!text && !titleText) return;
     if (titleText) text = '**' + titleText + '**\n' + text;
     let op;
-    if (isInterject) {
+    if (isEdit) {
+      if (text === target.rawBody) { close(true); return; } // unchanged: just restore
+      // no timestamp change on edit; hash/occ identify the PRE-edit item
+      op = { type: 'edit', hash: target.hash, occ: target.occ, text };
+      // the edit changes the item's hash — keep its thread expanded under
+      // the key the edited item will get
+      const pfx = target.author ? target.author + (target.time ? ' (' + target.time + ')' : '') + ': ' : '';
+      S.collapsed.set(RvParser.hashText(RvParser.normalize(pfx + text)) + ':' + target.occ, false);
+    } else if (isInterject) {
       op = {
         type: 'reply', parentHash: target.item.hash, occ: target.item.occ,
         afterPara: target.paraHash, author: S.me, text, time: nowStamp(),

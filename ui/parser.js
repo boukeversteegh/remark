@@ -202,6 +202,7 @@
     item.title = null;
     item.segments = [];
     var texts = [];
+    var raws = [];
     var firstText = true;
 
     item.parts.forEach(function (part) {
@@ -212,6 +213,7 @@
       }
       var display = part.lines.join('\n').replace(/\s+$/, '')
         .replace(MARKER_RE_G, '').replace(SEEN_RE_G, '').replace(/[ \t]+$/gm, '');
+      var raw2 = display;
       if (firstText) {
         firstText = false;
         var dl = display.split('\n');
@@ -225,6 +227,7 @@
           }
         }
         display = a ? [a.rest].concat(dl.slice(1)).join('\n') : display;
+        raw2 = display; // author prefix stripped, title line KEPT — edit source
         // thread title: a root comment whose body's ENTIRE first line is
         // bold ("**Title**") names the whole thread
         if (isRoot) {
@@ -237,6 +240,8 @@
         }
       }
       display = display.replace(/^\n+/, '');
+      raw2 = raw2.replace(/^\n+/, '');
+      if (raw2.trim() !== '') raws.push(raw2);
       if (display.trim() !== '') {
         item.segments.push({ type: 'text', md: display, part: part });
         texts.push(display);
@@ -244,6 +249,9 @@
     });
 
     item.bodyMd = texts.join('\n\n').replace(/\s+$/, '');
+    // rawBody: what an editor should be prefilled with — the item's own text
+    // minus author prefix and markers, title line included
+    item.rawBody = raws.join('\n\n').replace(/\s+$/, '');
     item.hasMarker = MARKER_RE.test(raw);
     item.hash = hashText(normalize(raw));
   }
@@ -443,6 +451,7 @@
   //    | { type:'seen',    hash, occ, reader, on } (add/remove seen marker)
   //    | { type:'reply',   parentHash, occ, author, text, opener? }
   //    | { type:'add',     blockHash, occ, sectionHash, author, text, atEnd?, opener? }
+  //    | { type:'edit',    hash, occ, text }        (rewrite an item's body text)
   //
   // reply: opener falsy writes a plain "- " item; true writes a checkbox.
   // add: opener defaults TRUE (thread roots are resolvable by default)
@@ -521,6 +530,41 @@
         }
         var newLines = [''].concat(commentLines(parent.indent + 2, false, op.author, op.text, op.time, false, !!op.opener));
         Array.prototype.splice.apply(lines, [insertAt, 0].concat(newLines));
+        text = lines.join('\n');
+        r.ok = true;
+
+      } else if (op.type === 'edit') {
+        // rewrites the item's own body TEXT wholesale, keeping the bullet
+        // form ("- " / "- [ ]" / "- [x]"), the author prefix incl. its
+        // timestamp, and the first-line <!--thread-->/<!--rv-->/<!--seen-->
+        // markers. op.hash is the PRE-edit content hash — the doc is
+        // re-parsed per op, so it still resolves here; the hash changes
+        // only in the text this op produces. Interjections: the item's text
+        // may be interleaved with child items; the new body is written as
+        // ONE contiguous block right after the prefix line and all children
+        // are kept (verbatim) after it — interleaved placement is
+        // intentionally not reconstructed.
+        var eit = findByHash(doc.items, op.hash, op.occ);
+        if (!eit) { r.reason = 'comment not found in the current file'; results.push(r); continue; }
+        var estart = eit.startLine, eend = subtreeEnd(eit);
+        var eln = lines[estart];
+        var thrM = (eln.match(MARKER_RE) || [''])[0];
+        var seenTag = (eln.match(SEEN_RE) || [''])[0];
+        eln = eln.replace(MARKER_RE_G, '').replace(SEEN_RE_G, '').replace(/[ \t]+$/, '');
+        var ebm = eln.match(/^(\s*- (?:\[[ xX]\] )?)(.*)$/);
+        var ea = parseAuthor(ebm[2]);
+        var espc = new Array(eit.indent + 3).join(' ');
+        var ebody = op.text.replace(/\r\n/g, '\n').replace(/\s+$/, '').split('\n');
+        var eout = [ebm[1] + (ea ? ea.author + ': ' : '') + ebody[0] +
+          (thrM ? ' ' + thrM : '') + (seenTag ? ' ' + seenTag : '')];
+        for (var el2 = 1; el2 < ebody.length; el2++) {
+          eout.push(ebody[el2].trim() === '' ? '' : espc + ebody[el2]);
+        }
+        eit.children.forEach(function (c) {
+          eout.push('');
+          for (var cl = c.startLine; cl <= subtreeEnd(c); cl++) eout.push(lines[cl]);
+        });
+        Array.prototype.splice.apply(lines, [estart, eend - estart + 1].concat(eout));
         text = lines.join('\n');
         r.ok = true;
 
