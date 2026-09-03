@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var token string
@@ -46,7 +47,10 @@ The markdown convention — a complete exchange looks like this:
 
 Rules an agent must follow when writing:
   * Sign every comment: "Name (YYYY-MM-DD HH:mm): ". Unsigned items are
-    presumed to be the local human. The timestamp is what marks a nested
+    presumed to be the local human. Identity is the LITERAL string: names
+    match byte for byte (no case folding, no emoji stripping), so pick ONE
+    exact name and use it everywhere — your author prefix, your -as flag
+    and your seen-marker entries must be identical. The timestamp is what marks a nested
     "- " line as a comment — ordinary list bullets inside a comment body
     (even "Word: text" ones) are left alone, so bodies may contain lists.
   * New thread roots are top-level list items attached under the paragraph
@@ -160,6 +164,17 @@ func main() {
 		if err == nil {
 			u += "&f=" + url.QueryEscape(abs)
 			title = filepath.Base(abs) + " — remark"
+			// the document's own title beats its filename
+			if b, err := os.ReadFile(abs); err == nil {
+				for _, ln := range strings.Split(strings.ReplaceAll(string(b), "\r\n", "\n"), "\n") {
+					if strings.HasPrefix(ln, "# ") {
+						if h := strings.TrimSpace(ln[2:]); h != "" {
+							title = h + " — remark"
+						}
+						break
+					}
+				}
+			}
 		}
 	}
 

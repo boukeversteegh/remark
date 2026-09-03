@@ -82,7 +82,7 @@ func presenceAnnounce(name, kind string, patterns, files []string, stop <-chan s
 	for _, f := range files {
 		info.Files = append(info.Files, presenceNormPath(f))
 	}
-	h := sha256.Sum256([]byte(fmt.Sprintf("%s|%d|%s", strings.ToLower(name), os.Getpid(), strings.Join(info.Files, ","))))
+	h := sha256.Sum256([]byte(fmt.Sprintf("%s|%d|%s", strings.TrimSpace(name), os.Getpid(), strings.Join(info.Files, ","))))
 	pf := filepath.Join(presenceDir(), hex.EncodeToString(h[:8])+".json")
 	os.MkdirAll(presenceDir(), 0o755)
 	write := func() {
@@ -142,7 +142,7 @@ func presenceList(file string) []presenceEntry {
 			os.Remove(p)
 			continue
 		}
-		key := strings.ToLower(strings.TrimSpace(info.Name))
+		key := strings.TrimSpace(info.Name) // literal identity — no folding
 		entry := presenceEntry{Name: info.Name, Kind: info.Kind,
 			Online: alive, LastSeen: info.Started,
 			Delivered: info.Delivered[target]}

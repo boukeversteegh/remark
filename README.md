@@ -133,7 +133,9 @@ A headless watcher built for AI agents (a Claude hook, a `Monitor` command, a
 script): it emits one line per **new comment** and per **read-checkbox
 toggle** — with author, timestamp, section, thread and the comment text — and
 stays silent about everything else. `-ignore-author claude` filters out the
-agent's own writes (matching is case-insensitive and ignores emoji prefixes),
+agent's own writes. Names match LITERALLY — byte for byte, no case
+folding, no emoji stripping — so pass exactly the string you sign with
+(`-as "🤖 Claude"` for comments signed `🤖 Claude`),
 so the agent only wakes up for what the human did, and usually doesn't need
 to re-read the file at all. `-json` switches to NDJSON. Run it again
 with another file to get a second window — one window per file, each instance

@@ -196,10 +196,12 @@ function annotate(parsed) {
   });
 }
 
+// Identity is the LITERAL author string (owner's decree in the Delivery
+// receipts thread): no case folding, no emoji stripping, no magic. The only
+// hygiene is whitespace trimming, which comes from parsing, not matching.
+// "🤖 Claude" and "claude" are two different participants.
 function normName(s) {
-  s = (s || '').toLowerCase().trim();
-  const i = s.search(/[a-z0-9]/);
-  return i > 0 ? s.slice(i) : s;
+  return (s || '').trim();
 }
 function isMe(author) {
   return normName(author) === normName(S.me);
@@ -234,25 +236,15 @@ function threadStats(root) {
 // ---------------------------------------------------------------------------
 const railEntries = []; // [{card, anchorEl}] in doc order, for margin layout
 
-// best display rendition per participant: markers store bare handles
-// ("claude") but the document knows the dressed name ("🤖 Claude")
+// literal identity: names display exactly as written, no dressing up
 function prettyName(n) {
-  const hit = S.names && S.names.get(normName(n));
-  return hit || n;
+  return n;
 }
 
 function render() {
   const parsed = RvParser.parse(normEol(S.doc.content));
   annotate(parsed);
   S.parsed = parsed;
-
-  S.names = new Map();
-  const claimName = n => {
-    const k = normName(n);
-    if (k && (!S.names.has(k) || n.length > S.names.get(k).length)) S.names.set(k, n);
-  };
-  for (const it of parsed.items) if (it.author) claimName(it.author);
-  for (const pr of S.presence || []) claimName(pr.name);
 
   // clean confirmed optimistic state
   for (const it of parsed.items) {

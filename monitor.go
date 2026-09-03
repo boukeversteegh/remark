@@ -16,19 +16,13 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"unicode"
 )
 
-// monNormAuthor makes author matching forgiving: case-insensitive, and any
-// leading emoji/symbol prefix is ignored, so `-ignore-author claude` matches
-// "🤖 Claude".
+// monNormAuthor: identity is the LITERAL author string (owner's decree) —
+// no case folding, no emoji stripping. Trimming is parse hygiene only.
+// `-as "🤖 Claude"` matches exactly the comments signed "🤖 Claude".
 func monNormAuthor(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	i := strings.IndexFunc(s, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) })
-	if i > 0 {
-		s = s[i:]
-	}
-	return s
+	return strings.TrimSpace(s)
 }
 
 type monItem struct {
@@ -134,7 +128,7 @@ type monSavedState struct {
 }
 
 func monStatePath(as, file string) string {
-	h := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(as)) + "|" + presenceNormPath(file)))
+	h := sha256.Sum256([]byte(strings.TrimSpace(as) + "|" + presenceNormPath(file)))
 	dir := filepath.Join(filepath.Dir(prefsPath()), "monitor-state")
 	os.MkdirAll(dir, 0o755)
 	return filepath.Join(dir, fmt.Sprintf("%x.json", h[:8]))
