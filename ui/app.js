@@ -1881,8 +1881,11 @@ document.addEventListener('click', e => {
   if (/^(https?:|mailto:)/i.test(href)) {
     e.preventDefault();
     fetch('/api/openurl?u=' + encodeURIComponent(href) + '&t=' + TOKEN);
-  } else if (!href.startsWith(location.origin)) {
-    e.preventDefault(); // relative/file links: nowhere sensible to go in-app
+  } else if (href.startsWith('/?') || href.startsWith('?') ||
+             href.startsWith(location.origin + '/?')) {
+    // the app's own navigation (landing recents open files this way)
+  } else {
+    e.preventDefault(); // relative/unknown links: nowhere sensible to go in-app
   }
 });
 
