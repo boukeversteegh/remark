@@ -6,10 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -197,6 +199,50 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var imageNameRe = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
+
+// handlePostImage stores pasted image bytes next to the document and returns
+// the relative filename to embed. Query: path (the md file), name (optional
+// clipboard filename), ext (fallback extension from the MIME type).
+func handlePostImage(w http.ResponseWriter, r *http.Request) {
+	docPath := r.URL.Query().Get("path")
+	if docPath == "" {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": "path required"})
+		return
+	}
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 32<<20))
+	if err != nil || len(data) == 0 {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": "no image data"})
+		return
+	}
+	ext := r.URL.Query().Get("ext")
+	if ext == "" {
+		ext = "png"
+	}
+	name := imageNameRe.ReplaceAllString(r.URL.Query().Get("name"), "-")
+	// generic clipboard names carry no information — synthesize from the doc
+	if name == "" || name == "image.png" || name == "image" {
+		stem := strings.TrimSuffix(filepath.Base(docPath), filepath.Ext(docPath))
+		name = stem + "-" + time.Now().Format("20060102-150405") + "." + ext
+	} else if filepath.Ext(name) == "" {
+		name += "." + ext
+	}
+	dir := filepath.Dir(docPath)
+	final := name
+	stem := strings.TrimSuffix(name, filepath.Ext(name))
+	for i := 2; ; i++ {
+		if _, err := os.Stat(filepath.Join(dir, final)); os.IsNotExist(err) {
+			break
+		}
+		final = fmt.Sprintf("%s-%d%s", stem, i, filepath.Ext(name))
+	}
+	if err := os.WriteFile(filepath.Join(dir, final), data, 0o644); err != nil {
+		jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	jsonOut(w, http.StatusOK, map[string]string{"file": final})
+}
+
 // prefs: a small JSON blob under the OS config dir, shared by all remark
 // instances (one process per open file/window). POST merges top-level keys;
 // a null value deletes a key.
@@ -311,6 +357,21 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("POST /api/prefs", authed(handlePostPrefs))
 	mux.HandleFunc("GET /api/presence", authed(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, presenceList(r.URL.Query().Get("path")))
+	}))
+	// pasted images: bytes in, a filename next to the document out. The name
+	// comes from the clipboard when it has a real one, else <mdname>-<stamp>;
+	// collisions get -2, -3, …
+	mux.HandleFunc("POST /api/image", authed(handlePostImage))
+	// serve files relative to a document's folder (images referenced by the
+	// markdown); locked to that folder — no absolute paths, no escaping
+	mux.HandleFunc("GET /api/asset", authed(func(w http.ResponseWriter, r *http.Request) {
+		docDir := filepath.Dir(r.URL.Query().Get("path"))
+		rel := filepath.Clean(r.URL.Query().Get("f"))
+		if filepath.IsAbs(rel) || strings.HasPrefix(rel, "..") {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		http.ServeFile(w, r, filepath.Join(docDir, rel))
 	}))
 	// links in the rendered document open in the system browser, not the
 	// app window; schemes are whitelisted so this can't be used to run things

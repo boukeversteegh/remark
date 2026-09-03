@@ -33,7 +33,24 @@ const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
 
 marked.use({ gfm: true });
-function md(text) { return DOMPurify.sanitize(marked.parse(text)); }
+function md(text) {
+  const clean = DOMPurify.sanitize(marked.parse(text));
+  // relative image links resolve against the DOCUMENT's folder, not the
+  // app origin — route them through the scoped asset endpoint
+  if (clean.includes('<img')) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = clean;
+    for (const img of tpl.content.querySelectorAll('img')) {
+      const src = img.getAttribute('src') || '';
+      if (src && !/^([a-z][a-z0-9+.-]*:|\/)/i.test(src)) {
+        img.src = '/api/asset?path=' + encodeURIComponent(S.path) +
+          '&f=' + encodeURIComponent(src) + '&t=' + TOKEN;
+      }
+    }
+    return tpl.innerHTML;
+  }
+  return clean;
+}
 
 // fence-aware split of a comment body into paragraph chunks; chunk hashes
 // line up with RvParser.itemParagraphs so interjections can anchor on them
@@ -869,6 +886,29 @@ function buildEditor(key, target) {
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight + 2, 340) + 'px';
   };
+  // paste an image, get a file on disk next to the document and a markdown
+  // link at the cursor; the clipboard's own filename wins when it has a
+  // real one, otherwise <docname>-<stamp>.png
+  ta.addEventListener('paste', async e => {
+    const f = [...(e.clipboardData?.files || [])].find(x => x.type.startsWith('image/'));
+    if (!f) return;
+    e.preventDefault();
+    const ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    try {
+      const r = await fetch('/api/image?path=' + encodeURIComponent(S.path) +
+        '&name=' + encodeURIComponent(f.name || '') + '&ext=' + encodeURIComponent(ext) +
+        '&t=' + TOKEN, { method: 'POST', body: f });
+      if (!r.ok) throw new Error('upload failed');
+      const { file } = await r.json();
+      const link = '![' + file + '](' + file + ')';
+      const s0 = ta.selectionStart, s1 = ta.selectionEnd;
+      ta.value = ta.value.slice(0, s0) + link + ta.value.slice(s1);
+      ta.selectionStart = ta.selectionEnd = s0 + link.length;
+      ta.dispatchEvent(new Event('input'));
+    } catch (err) {
+      setStatus('warn', 'image paste failed');
+    }
+  });
   ta.addEventListener('input', () => {
     S.drafts[key] = ta.value;
     persistDrafts();

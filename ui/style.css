@@ -249,6 +249,11 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 /* a just-arrived agent's row glows green; fades after ~8 focused seconds */
 .prow.fresh { background: var(--ok-soft); border-radius: 8px; transition: background .6s; }
 
+/* pasted/embedded images stay inside their column */
+.cbody img, .cpara img, .block img {
+  max-width: 100%; border-radius: 8px; border: 1px solid var(--border-soft);
+}
+
 /* a comment hanging inside a list item */
 .licard { margin: 6px 0 8px; }
 .licard .citem { border-top: 1px solid var(--border-soft); }
