@@ -1,0 +1,29 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Build the remark binary for this platform
+    cmds:
+      - cmd: go build -ldflags "-H windowsgui -s -w" -o remark.exe .
+        platforms: [windows]
+      - cmd: go build -ldflags "-s -w" -o remark .
+        platforms: [linux, darwin]
+
+  build:docker:
+    desc: Build the binary in Docker (no local Go toolchain needed)
+    cmds:
+      - cmd: docker run --rm -v "{{.TASKFILE_DIR}}:/src" -w /src -e GOOS=windows -e GOARCH=amd64 golang:1.23 go build -ldflags "-H windowsgui -s -w" -o remark.exe .
+        platforms: [windows]
+      - cmd: docker run --rm -v "{{.TASKFILE_DIR}}:/src" -w /src golang:1.23 go build -ldflags "-s -w" -o remark .
+        platforms: [linux, darwin]
+
+  install:
+    desc: Put the built binary on your PATH (remark install)
+    preconditions:
+      - sh: test -f remark.exe || test -f remark
+        msg: "No binary here yet — run `task build` (or `task build:docker`) first."
+    cmds:
+      - cmd: ./remark.exe install
+        platforms: [windows]
+      - cmd: ./remark install
+        platforms: [linux, darwin]
