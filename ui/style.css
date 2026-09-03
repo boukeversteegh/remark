@@ -592,19 +592,16 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   position: relative; cursor: default;
 }
 .dcheck:hover { opacity: 1; }
-/* names live in a tooltip; the header shows just the double check */
-.dcheck::after,
-.seenby::after {
-  content: attr(data-tip);
-  position: absolute; bottom: calc(100% + 7px); right: -4px;
+/* names live in a tooltip; the header shows just the check(s). The bubble
+   is a single fixed element on body — cards clip their contents
+   (overflow: hidden), so an ::after inside them would be cut off */
+#tipbubble {
+  display: none; position: fixed; z-index: 80;
   background: var(--surface); color: var(--fg);
   border: 1px solid var(--border); border-radius: 7px;
   padding: 4px 9px; font-size: 11.5px; white-space: nowrap;
-  box-shadow: var(--shadow-float);
-  opacity: 0; transform: translateY(3px); pointer-events: none;
-  transition: opacity .12s ease, transform .12s ease;
+  box-shadow: var(--shadow-float); pointer-events: none;
 }
-.seenby:hover::after, .dcheck:hover::after { opacity: 1; transform: none; }
 .replybtn.inhead { opacity: 0; }
 .citem.hovering > .chead .replybtn.inhead { opacity: 1; }
 .openertoggle {

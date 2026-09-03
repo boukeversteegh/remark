@@ -1686,6 +1686,22 @@ function wireTopbar() {
   $('#unreadBtn').addEventListener('click', jumpUnread);
 }
 
+// data-tip tooltips: one fixed bubble on body, since thread cards clip
+// their contents and would cut off any tooltip rendered inside them
+const tipEl = document.createElement('div');
+tipEl.id = 'tipbubble';
+if (document.body) document.body.appendChild(tipEl);
+else document.addEventListener('DOMContentLoaded', () => document.body.appendChild(tipEl));
+document.addEventListener('mouseover', e => {
+  const t = e.target.closest ? e.target.closest('[data-tip]') : null;
+  if (!t) { tipEl.style.display = 'none'; return; }
+  tipEl.textContent = t.dataset.tip;
+  tipEl.style.display = 'block';
+  const r = t.getBoundingClientRect();
+  tipEl.style.left = Math.min(innerWidth - tipEl.offsetWidth - 8, Math.max(8, r.right - tipEl.offsetWidth)) + 'px';
+  tipEl.style.top = Math.max(6, r.top - tipEl.offsetHeight - 7) + 'px';
+});
+
 // links: anchors jump in place, everything external opens in the system
 // browser via the server (the app window must never navigate away)
 document.addEventListener('click', e => {
