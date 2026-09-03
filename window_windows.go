@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"reflect"
 	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
 
 	webview2 "github.com/jchv/go-webview2"
+	"github.com/jchv/go-webview2/pkg/edge"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
@@ -43,6 +45,9 @@ var (
 	pUnhookWindowsHookEx   = user32.NewProc("UnhookWindowsHookEx")
 	pCallNextHookEx        = user32.NewProc("CallNextHookEx")
 	pGetCurrentThreadId    = kernel32.NewProc("GetCurrentThreadId")
+	pSetClassLongPtrW      = user32.NewProc("SetClassLongPtrW")
+	pMonitorFromRect       = user32.NewProc("MonitorFromRect")
+	pGetMonitorInfoW       = user32.NewProc("GetMonitorInfoW")
 	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
 	pCreateSolidBrush      = gdi32.NewProc("CreateSolidBrush")
 )
@@ -58,14 +63,35 @@ type winPlacement struct {
 }
 
 type windowPlacementW struct {
-	length, flags, showCmd         uint32
-	minX, minY, maxX, maxY         int32
-	normX, normY, normR, normB     int32
+	length, flags, showCmd     uint32
+	minX, minY, maxX, maxY     int32
+	normX, normY, normR, normB int32
 }
 
 func metric(i uintptr) int32 {
 	v, _, _ := pGetSystemMetrics.Call(i)
 	return int32(v)
+}
+
+// workAreaSize returns the work-area dimensions of the monitor containing
+// the given rect — the size a maximized window will actually have there.
+func workAreaSize(x, y, r, b int32) (int32, int32, bool) {
+	rc := struct{ l, t, r, b int32 }{x, y, r, b}
+	mon, _, _ := pMonitorFromRect.Call(uintptr(unsafe.Pointer(&rc)), 2 /*MONITOR_DEFAULTTONEAREST*/)
+	if mon == 0 {
+		return 0, 0, false
+	}
+	var mi struct {
+		size                       uint32
+		monL, monT, monR, monB     int32
+		workL, workT, workR, workB int32
+		flags                      uint32
+	}
+	mi.size = uint32(unsafe.Sizeof(mi))
+	if ok, _, _ := pGetMonitorInfoW.Call(mon, uintptr(unsafe.Pointer(&mi))); ok == 0 {
+		return 0, 0, false
+	}
+	return mi.workR - mi.workL, mi.workB - mi.workT, true
 }
 
 func restoreWindowBounds(hwnd uintptr) bool {
@@ -191,21 +217,12 @@ func splashDbg(f string, a ...any) {
 	fmt.Fprintf(os.Stderr, "splash: "+f+"\n", a...)
 }
 
-
 // showSplash puts up a small fixed-size centered window in the theme's
 // background color with the app icon, instantly — it covers window creation
 // and WebView2 initialization while the real window stays hidden.
 func showSplash() func() {
 	inst, _, _ := pGetModuleHandleW.Call(0)
-	// theme-matching brush (same registry read the titlebar uses)
-	bg := uintptr(0x00fdfcfb) // light --bg, BGR
-	if k, err := registry.OpenKey(registry.CURRENT_USER,
-		`Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`, registry.QUERY_VALUE); err == nil {
-		if v, _, err := k.GetIntegerValue("AppsUseLightTheme"); err == nil && v == 0 {
-			bg = uintptr(0x0016110c) // dark --bg, BGR
-		}
-		k.Close()
-	}
+	bg := themeBGR()
 	// the embedded app icon — rsrc assigns it an id somewhere in 1..32
 	for id := uintptr(1); id <= 32 && splashIconH == 0; id++ {
 		splashIconH, _, _ = pLoadImageW.Call(inst, id, 1 /*IMAGE_ICON*/, 48, 48, 0)
@@ -247,6 +264,52 @@ func showSplash() func() {
 	}
 }
 
+// themeBGR is the app's --bg page color as a COLORREF (0x00BBGGRR), picked
+// by the same registry read the titlebar and splash use.
+func themeBGR() uintptr {
+	bg := uintptr(0x00fdfcfb) // light --bg, BGR
+	if k, err := registry.OpenKey(registry.CURRENT_USER,
+		`Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`, registry.QUERY_VALUE); err == nil {
+		if v, _, err := k.GetIntegerValue("AppsUseLightTheme"); err == nil && v == 0 {
+			bg = uintptr(0x0016110c) // dark --bg, BGR
+		}
+		k.Close()
+	}
+	return bg
+}
+
+// setWebViewBackground makes WebView2 paint freshly exposed area in the
+// theme color instead of its default white, so resizing never flashes.
+// The library keeps its Chromium unexported, so this reaches through the
+// field reflectively; any failure just means the default white stays.
+func setWebViewBackground(w webview2.WebView) {
+	defer func() { recover() }()
+	rv := reflect.ValueOf(w)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return
+	}
+	f := rv.Elem().FieldByName("browser")
+	if !f.IsValid() {
+		return
+	}
+	f = reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem()
+	chrom, ok := f.Interface().(*edge.Chromium)
+	if !ok || chrom == nil {
+		return
+	}
+	ctl := chrom.GetController()
+	if ctl == nil {
+		return
+	}
+	c2 := ctl.GetICoreWebView2Controller2()
+	if c2 == nil {
+		return
+	}
+	bgr := themeBGR()
+	c2.PutDefaultBackgroundColor(edge.COREWEBVIEW2_COLOR{
+		A: 255, R: uint8(bgr), G: uint8(bgr >> 8), B: uint8(bgr >> 16),
+	})
+}
 
 type cbtCreateWndW struct {
 	lpcs        *createStructW
@@ -314,13 +377,15 @@ func runWindow(url, title string) bool {
 	}
 	defer w.Destroy()
 	hwnd := uintptr(w.Window())
-	// hide immediately: the real window stays invisible (behind the splash)
-	// until the UI reports its first paint, then appears once, at its final
-	// placement — no white flash, no resize jump
-	// embedding done: hide for real until the UI's first paint
-	pShowWindow.Call(hwnd, 0) // SW_HIDE
+	// the window stays VISIBLE but off-screen: WebView2 keeps rendering
+	// there, so the reveal is a pure move of already-painted content
 	styleTitleBar(hwnd)
 	setWindowIcon(hwnd)
+	// erase color + WebView2 background = theme color, so no resize —
+	// launch or user-driven — can ever expose white
+	brush, _, _ := pCreateSolidBrush.Call(themeBGR())
+	pSetClassLongPtrW.Call(hwnd, ^uintptr(9) /*GCLP_HBRBACKGROUND=-10*/, brush)
+	setWebViewBackground(w)
 	stop := make(chan struct{})
 	defer close(stop)
 	go func() {
@@ -328,15 +393,35 @@ func runWindow(url, title string) bool {
 		case <-uiReady:
 		case <-time.After(6 * time.Second): // failsafe: never stay hidden
 		}
-		// window operations must run on the UI thread — DestroyWindow in
-		// particular silently fails cross-thread (which left windows
-		// invisible behind an immortal splash)
+		// stage 1, still off-screen: adopt the FINAL size. A maximized
+		// placement is the violent case — the window was created at its
+		// normal-rect size, so size it to the target monitor's work area
+		// and let the page lay out and paint where nobody can see it.
+		tw, th := int32(width), int32(height)
+		var p winPlacement
+		if prefsGetKey("win", &p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
+			tw, th = p.R-p.X, p.B-p.Y
+			if p.Cmd == 3 {
+				if ww, wh, ok := workAreaSize(p.X, p.Y, p.R, p.B); ok {
+					tw, th = ww, wh
+				}
+			}
+		}
+		const swpNoZorderNoActivate = 0x4 | 0x10
+		w.Dispatch(func() {
+			pSetWindowPos.Call(hwnd, 0, ^uintptr(31999), ^uintptr(31999),
+				uintptr(tw), uintptr(th), swpNoZorderNoActivate)
+		})
+		// a beat for WebView2 to resize its controller and repaint
+		time.Sleep(200 * time.Millisecond)
+		// stage 2: reveal — window operations must run on the UI thread;
+		// DestroyWindow in particular silently fails cross-thread (which
+		// left windows invisible behind an immortal splash)
 		w.Dispatch(func() {
 			splashGone()
 			if !restoreWindowBounds(hwnd) {
 				// no saved placement: bring it back from off-screen, centered
 				sw, sh := metric(0), metric(1)
-				const swpNoZorderNoActivate = 0x4 | 0x10
 				pSetWindowPos.Call(hwnd, 0,
 					uintptr(int32(sw/2-int32(width)/2)), uintptr(int32(sh/2-int32(height)/2)),
 					uintptr(width), uintptr(height), swpNoZorderNoActivate)
