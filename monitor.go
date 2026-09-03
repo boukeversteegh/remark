@@ -40,8 +40,8 @@ type monItem struct {
 	Section    string   `json:"section,omitempty"`
 	Thread     string   `json:"thread,omitempty"`
 	Text       string   `json:"text"`
-	indent     int
-	key        string
+	Indent     int      `json:"indent"`
+	Key        string   `json:"key"`
 }
 
 var (
@@ -121,6 +121,40 @@ func monParseAuthor(line string) (author, timeStr, rest string, ok bool) {
 		name = strings.TrimSpace(name[:len(name)-len(tm[0])])
 	}
 	return name, timeStr, m[2], true
+}
+
+// Catch-up state: with -as, the monitor persists its diff baseline per
+// (identity, file) under the config dir. A restarted monitor loads its
+// predecessor's baseline and the first tick replays every event the agent
+// missed while it was down — no timestamps, no session ids, just the last
+// state this identity actually reported.
+type monSavedState struct {
+	Hash  string     `json:"hash"`
+	Items []*monItem `json:"items"`
+}
+
+func monStatePath(as, file string) string {
+	h := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(as)) + "|" + presenceNormPath(file)))
+	dir := filepath.Join(filepath.Dir(prefsPath()), "monitor-state")
+	os.MkdirAll(dir, 0o755)
+	return filepath.Join(dir, fmt.Sprintf("%x.json", h[:8]))
+}
+
+func monLoadState(as, file string) *monSavedState {
+	b, err := os.ReadFile(monStatePath(as, file))
+	if err != nil {
+		return nil
+	}
+	var st monSavedState
+	if json.Unmarshal(b, &st) != nil {
+		return nil
+	}
+	return &st
+}
+
+func monSaveState(as, file, hash string, items []*monItem) {
+	b, _ := json.Marshal(monSavedState{Hash: hash, Items: items})
+	os.WriteFile(monStatePath(as, file), b, 0o644)
 }
 
 func monIsRoot(text string) bool {
@@ -214,27 +248,27 @@ func monParse(content string) []*monItem {
 				Author: author, Time: ts,
 				Checked: checked && resolvable, Resolvable: resolvable,
 				SeenBy:  seenBy,
-				Section: section, indent: ind,
+				Section: section, Indent: ind,
 				Text: strings.TrimSpace(rest),
 			}
 			if ind == 0 {
 				threadLabel = ""
 			}
 			it.Thread = threadLabel
-			it.key = monNormalize(author + "|" + rest)
+			it.Key = monNormalize(author + "|" + rest)
 			items = append(items, it)
 			last = it
 			continue
 		}
 		// continuation line inside a thread
-		if rootIndent >= 0 && last != nil && strings.TrimSpace(line) != "" && indent > last.indent {
+		if rootIndent >= 0 && last != nil && strings.TrimSpace(line) != "" && indent > last.Indent {
 			cont := strings.TrimSpace(line)
-			if last.indent == 0 && last.Text != "" && threadLabel == "" {
+			if last.Indent == 0 && last.Text != "" && threadLabel == "" {
 				if tm := monTitleRe.FindStringSubmatch(last.Text); tm != nil {
 					threadLabel = tm[1]
 					last.Thread = threadLabel
 					last.Text = cont
-					last.key = monNormalize(last.Author + "|" + cont)
+					last.Key = monNormalize(last.Author + "|" + cont)
 					continue
 				}
 			}
@@ -250,7 +284,7 @@ func monParse(content string) []*monItem {
 	// resolve thread labels: items inherit their root's title or author
 	var curLabel string
 	for _, it := range items {
-		if it.indent == 0 {
+		if it.Indent == 0 {
 			if it.Thread != "" {
 				curLabel = it.Thread
 			} else {
@@ -278,11 +312,11 @@ type monEvent struct {
 func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 	old := map[string]*monItem{}
 	for _, it := range oldItems {
-		old[it.key] = it
+		old[it.Key] = it
 	}
 	var evs []monEvent
 	for _, it := range newItems {
-		prev, existed := old[it.key]
+		prev, existed := old[it.Key]
 		if !existed {
 			evs = append(evs, monEvent{Type: "comment", File: file, Author: it.Author,
 				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Text: it.Text})
@@ -366,6 +400,11 @@ func runMonitor(args []string) {
 		}
 	}
 	stampDelivered := func(string) {}
+	if *as == "" && *ignore != "" {
+		fmt.Fprintln(os.Stderr, "remark monitor: tip — use -as <yourname> instead of -ignore-author:")
+		fmt.Fprintln(os.Stderr, "  it filters your own writes the same way AND announces your presence,")
+		fmt.Fprintln(os.Stderr, "  so remark windows show you as online and get delivery receipts.")
+	}
 	if *as != "" {
 		// identity: self-exclusion plus one presence heartbeat covering the
 		// whole monitoring scope (patterns stay patterns — a glob monitor is
@@ -386,6 +425,17 @@ func runMonitor(args []string) {
 		if b, err := os.ReadFile(f); err == nil {
 			st.hash = sha256.Sum256(b)
 			st.items = monParse(string(b))
+			if *as != "" {
+				// catch-up: start from the predecessor's baseline so the
+				// first tick replays whatever this identity missed
+				if saved := monLoadState(*as, f); saved != nil && saved.Hash != fmt.Sprintf("%x", st.hash) {
+					fmt.Fprintf(os.Stderr, "remark monitor: %s changed while no monitor ran — replaying missed events\n", filepath.Base(f))
+					st.items = saved.Items
+					st.hash = [32]byte{} // force the first tick to diff
+				} else {
+					monSaveState(*as, f, fmt.Sprintf("%x", st.hash), st.items)
+				}
+			}
 		}
 		states[f] = st
 	}
@@ -458,6 +508,9 @@ func runMonitor(args []string) {
 			}
 			st.hash = h
 			st.items = items
+			if *as != "" {
+				monSaveState(*as, f, fmt.Sprintf("%x", h), items)
+			}
 		}
 	}
 }

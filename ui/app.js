@@ -1386,6 +1386,22 @@ function buildOutline() {
   for (const sec of sections) {
     const row = document.createElement('div');
     row.className = 'orow l' + sec.block.level;
+    // fixed-width slot BEFORE the title keeps titles aligned whether or
+    // not a section has unread counts
+    const slot = document.createElement('span');
+    slot.className = 'oslot';
+    if (sec.unread.length) {
+      const mark = document.createElement('span');
+      mark.className = 'omark';
+      mark.textContent = sec.unread.length;
+      mark.title = sec.unread.length + ' unread comment(s) here — click to jump to the first';
+      mark.addEventListener('click', e => {
+        e.stopPropagation();
+        revealItem(sec.unread[0]);
+      });
+      slot.appendChild(mark);
+    }
+    row.appendChild(slot);
     const title = document.createElement('span');
     title.className = 'otitle';
     title.textContent = sec.block.headingText.replace(/[#*_`\[\]]/g, '');
@@ -1398,17 +1414,6 @@ function buildOutline() {
       el.classList.add('anchor-hl');
       setTimeout(() => el.classList.remove('anchor-hl'), 1200);
     });
-    if (sec.unread.length) {
-      const mark = document.createElement('span');
-      mark.className = 'omark';
-      mark.textContent = sec.unread.length;
-      mark.title = sec.unread.length + ' unread comment(s) here — click to jump to the first';
-      mark.addEventListener('click', e => {
-        e.stopPropagation();
-        revealItem(sec.unread[0]);
-      });
-      row.appendChild(mark);
-    }
     // per-section new-thread: same composer the cluster-end button opens,
     // anchored to the section's last commentable block (or the heading
     // itself for an empty section — the op then lands at section end)
@@ -1767,9 +1772,15 @@ document.addEventListener('mouseover', e => {
   if (!t) { tipEl.style.display = 'none'; return; }
   tipEl.textContent = t.dataset.tip;
   tipEl.style.display = 'block';
+  // rects are visual (zoom-scaled) but style.left applies inside the zoomed
+  // body — compute in visual space, then divide the zoom back out
+  const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
   const r = t.getBoundingClientRect();
-  tipEl.style.left = Math.min(innerWidth - tipEl.offsetWidth - 8, Math.max(8, r.right - tipEl.offsetWidth)) + 'px';
-  tipEl.style.top = Math.max(6, r.top - tipEl.offsetHeight - 7) + 'px';
+  const w = tipEl.offsetWidth * z, h = tipEl.offsetHeight * z;
+  const vx = Math.min(innerWidth - w - 8, Math.max(8, r.right - w));
+  const vy = Math.max(6, r.top - h - 7);
+  tipEl.style.left = vx / z + 'px';
+  tipEl.style.top = vy / z + 'px';
 });
 
 // links: anchors jump in place, everything external opens in the system
