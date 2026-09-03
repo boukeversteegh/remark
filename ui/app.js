@@ -665,6 +665,19 @@ function buildItem(item) {
     time.textContent = item.time;
     time.title = 'Written ' + item.time;
     head.appendChild(time);
+
+    const cp = document.createElement('button');
+    cp.className = 'crefbtn';
+    cp.innerHTML = iconHTML('copy');
+    cp.title = 'Copy reference — paste as plain text to link this comment';
+    cp.addEventListener('click', e => {
+      e.stopPropagation();
+      const ref = '#r' + item.time.replace(/\D/g, '');
+      navigator.clipboard.writeText(ref).then(
+        () => toast('ok', 'Copied <code>' + ref + '</code> — paste it in any comment to link here'),
+        () => toast('warn', 'Could not access the clipboard'));
+    });
+    head.appendChild(cp);
   }
 
   if (item.title) {

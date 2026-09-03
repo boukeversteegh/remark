@@ -731,6 +731,14 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   background: var(--seed-bg);
 }
 .cfoot .replyseed::placeholder { color: var(--faint); }
+/* copy-reference: quiet until the header row is hovered */
+.chead .crefbtn {
+  border: 0; background: none; color: var(--faint); cursor: pointer;
+  display: inline-flex; align-items: center; padding: 2px 4px;
+  border-radius: 6px; opacity: 0; transition: opacity .12s, color .12s;
+}
+.chead:hover .crefbtn { opacity: .8; }
+.chead .crefbtn:hover { opacity: 1; color: var(--accent); background: var(--border-soft); }
 .cfoot .replyseed:hover { border-color: var(--border); background: var(--surface); }
 .replybtn {
   display: inline-flex; align-items: center; gap: 5px;
