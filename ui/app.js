@@ -671,13 +671,15 @@ function buildEditor(key, target) {
   wrap.className = 'editor' + (isNewThread ? ' newthread' : '');
   wrap.dataset.key = key;
 
-  // new threads get an optional title line (never auto-focused)
+  // new threads get an optional title line (never auto-focused); editing a
+  // thread root shows it too, prefilled, so a title can be added later
+  const editRoot = isEdit && !target.parent;
   let titleIn = null;
-  if (isNewThread) {
+  if (isNewThread || editRoot) {
     titleIn = document.createElement('input');
     titleIn.className = 'etitle';
     titleIn.placeholder = 'Title (optional)';
-    titleIn.value = S.drafts[tKey] || '';
+    titleIn.value = editRoot && !(tKey in S.drafts) ? (target.title || '') : (S.drafts[tKey] || '');
     titleIn.addEventListener('input', () => { S.drafts[tKey] = titleIn.value; persistDrafts(); });
     titleIn.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); ta.focus(); }
@@ -689,8 +691,10 @@ function buildEditor(key, target) {
   const ta = document.createElement('textarea');
   ta.placeholder = isEdit ? 'Edit… (markdown, Ctrl+Enter to save)'
     : isReply ? 'Reply… (markdown, Ctrl+Enter to send)' : 'New comment… (markdown, Ctrl+Enter to send)';
-  // edits prefill with the comment's raw markdown body (title line included)
-  ta.value = isEdit && !(key in S.drafts) ? target.rawBody : (S.drafts[key] || '');
+  // edits prefill with the comment's raw markdown body; when the title input
+  // is shown it takes the title line, the textarea gets the rest
+  const editPrefill = isEdit ? (titleIn ? target.rawBody.replace(/^\*\*[^\n]*\*\*\n?/, '') : target.rawBody) : '';
+  ta.value = isEdit && !(key in S.drafts) ? editPrefill : (S.drafts[key] || '');
   const autosize = () => {
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight + 2, 340) + 'px';
