@@ -1009,7 +1009,7 @@ function buildPresence() {
   const head = document.createElement('div');
   head.className = 'ohead';
   head.innerHTML = iconHTML('users');
-  head.appendChild(document.createTextNode("Who's here"));
+  head.appendChild(document.createTextNode('Authors'));
   wrap.appendChild(head);
 
   // display names: prefer the document's rendition (emoji, casing) and the
