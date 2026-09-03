@@ -3,6 +3,8 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -31,7 +33,7 @@ var (
 	pBeginPaint            = user32.NewProc("BeginPaint")
 	pEndPaint              = user32.NewProc("EndPaint")
 	pGetClientRect         = user32.NewProc("GetClientRect")
-	pDrawIconEx            = user32.NewProc("DrawIconEx")
+	pLoadImageW            = user32.NewProc("LoadImageW")
 	pUpdateWindow          = user32.NewProc("UpdateWindow")
 	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
 	pCreateSolidBrush      = gdi32.NewProc("CreateSolidBrush")
@@ -166,40 +168,21 @@ func styleTitleBar(hwnd uintptr) {
 // WebView2 runtime is unavailable so the caller can fall back to a browser.
 type wndClassExW struct {
 	size, style                        uint32
-	wndProc, clsExtra, wndExtra        uintptr
+	wndProc                            uintptr
+	clsExtra, wndExtra                 int32
 	instance, icon, cursor, background uintptr
 	menuName, className                *uint16
 	iconSm                             uintptr
 }
 
-type paintStructW struct {
-	hdc         uintptr
-	erase       int32
-	rc          [4]int32
-	restore     int32
-	incUpdate   int32
-	rgbReserved [32]byte
-}
-
 var splashIconH uintptr
 
-// splashProc paints the app icon centered on the theme-colored card.
-var splashProc = syscall.NewCallback(func(hwnd, msg, wparam, lparam uintptr) uintptr {
-	if msg == 0x000F { // WM_PAINT
-		var ps paintStructW
-		hdc, _, _ := pBeginPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
-		var rc [4]int32
-		pGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
-		const sz = 48
-		pDrawIconEx.Call(hdc,
-			uintptr(int32((rc[2]-rc[0])/2-sz/2)), uintptr(int32((rc[3]-rc[1])/2-sz/2)),
-			splashIconH, sz, sz, 0, 0, 3 /* DI_NORMAL */)
-		pEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
-		return 0
-	}
-	r, _, _ := pDefWindowProcW.Call(hwnd, msg, wparam, lparam)
-	return r
-})
+// splashDbg prints splash diagnostics in console builds; silent under
+// -H windowsgui unless a console is attached.
+func splashDbg(f string, a ...any) {
+	fmt.Fprintf(os.Stderr, "splash: "+f+"\n", a...)
+}
+
 
 // showSplash puts up a small fixed-size centered window in the theme's
 // background color with the app icon, instantly — it covers window creation
@@ -215,11 +198,15 @@ func showSplash() func() {
 		}
 		k.Close()
 	}
-	splashIconH, _, _ = pLoadIconW.Call(inst, 1) // the embedded app icon
+	// the embedded app icon — rsrc assigns it an id somewhere in 1..32
+	for id := uintptr(1); id <= 32 && splashIconH == 0; id++ {
+		splashIconH, _, _ = pLoadImageW.Call(inst, id, 1 /*IMAGE_ICON*/, 48, 48, 0)
+	}
+	splashDbg("icon handle: %d", splashIconH)
 	brush, _, _ := pCreateSolidBrush.Call(bg)
 	cls, _ := syscall.UTF16PtrFromString("remarkSplash")
 	wc := wndClassExW{
-		wndProc:    splashProc,
+		wndProc:    pDefWindowProcW.Addr(),
 		instance:   inst,
 		background: brush,
 		className:  cls,
@@ -233,6 +220,17 @@ func showSplash() func() {
 	hwnd, _, _ := pCreateWindowExW.Call(exToolWindow|exTopmost,
 		uintptr(unsafe.Pointer(cls)), 0, wsPopup|wsVisible,
 		uintptr(int32(sw/2-w/2)), uintptr(int32(sh/2-h/2)), w, h, 0, 0, inst, 0)
+	// the icon is a standard STATIC child control — no custom painting
+	if hwnd != 0 && splashIconH != 0 {
+		st, _ := syscall.UTF16PtrFromString("STATIC")
+		const wsChild, wsVisibleC, ssIcon, ssCenterImage = 0x40000000, 0x10000000, 0x3, 0x200
+		ic, _, _ := pCreateWindowExW.Call(0, uintptr(unsafe.Pointer(st)), 0,
+			wsChild|wsVisibleC|ssIcon|ssCenterImage,
+			uintptr(int32(w/2-24)), uintptr(int32(h/2-24)), 48, 48, hwnd, 0, inst, 0)
+		const stmSetIcon = 0x0170
+		r, _, _ := pSendMessageW.Call(ic, stmSetIcon, splashIconH, 0)
+		splashDbg("static hwnd: %d seticon ret: %d", ic, r)
+	}
 	pUpdateWindow.Call(hwnd)
 	return func() {
 		if hwnd != 0 {
@@ -281,10 +279,15 @@ func runWindow(url, title string) bool {
 		case <-uiReady:
 		case <-time.After(6 * time.Second): // failsafe: never stay hidden
 		}
-		splashGone()
-		if !restoreWindowBounds(hwnd) {
-			pShowWindow.Call(hwnd, 5) // SW_SHOW
-		}
+		// window operations must run on the UI thread — DestroyWindow in
+		// particular silently fails cross-thread (which left windows
+		// invisible behind an immortal splash)
+		w.Dispatch(func() {
+			splashGone()
+			if !restoreWindowBounds(hwnd) {
+				pShowWindow.Call(hwnd, 5) // SW_SHOW
+			}
+		})
 		go trackWindowBounds(hwnd, stop)
 	}()
 	w.Navigate(url)
