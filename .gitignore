@@ -18,8 +18,8 @@ Thumbs.db
 .idea/
 *.swp
 
-# Local live-discussion files
-/discussion.md
+# The live discussion file doubles as the public interactive backlog and is
+# committed together with the images it embeds. Screenshots pasted into it
+# land in discussion-*.png and get committed too — keep them free of
+# private content.
 *~
-/discussion-*.png
-/splash-proof-*.png
