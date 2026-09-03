@@ -226,6 +226,10 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 #divider { display: none; }
 .block { scroll-margin-top: 60px; }
 
+/* a comment hanging inside a list item */
+.licard { margin: 6px 0 8px; }
+.licard .citem { border-top: 1px solid var(--border-soft); }
+
 /* who's here (presence) -------------------------------------------------- */
 .presence { margin-bottom: 18px; }
 .prow {
@@ -595,6 +599,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   margin-left: 22px; margin-right: 0;
   border-left: 2px solid var(--border-soft);
   padding-left: 22px; padding-right: 0;
+}
+/* when the slot is the last row, its border runs on through the parent's
+   bottom padding to meet the next divider */
+.citem .citem > .cfoot:last-child, .citem .citem > .editor:last-child {
+  margin-bottom: -9px; padding-bottom: 17px;
 }
 /* input-shaped reply seed: quiet "type here" affordance; focusing swaps in
    the real editor */

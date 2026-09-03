@@ -619,8 +619,26 @@ function buildItem(item) {
   if (editing) el.appendChild(buildEditor('edit:' + item.key, item));
 
   // segments preserve order: an interjection (a reply placed half-way
-  // through a comment) renders exactly where it sits in the markdown
-  for (const seg of item.segments) {
+  // through a comment) renders exactly where it sits in the markdown.
+  // Interjections nested INSIDE a list render as children of the list item
+  // they sit under (the raw markdown already has that shape) — the list is
+  // stitched back together around them so numbering flows on.
+  const trailingList = b => {
+    const ps = b ? b.querySelectorAll('.cpara') : [];
+    const lp = ps.length ? ps[ps.length - 1] : null;
+    const t = lp && lp.lastElementChild;
+    return t && /^(OL|UL)$/.test(t.tagName) ? t : null;
+  };
+  const hangInLi = (list, card) => {
+    const w = document.createElement('div');
+    w.className = 'licard';
+    w.appendChild(card);
+    list.lastElementChild.appendChild(w);
+  };
+  let lastBody = null;
+  let pendingLi = null; // cards awaiting the list continuation in the next text
+  for (let si = 0; si < item.segments.length; si++) {
+    const seg = item.segments[si];
     if (seg.type === 'text') {
       if (editing) continue;
       const body = document.createElement('div');
@@ -647,11 +665,39 @@ function buildItem(item) {
           body.appendChild(buildEditor(ikey, { item: item, paraHash: pHash }));
         }
       });
+      if (pendingLi) {
+        // this text continues the interrupted list: hang the cards inside
+        // the li they were nested under, then splice the two list halves
+        const fp = body.querySelector('.cpara');
+        const nl = fp && fp.firstElementChild;
+        if (nl && nl.tagName === pendingLi.list.tagName) {
+          pendingLi.cards.forEach(c => hangInLi(pendingLi.list, c));
+          while (nl.firstChild) pendingLi.list.appendChild(nl.firstChild);
+          nl.remove();
+          if (!fp.childElementCount) fp.remove();
+        } else {
+          pendingLi.cards.forEach(c => el.appendChild(c));
+        }
+        pendingLi = null;
+      }
       el.appendChild(body);
+      lastBody = body;
     } else {
-      el.appendChild(buildItem(seg.item));
+      const card = buildItem(seg.item);
+      const tl = trailingList(lastBody);
+      const nxt = item.segments[si + 1];
+      const nxtFirst = nxt && nxt.type === 'text'
+        ? (nxt.md.split('\n').find(l => l.trim() !== '') || '') : '';
+      if (tl && /^ {0,3}(?:[-*+]|\d+[.)])\s/.test(nxtFirst)) {
+        (pendingLi = pendingLi || { list: tl, cards: [] }).cards.push(card);
+      } else if (tl && !nxt) {
+        hangInLi(tl, card); // nested under the final list item
+      } else {
+        el.appendChild(card);
+      }
     }
   }
+  if (pendingLi) pendingLi.cards.forEach(c => el.appendChild(c));
 
   // exactly ONE reply affordance per comment: leaves have it in the header
   // (scrolling up on a long comment is intentional friction toward flat
