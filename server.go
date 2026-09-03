@@ -243,6 +243,11 @@ func handlePostImage(w http.ResponseWriter, r *http.Request) {
 	jsonOut(w, http.StatusOK, map[string]string{"file": final})
 }
 
+// uiReady closes once the frontend reports its first paint — the window
+// stays hidden behind the splash until then.
+var uiReady = make(chan struct{})
+var uiReadyOnce sync.Once
+
 // prefs: a small JSON blob under the OS config dir, shared by all remark
 // instances (one process per open file/window). POST merges top-level keys;
 // a null value deletes a key.
@@ -355,6 +360,10 @@ func newMux() *http.ServeMux {
 	}))
 	mux.HandleFunc("GET /api/prefs", authed(handleGetPrefs))
 	mux.HandleFunc("POST /api/prefs", authed(handlePostPrefs))
+	mux.HandleFunc("GET /api/uiready", authed(func(w http.ResponseWriter, r *http.Request) {
+		uiReadyOnce.Do(func() { close(uiReady) })
+		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
+	}))
 	mux.HandleFunc("GET /api/presence", authed(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, presenceList(r.URL.Query().Get("path")))
 	}))

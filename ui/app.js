@@ -1903,6 +1903,7 @@ document.addEventListener('click', e => {
 
 // the splash (index.html) covers load + first paint; drop it once painted
 function dismissSplash() {
+  fetch('/api/uiready?t=' + TOKEN).catch(() => {}); // reveal the native window
   const sp = $('#splash');
   if (!sp) return;
   requestAnimationFrame(() => {

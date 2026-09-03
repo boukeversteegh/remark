@@ -23,6 +23,13 @@ var (
 	pGetWindowPlacement    = user32.NewProc("GetWindowPlacement")
 	pSetWindowPlacement    = user32.NewProc("SetWindowPlacement")
 	pGetSystemMetrics      = user32.NewProc("GetSystemMetrics")
+	pShowWindow            = user32.NewProc("ShowWindow")
+	pRegisterClassExW      = user32.NewProc("RegisterClassExW")
+	pCreateWindowExW       = user32.NewProc("CreateWindowExW")
+	pDestroyWindow         = user32.NewProc("DestroyWindow")
+	pDefWindowProcW        = user32.NewProc("DefWindowProcW")
+	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
+	pCreateSolidBrush      = gdi32.NewProc("CreateSolidBrush")
 )
 
 // window placement persisted to prefs so size/position (and maximized
@@ -46,16 +53,16 @@ func metric(i uintptr) int32 {
 	return int32(v)
 }
 
-func restoreWindowBounds(hwnd uintptr) {
+func restoreWindowBounds(hwnd uintptr) bool {
 	var p winPlacement
 	if !prefsGetKey("win", &p) || p.R-p.X < 400 || p.B-p.Y < 300 {
-		return
+		return false
 	}
 	// ignore stale bounds that fall outside the current virtual screen
 	vx, vy := metric(76), metric(77) // SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN
 	vw, vh := metric(78), metric(79) // SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN
 	if p.R < vx+40 || p.X > vx+vw-40 || p.B < vy+40 || p.Y > vy+vh-40 {
-		return
+		return false
 	}
 	if p.Cmd != 3 {
 		p.Cmd = 1
@@ -66,6 +73,7 @@ func restoreWindowBounds(hwnd uintptr) {
 	}
 	wp.length = uint32(unsafe.Sizeof(wp))
 	pSetWindowPlacement.Call(hwnd, uintptr(unsafe.Pointer(&wp)))
+	return true
 }
 
 func trackWindowBounds(hwnd uintptr, stop chan struct{}) {
@@ -151,6 +159,52 @@ func styleTitleBar(hwnd uintptr) {
 
 // runWindow opens the app in a native WebView2 window. Returns false if the
 // WebView2 runtime is unavailable so the caller can fall back to a browser.
+type wndClassExW struct {
+	size, style                        uint32
+	wndProc, clsExtra, wndExtra        uintptr
+	instance, icon, cursor, background uintptr
+	menuName, className                *uint16
+	iconSm                             uintptr
+}
+
+// showSplash puts up a small fixed-size centered window in the theme's
+// background color, instantly — it covers WebView2 initialization while the
+// real window stays hidden. Returns a destroy func.
+func showSplash() func() {
+	inst, _, _ := pGetModuleHandleW.Call(0)
+	// theme-matching brush (same registry read the titlebar uses)
+	bg := uintptr(0x00fdfcfb) // light --bg, BGR
+	if k, err := registry.OpenKey(registry.CURRENT_USER,
+		`Software\Microsoft\Windows\CurrentVersion\Themes\Personalize`, registry.QUERY_VALUE); err == nil {
+		if v, _, err := k.GetIntegerValue("AppsUseLightTheme"); err == nil && v == 0 {
+			bg = uintptr(0x0016110c) // dark --bg, BGR
+		}
+		k.Close()
+	}
+	brush, _, _ := pCreateSolidBrush.Call(bg)
+	cls, _ := syscall.UTF16PtrFromString("remarkSplash")
+	wc := wndClassExW{
+		wndProc:    pDefWindowProcW.Addr(),
+		instance:   inst,
+		background: brush,
+		className:  cls,
+	}
+	wc.size = uint32(unsafe.Sizeof(wc))
+	pRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc)))
+	const w, h = 320, 120
+	sw, sh := metric(0), metric(1) // SM_CXSCREEN, SM_CYSCREEN
+	const wsPopup, wsVisible = 0x80000000, 0x10000000
+	const exToolWindow, exTopmost = 0x80, 0x8
+	hwnd, _, _ := pCreateWindowExW.Call(exToolWindow|exTopmost,
+		uintptr(unsafe.Pointer(cls)), 0, wsPopup|wsVisible,
+		uintptr(int32(sw/2-w/2)), uintptr(int32(sh/2-h/2)), w, h, 0, 0, inst, 0)
+	return func() {
+		if hwnd != 0 {
+			pDestroyWindow.Call(hwnd)
+		}
+	}
+}
+
 func runWindow(url, title string) bool {
 	// create the window at its RESTORED size, so restoring bounds after
 	// creation only repositions it — no visible resize jump on launch
@@ -175,12 +229,26 @@ func runWindow(url, title string) bool {
 	}
 	defer w.Destroy()
 	hwnd := uintptr(w.Window())
+	// hide immediately: the real window stays invisible (behind the splash)
+	// until the UI reports its first paint, then appears once, at its final
+	// placement — no white flash, no resize jump
+	pShowWindow.Call(hwnd, 0) // SW_HIDE
+	splashGone := showSplash()
 	styleTitleBar(hwnd)
 	setWindowIcon(hwnd)
-	restoreWindowBounds(hwnd)
 	stop := make(chan struct{})
-	go trackWindowBounds(hwnd, stop)
 	defer close(stop)
+	go func() {
+		select {
+		case <-uiReady:
+		case <-time.After(6 * time.Second): // failsafe: never stay hidden
+		}
+		splashGone()
+		if !restoreWindowBounds(hwnd) {
+			pShowWindow.Call(hwnd, 5) // SW_SHOW
+		}
+		go trackWindowBounds(hwnd, stop)
+	}()
 	w.Navigate(url)
 	w.Run()
 	return true
