@@ -535,7 +535,12 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   font-weight: 400; box-shadow: none;
 }
 
-.cfoot { padding-left: 30px; min-height: 20px; }
+/* the after-subtree reply slot reads as a NEW divided row, not an appendix
+   of the last comment: flush with the card and below its own divider */
+.cfoot {
+  min-height: 20px; border-top: 1px solid var(--border-soft);
+  margin: 0 -14px 0 -11px; padding: 7px 14px 0 41px;
+}
 .replybtn {
   display: inline-flex; align-items: center; gap: 5px;
   border: 0; background: none; color: var(--muted); cursor: pointer;
