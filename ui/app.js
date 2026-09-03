@@ -579,7 +579,7 @@ function buildItem(item) {
     const sb = document.createElement('span');
     sb.className = 'seenby';
     sb.innerHTML = iconHTML('check-check');
-    sb.appendChild(document.createTextNode('seen by ' + item.seenBy.join(', ')));
+    sb.dataset.tip = 'Seen by ' + item.seenBy.join(', ');
     head.appendChild(sb);
   }
 
@@ -628,15 +628,17 @@ function buildItem(item) {
   // (scrolling up on a long comment is intentional friction toward flat
   // discussion); only comments WITH children keep it after the subtree,
   // where it appends at that level
-  if (!collapsed && item.children.length > 0) {
+  if (!collapsed && item.children.length > 0 && !S.editorsOpen.has('reply:' + item.key)) {
     const foot = document.createElement('div');
     foot.className = 'cfoot';
-    const reply = document.createElement('button');
-    reply.className = 'replybtn';
-    reply.innerHTML = iconHTML('reply');
-    reply.appendChild(document.createTextNode('Reply'));
-    reply.addEventListener('click', () => toggleEditor('reply:' + item.key));
-    foot.appendChild(reply);
+    // a quiet input-shaped seed: "here is where you type" — focusing it
+    // swaps in the real editor
+    const seed = document.createElement('input');
+    seed.className = 'replyseed';
+    seed.placeholder = 'Reply…';
+    seed.readOnly = true;
+    seed.addEventListener('focus', () => toggleEditor('reply:' + item.key));
+    foot.appendChild(seed);
     el.appendChild(foot);
   }
 
@@ -795,6 +797,10 @@ function buildEditor(key, target) {
         if (S.parsed.blocks[i].type === 'heading') { sectionHash = S.parsed.blocks[i].hash; break; }
       }
       op = { type: 'add', blockHash: target.hash, occ: target.occ, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked };
+      // a just-sent thread is all-read by its author, which would default it
+      // collapsed — seed the new root's key expanded before it first renders
+      const rootPfx = S.me + ' (' + op.time + '): ';
+      S.collapsed.set(RvParser.hashText(RvParser.normalize(rootPfx + text)) + ':0', false);
     }
     delete S.drafts[key];
     delete S.drafts[tKey];

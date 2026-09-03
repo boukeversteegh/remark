@@ -519,8 +519,22 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .rdot:hover { opacity: 1; }
 .seenby {
   display: inline-flex; align-items: center; gap: 4px;
-  color: var(--faint); font-size: 11px; flex: none; align-self: center;
+  color: var(--ok); opacity: .65; font-size: 11px; flex: none; align-self: center;
+  position: relative; cursor: default;
 }
+.seenby:hover { opacity: 1; }
+/* names live in a tooltip; the header shows just the double check */
+.seenby::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 7px); right: -4px;
+  background: var(--surface); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 7px;
+  padding: 4px 9px; font-size: 11.5px; white-space: nowrap;
+  box-shadow: var(--shadow-float);
+  opacity: 0; transform: translateY(3px); pointer-events: none;
+  transition: opacity .12s ease, transform .12s ease;
+}
+.seenby:hover::after { opacity: 1; transform: none; }
 .replybtn.inhead { opacity: 0; }
 .citem.hovering > .chead .replybtn.inhead { opacity: 1; }
 .openertoggle {
@@ -539,15 +553,24 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
    of the last comment: flush with the card and below its own divider */
 .cfoot {
   min-height: 20px; border-top: 1px solid var(--border-soft);
-  margin: 0 -14px 0 -11px; padding: 7px 14px 0 41px;
+  margin: 0 -14px 0 -11px; padding: 7px 14px 8px 41px;
 }
+/* input-shaped reply seed: quiet "type here" affordance; focusing swaps in
+   the real editor */
+.cfoot .replyseed {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px;
+  color: var(--muted); background: transparent;
+  border: 1px solid var(--border-soft); border-radius: 8px;
+  padding: 6px 11px; cursor: text;
+}
+.cfoot .replyseed::placeholder { color: var(--faint); }
+.cfoot .replyseed:hover { border-color: var(--border); background: var(--surface); }
 .replybtn {
   display: inline-flex; align-items: center; gap: 5px;
   border: 0; background: none; color: var(--muted); cursor: pointer;
   font-size: 12px; padding: 2px 6px; margin-left: -6px; border-radius: 6px;
   flex: none; opacity: 0; transition: opacity .12s, color .12s, background .12s;
 }
-.citem.hovering > .cfoot .replybtn { opacity: 1; }
 .replybtn:hover { color: var(--accent); background: var(--accent-soft); }
 
 .cbody { font-size: 14px; padding-left: 30px; }
