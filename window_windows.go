@@ -35,6 +35,8 @@ var (
 	pGetClientRect         = user32.NewProc("GetClientRect")
 	pLoadImageW            = user32.NewProc("LoadImageW")
 	pUpdateWindow          = user32.NewProc("UpdateWindow")
+	pFindWindowW           = user32.NewProc("FindWindowW")
+	pSetWindowPos          = user32.NewProc("SetWindowPos")
 	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
 	pCreateSolidBrush      = gdi32.NewProc("CreateSolidBrush")
 )
@@ -250,6 +252,30 @@ func runWindow(url, title string) bool {
 	if prefsGetKey("win", &p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
 		width, height = int(p.R-p.X), int(p.B-p.Y)
 	}
+	// the library shows its window DURING creation and pumps messages while
+	// WebView2 initializes — seconds of white around the splash. A watcher
+	// keeps the window hidden from the instant it exists until New returns.
+	hideStop := make(chan struct{})
+	go func() {
+		cls, _ := syscall.UTF16PtrFromString("webview")
+		ttl, _ := syscall.UTF16PtrFromString(title)
+		for {
+			select {
+			case <-hideStop:
+				return
+			default:
+			}
+			if h, _, _ := pFindWindowW.Call(uintptr(unsafe.Pointer(cls)),
+				uintptr(unsafe.Pointer(ttl))); h != 0 {
+				// move it far off-screen (NOT hidden — WebView2 refuses to
+				// embed into a hidden window); nothing paints on screen
+				const swpNoSizeNoZorderNoActivate = 0x1 | 0x4 | 0x10
+				pSetWindowPos.Call(h, 0, ^uintptr(31999), ^uintptr(31999), 0, 0,
+					swpNoSizeNoZorderNoActivate)
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
 	w := webview2.NewWithOptions(webview2.WebViewOptions{
 		Debug:     false,
 		AutoFocus: true,
@@ -261,6 +287,7 @@ func runWindow(url, title string) bool {
 			Center: true,
 		},
 	})
+	close(hideStop)
 	if w == nil {
 		return false
 	}
@@ -269,6 +296,7 @@ func runWindow(url, title string) bool {
 	// hide immediately: the real window stays invisible (behind the splash)
 	// until the UI reports its first paint, then appears once, at its final
 	// placement — no white flash, no resize jump
+	// embedding done: hide for real until the UI's first paint
 	pShowWindow.Call(hwnd, 0) // SW_HIDE
 	styleTitleBar(hwnd)
 	setWindowIcon(hwnd)
@@ -285,6 +313,12 @@ func runWindow(url, title string) bool {
 		w.Dispatch(func() {
 			splashGone()
 			if !restoreWindowBounds(hwnd) {
+				// no saved placement: bring it back from off-screen, centered
+				sw, sh := metric(0), metric(1)
+				const swpNoZorderNoActivate = 0x4 | 0x10
+				pSetWindowPos.Call(hwnd, 0,
+					uintptr(int32(sw/2-int32(width)/2)), uintptr(int32(sh/2-int32(height)/2)),
+					uintptr(width), uintptr(height), swpNoZorderNoActivate)
 				pShowWindow.Call(hwnd, 5) // SW_SHOW
 			}
 		})
