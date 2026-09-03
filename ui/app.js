@@ -893,6 +893,20 @@ function buildEditor(key, target) {
       S.optimisticSeen.set(seenTarget.key, true);
       ops.push({ type: 'seen', hash: seenTarget.hash, occ: seenTarget.occ, reader: S.me, on: true });
     }
+    // appending at a level answers the comment directly above: mark that
+    // preceding sibling read too — but only when it is the ONLY unread
+    // earlier comment at the level (ambiguity stays a manual decision).
+    // The op is anchored to that sibling's content hash, so a comment that
+    // lands between composing and saving can never be marked by accident.
+    if (isReply && target.children && target.children.length) {
+      const sibs = target.children;
+      const unreadSibs = sibs.filter(isUnread);
+      if (unreadSibs.length === 1 && unreadSibs[0] === sibs[sibs.length - 1]) {
+        const sib = unreadSibs[0];
+        S.optimisticSeen.set(sib.key, true);
+        ops.push({ type: 'seen', hash: sib.hash, occ: sib.occ, reader: S.me, on: true });
+      }
+    }
     submitOps(ops);
     render();
   }
