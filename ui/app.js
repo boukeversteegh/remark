@@ -1270,7 +1270,7 @@ function buildPresence() {
     const k = claim(p.name);
     if (!k) continue;
     const r = rows.get(k) || {};
-    rows.set(k, { ...r, online: p.online, lastSeen: p.lastSeen });
+    rows.set(k, { ...r, online: p.online, stalled: p.stalled, lastSeen: p.lastSeen });
   }
   const sorted = [...rows.entries()].sort((a, b) =>
     (b[1].isMe ? 1 : 0) - (a[1].isMe ? 1 : 0) ||
@@ -1289,9 +1289,10 @@ function buildPresence() {
     nm.textContent = dispName + (r.isMe ? ' (you)' : '');
     row.appendChild(nm);
     const st = document.createElement('span');
-    st.className = 'pstat ' + (r.online ? 'on' : 'off');
-    st.textContent = r.online ? 'online' : 'offline';
-    if (!r.online && r.lastSeen) st.title = 'last seen ' + r.lastSeen;
+    st.className = 'pstat ' + (r.online ? (r.stalled ? 'stall' : 'on') : 'off');
+    st.textContent = r.online ? (r.stalled ? 'stalled' : 'online') : 'offline';
+    if (r.stalled) st.dataset.tip = "monitor running, but its output isn't being read";
+    else if (!r.online && r.lastSeen) st.title = 'last seen ' + r.lastSeen;
     row.appendChild(st);
     wrap.appendChild(row);
   }
@@ -1333,7 +1334,7 @@ async function fetchPresence() {
     const list = await r.json();
     const cur = new Map();
     for (const p of list) {
-      if (p.kind === 'agent') cur.set(normName(p.name), { name: p.name, online: p.online });
+      if (p.kind === 'agent') cur.set(normName(p.name), { name: p.name, online: p.online, stalled: p.stalled });
     }
     if (prevAgents) {
       for (const [k, p] of prevAgents) {
@@ -1345,6 +1346,9 @@ async function fetchPresence() {
       }
       for (const [k, p] of cur) {
         const was = prevAgents.get(k);
+        if (p.online && p.stalled && (!was || !was.stalled)) {
+          toast('warn', '<b>' + p.name + "</b>'s monitor is stalled — it is running but its output isn't being read.");
+        }
         if (p.online && (!was || !was.online)) {
           if (offlineNotified.has(k)) {
             offlineNotified.delete(k);

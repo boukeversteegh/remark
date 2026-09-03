@@ -270,6 +270,8 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 .pstat::before { content: ''; width: 7px; height: 7px; border-radius: 50%; }
 .pstat.on { color: var(--ok); }
 .pstat.on::before { background: var(--ok); }
+.pstat.stall { color: #b58407; }
+.pstat.stall::before { background: #d29922; }
 .pstat.off { color: var(--faint); }
 .pstat.off::before { background: var(--faint); opacity: .45; }
 
