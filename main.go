@@ -32,22 +32,23 @@ Flags:
   -port N      preferred port (default 7333, falls back to next free)
   -token S     use a fixed auth token instead of a random one (testing)
 
-The markdown convention (how to write a comment):
+The markdown convention — a complete exchange looks like this:
 
-  Document text the discussion is about.
+  Some paragraph of the document under discussion.
 
-  - [ ] Alice (2026-09-02 14:32): **Optional title** <!--thread-->
-    The rest of the comment continues on indented lines.
+  - [ ] Bouke (2026-09-03 14:02): **Batch size** <!--thread--> <!--seen:agent-->
+    Why 512? Feels arbitrary — did we measure this?
 
-    - 🤖 Agent (2026-09-02 14:40): A reply — indent two spaces under
-      the item you are answering. Nest deeper to reply to a reply.
+    - 🤖 Agent (2026-09-03 14:05): Measured, thinly: 256 and 1024 were
+      within 3% on the sample corpus. I can add the benchmark to the PR.
+
+      - Bouke (2026-09-03 14:09): good, add it <!--seen:agent-->
 
 Rules an agent must follow when writing:
-  * Always sign with an explicit author prefix: "Name (YYYY-MM-DD HH:mm): ".
-    Unsigned items are presumed to be the local human. The timestamp is what
-    marks a nested "- " line as a comment — ordinary list bullets inside a
-    comment body (even "Word: text" ones) are left alone, so bodies may
-    freely contain lists.
+  * Sign every comment: "Name (YYYY-MM-DD HH:mm): ". Unsigned items are
+    presumed to be the local human. The timestamp is what marks a nested
+    "- " line as a comment — ordinary list bullets inside a comment body
+    (even "Word: text" ones) are left alone, so bodies may contain lists.
   * New thread roots are top-level list items attached under the paragraph
     they discuss, marked with an invisible <!--thread--> comment, and
     usually opened as "- [ ]" (an open checkbox = this needs an answer).
@@ -56,12 +57,26 @@ Rules an agent must follow when writing:
     it genuinely asks something that needs resolving.
   * A checkbox is its author's resolution: only the author of "- [ ]"
     decides when it becomes "- [x]". Never tick another author's box.
-  * Read state: append your name to the hidden per-message marker
-    <!--seen:Name1,Name2--> on the first line of a comment once you have
-    processed it. Never remove other names. Do not mark your own comments.
-  * A fully-bold first body line is the thread's title.
+  * Read state: a hidden <!--seen:Name1,Name2--> marker at the END of a
+    comment's FIRST line (after <!--thread--> when present) — see the
+    example above. Create it yourself if it is missing, append your name
+    to it once you have processed the comment, never remove other names.
+    Do not mark your own comments.
+  * The thread title is the first body line when it is entirely bold.
+    Inline after the colon (as in the example) and alone on the first
+    continuation line are the SAME rule — the inline form is what remark
+    itself writes.
+  * Concurrent edits are normal: the human's window writes to this file
+    too. Re-read the file right before each edit and make targeted
+    replacements — never rewrite the whole file from a stale copy, or you
+    will overwrite a comment they just sent.
   * Do not touch document text outside the discussion items unless asked;
     ordinary checklists without <!--thread--> are content, not comments.
+
+Opening a window:
+  remark file.md prints the URL and returns immediately — that is
+  fire-and-forget, not a crash: the window and its server keep running
+  detached. Opening the same file again is safe (you get a second window).
 
 Waiting for replies:
   remark monitor doc.md -as <yourname>
@@ -95,6 +110,7 @@ Waiting for replies:
 
 func main() {
 	attachConsole()
+	go sweepOldBinaries()
 	if len(os.Args) > 1 && os.Args[1] == "monitor" {
 		runMonitor(os.Args[2:])
 		return
