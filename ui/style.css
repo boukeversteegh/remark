@@ -226,6 +226,29 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 #divider { display: none; }
 .block { scroll-margin-top: 60px; }
 
+/* presence notices: corner toasts, never in the way of the composer */
+#notices {
+  position: fixed; right: 18px; bottom: 18px; z-index: 60;
+  display: flex; flex-direction: column; gap: 8px; max-width: 340px;
+}
+.notice {
+  position: relative; padding: 10px 34px 10px 14px;
+  background: var(--surface); color: var(--fg);
+  border: 1px solid var(--border); border-left-width: 4px;
+  border-radius: 10px; box-shadow: var(--shadow-float);
+  font-size: 13px; line-height: 1.45;
+}
+.notice.warn { border-left-color: #d29922; }
+.notice.ok { border-left-color: var(--ok); }
+.ndismiss {
+  position: absolute; top: 4px; right: 6px;
+  border: 0; background: none; color: var(--faint);
+  font-size: 16px; cursor: pointer; padding: 2px 6px;
+}
+.ndismiss:hover { color: var(--fg); }
+/* a just-arrived agent's row glows green; fades after ~8 focused seconds */
+.prow.fresh { background: var(--ok-soft); border-radius: 8px; transition: background .6s; }
+
 /* a comment hanging inside a list item */
 .licard { margin: 6px 0 8px; }
 .licard .citem { border-top: 1px solid var(--border-soft); }

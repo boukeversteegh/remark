@@ -1127,7 +1127,7 @@ function buildPresence() {
     display.get(a[0]).localeCompare(display.get(b[0])));
   for (const [k, r] of sorted) {
     const row = document.createElement('div');
-    row.className = 'prow';
+    row.className = 'prow' + (freshRows.has(k) ? ' fresh' : '');
     row.appendChild(avatarEl(display.get(k)));
     const nm = document.createElement('span');
     nm.className = 'pname';
@@ -1148,12 +1148,63 @@ function buildPresence() {
 }
 
 let lastPresenceJson = '';
+let prevAgents = null;               // normName -> {name, online} from the last poll
+const offlineNotified = new Set();   // agents whose outage the user was warned about
+const freshRows = new Map();         // normName -> focused-milliseconds accumulated
+
+// toasts: noticeable but never in the way of writing — a fixed stack in the
+// corner; every notice is dismiss-only (the back-online one by spec, the
+// offline one because "the agent can't hear you" shouldn't quietly vanish)
+function toast(kind, html) {
+  let box = $('#notices');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'notices';
+    document.body.appendChild(box);
+  }
+  const n = document.createElement('div');
+  n.className = 'notice ' + kind;
+  n.innerHTML = html;
+  const x = document.createElement('button');
+  x.className = 'ndismiss';
+  x.textContent = '×';
+  x.title = 'Dismiss';
+  x.addEventListener('click', () => n.remove());
+  n.appendChild(x);
+  box.appendChild(n);
+}
+
 async function fetchPresence() {
   if (!S.path) return;
   try {
     const r = await fetch('/api/presence?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN);
     if (!r.ok) return;
     const list = await r.json();
+    const cur = new Map();
+    for (const p of list) {
+      if (p.kind === 'agent') cur.set(normName(p.name), { name: p.name, online: p.online });
+    }
+    if (prevAgents) {
+      for (const [k, p] of prevAgents) {
+        const now = cur.get(k);
+        if (p.online && (!now || !now.online)) {
+          offlineNotified.add(k);
+          toast('warn', '<b>' + p.name + '</b> went offline — comments on this file are not being heard right now.');
+        }
+      }
+      for (const [k, p] of cur) {
+        const was = prevAgents.get(k);
+        if (p.online && (!was || !was.online)) {
+          if (offlineNotified.has(k)) {
+            offlineNotified.delete(k);
+            toast('ok', '<b>' + p.name + '</b> is back online.');
+          } else {
+            freshRows.set(k, 0); // quiet arrival: green row for a while
+          }
+        }
+      }
+    }
+    prevAgents = cur;
     const j = JSON.stringify(list);
     if (j !== lastPresenceJson) {
       lastPresenceJson = j;
@@ -1162,6 +1213,19 @@ async function fetchPresence() {
     }
   } catch (e) { /* server briefly away; keep last known state */ }
 }
+
+// the green-arrival fade only counts down while the window is focused, so
+// an arrival during your absence is still green when you come back
+setInterval(() => {
+  if (!freshRows.size || !document.hasFocus()) return;
+  let changed = false;
+  for (const [k, ms] of freshRows) {
+    const next = ms + 1000;
+    if (next >= 8000) { freshRows.delete(k); changed = true; }
+    else freshRows.set(k, next);
+  }
+  if (changed) buildOutline();
+}, 1000);
 
 function buildOutline() {
   const nav = $('#outline');
