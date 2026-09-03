@@ -1016,7 +1016,10 @@ function buildEditor(key, target) {
       op = target.type === 'thread'
         // seam between threads: the new root goes right AFTER this thread
         ? { type: 'add', afterThreadHash: target.hash, occ: target.occ || 0, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked }
-        : { type: 'add', blockHash: target.hash, occ: target.occ, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked };
+        : target.type === 'heading'
+          // empty-section target: land at the section's end
+          ? { type: 'add', sectionHash: target.hash, author: S.me, text, time: nowStamp(), opener: opChk.checked }
+          : { type: 'add', blockHash: target.hash, occ: target.occ, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked };
       // a just-sent thread is all-read by its author, which would default it
       // collapsed — seed the new root's key expanded before it first renders
       const rootPfx = S.me + ' (' + op.time + '): ';
@@ -1405,6 +1408,33 @@ function buildOutline() {
         revealItem(sec.unread[0]);
       });
       row.appendChild(mark);
+    }
+    // per-section new-thread: same composer the cluster-end button opens,
+    // anchored to the section's last commentable block (or the heading
+    // itself for an empty section — the op then lands at section end)
+    {
+      const nt = document.createElement('button');
+      nt.className = 'onew';
+      nt.innerHTML = iconHTML('message-square-plus');
+      nt.title = 'New thread in this section';
+      nt.addEventListener('click', e => {
+        e.stopPropagation();
+        let anchor = null;
+        const bi = S.parsed.blocks.indexOf(sec.block);
+        for (let i = bi + 1; i < S.parsed.blocks.length; i++) {
+          const bb = S.parsed.blocks[i];
+          if (bb.type === 'heading' && bb.level <= sec.block.level) break;
+          if (bb.type !== 'thread' && bb.type !== 'heading') anchor = bb;
+        }
+        const target = anchor || sec.block;
+        const key = 'new:' + target.key;
+        if (!S.editorsOpen.has(key)) toggleEditor(key);
+        requestAnimationFrame(() => {
+          const ed = $('.editor[data-key="' + CSS.escape(key) + '"]');
+          if (ed) ed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      });
+      row.appendChild(nt);
     }
     nav.appendChild(row);
 

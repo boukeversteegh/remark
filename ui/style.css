@@ -295,6 +295,12 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
   color: var(--muted); font-size: 12.5px; line-height: 1.45;
 }
 .orow:hover { background: var(--accent-soft); color: var(--fg); }
+.orow .onew {
+  opacity: 0; border: 0; background: none; color: var(--accent);
+  cursor: pointer; padding: 0 2px; flex: none; display: inline-flex; align-items: center;
+}
+.orow:hover .onew { opacity: .75; }
+.orow .onew:hover { opacity: 1; }
 .orow .otitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .orow.l1 { font-weight: 650; color: var(--fg); font-size: 13px; }
 .orow.l2 { padding-left: 8px; }
