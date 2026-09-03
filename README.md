@@ -16,29 +16,55 @@ uncommitted scratch file inside a repo.
 
 ## The markdown convention
 
-Threads are plain checkbox list items, so the file stays readable everywhere:
+Threads are ordinary list items, so the file stays readable everywhere:
 
 ```markdown
 Some paragraph of the document being discussed.
 
-- [ ] Alice (2026-09-02 14:32): I don't agree with this part. <!--rv-->
+- [ ] Alice (2026-09-02 14:32): I don't agree with this part. <!--thread-->
 
-  - [x] 🤖 Agent (2026-09-02 14:40): Fair — here's why I wrote it that way…
+  - 🤖 Agent (2026-09-02 14:40): Fair — here's why I wrote it that way… <!--seen:Alice-->
 ```
 
-- A **top-level** `- [ ] Author: text` item is a thread root; **indented**
-  checkbox items under it are replies (arbitrary nesting supported).
+- A **top-level** authored item is a thread root; **indented** items under it
+  are replies (arbitrary nesting supported, flat threads encouraged).
+- A **checkbox** on a comment is its **resolution**, settled by its author:
+  `- [ ]` opens something that needs an answer (thread roots usually do),
+  `- [x]` means its author considers it settled. **Plain `- ` replies carry
+  no status** — most conversation needs none. Opening a resolvable subthread
+  is a deliberate act (a "needs resolution" toggle in the composer, or just
+  typing the brackets). Unattributed checkbox items inside a comment are its
+  own resolvable checklist.
+- **Read state is per reader, per message**, stored as a hidden
+  `<!--seen:Name1,Name2-->` marker on the comment's first line, and it moves
+  only when a reader deliberately marks it (a toggleable dot in the app —
+  filled = unread, a green ✓ = read). Nothing is marked automatically;
+  noticing a message is not "done".
 - The author prefix may carry a plain-text timestamp — `Author (YYYY-MM-DD
   HH:mm):` — which remark writes on every comment it creates and renders as a
   dim time next to the author. Comments without one are fine too.
-- The checkbox is a **read-marker** (a notification, essentially): you tick
-  the other side's comments when you've read them; they tick yours when
-  they've processed them. Unticked comments from others show as **unread**.
-- Comments written by remark carry an invisible `<!--rv-->` marker so inline
-  threads are unambiguously distinguishable from ordinary task lists (an
-  agent's task log at the top of the file is rendered as plain markdown and
-  left alone). For unmarked files a heuristic also recognises
-  `- [ ] Name: …` / `- [ ] 🤖 Name: …` items as threads.
+- A thread gets a **title** when the root comment's body starts with a line
+  that is entirely bold: `- [ ] Alice: **Batch size rationale**` followed by
+  the comment text on the next line. The title is shown in the card header
+  and as the collapsed summary.
+- A reply can also be an **interjection**: placed half-way through another
+  comment (between its paragraphs), where the renderer keeps it. In the app,
+  hover between paragraphs for the "— insert comment —" seam.
+- **Identity convention**: agents self-identify, humans don't have to. Any
+  hand-typed comment without an author is presumed to be the local user —
+  a running remark window stamps it with the profile name and the time once
+  the file settles — while agents (there may be several on one file) always
+  write with an explicit `Author (timestamp):` prefix.
+- Thread roots written by remark carry an invisible `<!--thread-->` marker
+  (legacy `<!--rv-->` is also accepted) so inline threads are unambiguously
+  distinguishable from ordinary task lists (an agent's task log at the top of
+  the file is rendered as plain markdown and left alone). Replies never need
+  a marker — nesting under a thread root is what makes them replies. For
+  unmarked files a heuristic also recognises `- Name: …` / `- [ ] 🤖 Name: …`
+  items as threads.
+- **v1 compatibility**: files from before the resolution model (where every
+  comment was a checkbox item and a tick meant "read") still parse; an old
+  tick counts as read.
 
 ## Usage
 
@@ -49,7 +75,21 @@ remark.exe -serve -port 7333 file.md  # headless server only
 ```
 
 Run it with no argument to get a landing page with a native file picker and
-recent files. Try it on the bundled sample: `remark.exe examples\demo.md`. Run it again
+recent files. Try it on the bundled sample: `remark.exe examples\demo.md`.
+
+### For agents: `remark monitor`
+
+```
+remark monitor <files-or-globs...> [-ignore-author name,name] [-json] [-interval 300ms]
+```
+
+A headless watcher built for AI agents (a Claude hook, a `Monitor` command, a
+script): it emits one line per **new comment** and per **read-checkbox
+toggle** — with author, timestamp, section, thread and the comment text — and
+stays silent about everything else. `-ignore-author claude` filters out the
+agent's own writes (matching is case-insensitive and ignores emoji prefixes),
+so the agent only wakes up for what the human did, and usually doesn't need
+to re-read the file at all. `-json` switches to NDJSON. Run it again
 with another file to get a second window — one window per file, each instance
 picks the next free port. Author name, view mode, recents and unsent drafts
 are shared across all windows (stored in `%APPDATA%\remark\prefs.json` /

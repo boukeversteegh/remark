@@ -5,6 +5,7 @@ package main
 import (
 	"os/exec"
 	"syscall"
+	"time"
 	"unsafe"
 
 	webview2 "github.com/jchv/go-webview2"
@@ -12,9 +13,104 @@ import (
 )
 
 var (
-	dwmapi                  = syscall.NewLazyDLL("dwmapi.dll")
-	pDwmSetWindowAttribute  = dwmapi.NewProc("DwmSetWindowAttribute")
+	dwmapi                 = syscall.NewLazyDLL("dwmapi.dll")
+	pDwmSetWindowAttribute = dwmapi.NewProc("DwmSetWindowAttribute")
+	user32                 = syscall.NewLazyDLL("user32.dll")
+	pLoadIconW             = user32.NewProc("LoadIconW")
+	pSendMessageW          = user32.NewProc("SendMessageW")
+	kernel32               = syscall.NewLazyDLL("kernel32.dll")
+	pGetModuleHandleW      = kernel32.NewProc("GetModuleHandleW")
+	pGetWindowPlacement    = user32.NewProc("GetWindowPlacement")
+	pSetWindowPlacement    = user32.NewProc("SetWindowPlacement")
+	pGetSystemMetrics      = user32.NewProc("GetSystemMetrics")
 )
+
+// window placement persisted to prefs so size/position (and maximized
+// state) survive restarts; the most recently moved window wins.
+type winPlacement struct {
+	Cmd int32 `json:"cmd"` // 1 = normal, 3 = maximized
+	X   int32 `json:"x"`
+	Y   int32 `json:"y"`
+	R   int32 `json:"r"`
+	B   int32 `json:"b"`
+}
+
+type windowPlacementW struct {
+	length, flags, showCmd         uint32
+	minX, minY, maxX, maxY         int32
+	normX, normY, normR, normB     int32
+}
+
+func metric(i uintptr) int32 {
+	v, _, _ := pGetSystemMetrics.Call(i)
+	return int32(v)
+}
+
+func restoreWindowBounds(hwnd uintptr) {
+	var p winPlacement
+	if !prefsGetKey("win", &p) || p.R-p.X < 400 || p.B-p.Y < 300 {
+		return
+	}
+	// ignore stale bounds that fall outside the current virtual screen
+	vx, vy := metric(76), metric(77) // SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN
+	vw, vh := metric(78), metric(79) // SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN
+	if p.R < vx+40 || p.X > vx+vw-40 || p.B < vy+40 || p.Y > vy+vh-40 {
+		return
+	}
+	if p.Cmd != 3 {
+		p.Cmd = 1
+	}
+	wp := windowPlacementW{
+		showCmd: uint32(p.Cmd),
+		normX:   p.X, normY: p.Y, normR: p.R, normB: p.B,
+	}
+	wp.length = uint32(unsafe.Sizeof(wp))
+	pSetWindowPlacement.Call(hwnd, uintptr(unsafe.Pointer(&wp)))
+}
+
+func trackWindowBounds(hwnd uintptr, stop chan struct{}) {
+	var last winPlacement
+	t := time.NewTicker(2 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-t.C:
+			var wp windowPlacementW
+			wp.length = uint32(unsafe.Sizeof(wp))
+			ok, _, _ := pGetWindowPlacement.Call(hwnd, uintptr(unsafe.Pointer(&wp)))
+			if ok == 0 || wp.showCmd == 2 { // ignore minimized
+				continue
+			}
+			cur := winPlacement{
+				Cmd: int32(wp.showCmd),
+				X:   wp.normX, Y: wp.normY, R: wp.normR, B: wp.normB,
+			}
+			if cur != last {
+				last = cur
+				prefsSetKey("win", cur)
+			}
+		}
+	}
+}
+
+// setWindowIcon loads the embedded icon group and applies it to the window
+// (title bar, taskbar, alt-tab). Loading by resource id at runtime is more
+// reliable than the window-class icon id, which fails silently when the
+// group id doesn't match.
+func setWindowIcon(hwnd uintptr) {
+	hInst, _, _ := pGetModuleHandleW.Call(0)
+	for id := uintptr(1); id <= 32; id++ {
+		icon, _, _ := pLoadIconW.Call(hInst, id)
+		if icon != 0 {
+			const wmSetIcon = 0x0080
+			pSendMessageW.Call(hwnd, wmSetIcon, 1, icon) // ICON_BIG
+			pSendMessageW.Call(hwnd, wmSetIcon, 0, icon) // ICON_SMALL
+			return
+		}
+	}
+}
 
 const (
 	dwmwaUseImmersiveDarkMode = 20
@@ -71,7 +167,13 @@ func runWindow(url, title string) bool {
 		return false
 	}
 	defer w.Destroy()
-	styleTitleBar(uintptr(w.Window()))
+	hwnd := uintptr(w.Window())
+	styleTitleBar(hwnd)
+	setWindowIcon(hwnd)
+	restoreWindowBounds(hwnd)
+	stop := make(chan struct{})
+	go trackWindowBounds(hwnd, stop)
+	defer close(stop)
 	w.Navigate(url)
 	w.Run()
 	return true

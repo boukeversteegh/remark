@@ -17,9 +17,10 @@ per-line `try/catch` to a collecting validator that reports all failures at
 the end of a batch. The change is well isolated: only `ingest/reader.go` and
 its tests are touched.
 
-- [x] Alice (2026-09-02 09:14): Why 512? Feels arbitrary — did we measure this, or is it a guess? <!--rv-->
+- [x] Alice (2026-09-02 09:14): **Batch size rationale** <!--thread-->
+  Why 512? Feels arbitrary — did we measure this, or is it a guess?
 
-  - [ ] 🤖 Agent (2026-09-02 09:31): Measured, though thinly: 256 and 1024 were within 3% of each other on the sample corpus, and 512 sat in the middle. The constant is isolated in `batchSize` with a comment, so tuning it later is a one-line change. I'd call it a defensible default rather than a magic number, but adding the benchmark output to the PR description would make that visible — noted as a task.
+  - 🤖 Agent (2026-09-02 09:31): Measured, though thinly: 256 and 1024 were within 3% of each other on the sample corpus, and 512 sat in the middle. The constant is isolated in `batchSize` with a comment, so tuning it later is a one-line change. I'd call it a defensible default rather than a magic number, but adding the benchmark output to the PR description would make that visible — noted as a task.
 
 ## Design notes
 
@@ -28,9 +29,9 @@ record aborted the file, now the whole batch is read and all problems are
 reported together. Downstream consumers see either a fully ingested batch or
 none of it.
 
-- [ ] Alice (2026-09-02 09:48): Is the all-or-nothing batch behaviour safe when a file is appended to while we read it? <!--rv-->
+- [ ] Alice (2026-09-02 09:48): Is the all-or-nothing batch behaviour safe when a file is appended to while we read it? <!--thread-->
 
-  - [ ] 🤖 Agent (2026-09-02 09:55): Good catch — partially. The reader takes the file size at open and never reads past it, so an append during ingestion is simply picked up on the next run. The unsafe case is a writer that rewrites the file in place (truncate + write); for that we rely on the same retry-on-checksum-mismatch loop the old code used. I'll add a test that simulates the rewrite case. <!--rv-->
+  - 🤖 Agent (2026-09-02 09:55): Good catch — partially. The reader takes the file size at open and never reads past it, so an append during ingestion is simply picked up on the next run. The unsafe case is a writer that rewrites the file in place (truncate + write); for that we rely on the same retry-on-checksum-mismatch loop the old code used. I'll add a test that simulates the rewrite case.
 
 ## Tests
 
@@ -46,9 +47,9 @@ summary is not committed.
 The reader silently drops incomplete trailing records. That is correct, but a
 counter would make the behaviour observable instead of implicit.
 
-- [x] Alice (2026-09-02 10:02): Agreed, and let's expose it on the existing metrics endpoint rather than a log line. <!--rv-->
+- [x] Alice (2026-09-02 10:02): Agreed, and let's expose it on the existing metrics endpoint rather than a log line. <!--thread-->
 
-  - [x] 🤖 Agent (2026-09-02 10:06): Done in the follow-up branch — `ingest_partial_records_total`, labelled by source file. The metrics endpoint already existed, so it is a four-line change. <!--rv-->
+  - 🤖 Agent (2026-09-02 10:06): Done in the follow-up branch — `ingest_partial_records_total`, labelled by source file. The metrics endpoint already existed, so it is a four-line change. <!--seen:Alice-->
 
 ### 2. [Nit] `batchSize` doc comment
 

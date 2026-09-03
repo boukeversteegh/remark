@@ -1,2 +1,22 @@
-dist/
+# Build output
+/remark
+/remark.exe
+/dist/
+
+# Go
 *.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Local live-discussion files
+/discussion.md

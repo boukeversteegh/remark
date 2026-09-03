@@ -15,6 +15,10 @@ import (
 var token string
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "monitor" {
+		runMonitor(os.Args[2:])
+		return
+	}
 	port := flag.Int("port", 7333, "preferred port (falls back to next free)")
 	browser := flag.Bool("browser", false, "open in the default browser instead of an app window")
 	noOpen := flag.Bool("serve", false, "only run the server, do not open anything")

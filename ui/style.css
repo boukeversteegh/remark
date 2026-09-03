@@ -260,6 +260,23 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
   box-shadow: 0 1px 3px rgba(9, 105, 218, .35);
 }
 .omark:hover { filter: brightness(1.12); }
+.ofilter {
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+  color: var(--muted); font-size: 10px; padding: 1px 8px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.ofilter:hover { border-color: var(--accent); color: var(--accent); }
+.otrow {
+  display: flex; align-items: center; gap: 7px;
+  padding: 2px 8px 2px 24px; border-radius: 7px; cursor: pointer;
+  color: var(--muted); font-size: 12px; line-height: 1.5;
+}
+.otrow:hover { background: var(--accent-soft); color: var(--fg); }
+.otrow .ostat { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.ostat.unread { background: var(--unread); }
+.ostat.open { background: #d29922; }
+.ostat.done { background: var(--ok); }
+.otrow .otxt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* margin mode: use the full width; the user drags the divider to pick the
    split (--split = document share). Only on very large screens does the
@@ -288,7 +305,7 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
   min-width: 280px; margin-left: 14px;
 }
 
-.block { position: relative; }
+.block { position: relative; padding-right: 44px; /* reserved gutter for the 💬 button */ }
 .block > :first-child { margin-top: .55em; }
 h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font-weight: 650; }
 .block h1 { font-size: 1.75em; line-height: 1.25; border-bottom: 1px solid var(--border-soft); padding-bottom: .3em; }
@@ -306,24 +323,52 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 #doc table { border-collapse: collapse; }
 #doc td, #doc th { border: 1px solid var(--border); padding: 5px 12px; }
 #doc th { background: var(--code-bg); }
-#doc input[type=checkbox] { accent-color: var(--accent); }
+/* GFM task-list checkboxes: custom-drawn — the native disabled inputs are
+   dim and unreadable, especially in dark mode */
+#doc input[type=checkbox] {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px; margin: 0 7px 0 0; vertical-align: -2.5px;
+  border: 1.5px solid var(--muted); border-radius: 4.5px;
+  background: var(--surface); position: relative; cursor: default;
+}
+#doc input[type=checkbox]:checked {
+  background: var(--ok); border-color: var(--ok);
+}
+#doc input[type=checkbox]:checked::after {
+  content: ''; position: absolute; left: 4px; top: 1px;
+  width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+#doc li:has(> input[type=checkbox]) { list-style: none; margin-left: -1.3em; }
+#doc li:has(> input[type=checkbox]:checked) { color: var(--muted); }
 #doc img { max-width: 100%; border-radius: 8px; }
 #doc hr { border: 0; border-top: 1px solid var(--border-soft); margin: 2em 0; }
 #doc li { margin: .18em 0; }
 
-/* add-comment affordance */
+/* add-comment affordance — sits just inside the content edge so it can
+   never be clipped by a narrow window */
 .addbtn {
-  position: absolute; right: -42px; top: 2px;
+  position: absolute; right: 4px; top: 2px;
   display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 28px; font-size: 14px;
   border: 1px solid var(--border); background: var(--surface); color: var(--muted);
   border-radius: 9px; cursor: pointer; opacity: 0;
   transition: opacity .12s, color .12s, border-color .12s;
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-card); z-index: 5;
 }
 .block:hover .addbtn { opacity: 1; }
 .addbtn:hover { color: var(--accent); border-color: var(--accent); }
 .block.anchor-hl { background: var(--accent-soft); border-radius: 8px; box-shadow: 0 0 0 8px var(--accent-soft); }
+
+/* ghost "new thread here" button after a thread cluster */
+.newthreadbtn {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin: -8px 0 18px; padding: 4px 14px;
+  border: 1px dashed var(--border); border-radius: 999px;
+  background: none; color: var(--faint); font-size: 12px; cursor: pointer;
+  transition: color .12s, border-color .12s;
+}
+.newthreadbtn:hover { color: var(--accent); border-color: var(--accent); }
 
 /* comment chip on anchor blocks (margin mode) */
 .cchip {
@@ -349,6 +394,27 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 }
 .thread.has-unread { border-color: var(--accent-border); }
 .thread.has-unread::before { background: var(--unread); opacity: 1; }
+#doc .thread { margin-right: 44px; scroll-margin-top: 56px; }
+.tfoot {
+  display: flex; justify-content: flex-end;
+  padding: 8px 12px 10px; border-top: 1px solid var(--border-soft);
+}
+.tsticky {
+  position: absolute; top: 8px; bottom: 8px; right: -38px; width: 30px;
+  pointer-events: none;
+}
+.ttop {
+  position: sticky; top: 64px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 26px; font-size: 13px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--muted); cursor: pointer;
+  pointer-events: auto; opacity: .45; transition: opacity .12s, color .12s, border-color .12s;
+  box-shadow: var(--shadow-card);
+}
+.ttop .ic svg { transform: rotate(180deg); }
+.ttop:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
+#rail .tsticky { display: none; }
 .mode-margin #doc .thread { display: none; }
 #rail .thread { position: absolute; left: 0; right: 0; margin: 0; transition: top .18s ease-out; }
 #rail .thread { box-shadow: var(--shadow-card); }
@@ -368,9 +434,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 
 .citem { padding: 10px 14px 9px 11px; }
 .citem + .citem, .citem .citem { border-top: 1px solid var(--border-soft); }
-.citem .citem {
+/* direct replies to the root render FLAT under it (GitHub-style stack);
+   only deeper subthreads indent */
+.citem .citem { padding-right: 0; border-radius: 0; }
+.citem .citem .citem {
   margin-left: 22px; border-left: 2px solid var(--border-soft);
-  padding-right: 0; border-radius: 0;
 }
 .citem.unread { background: var(--card-unread); }
 .citem.collapsed { padding-bottom: 9px; }
@@ -380,7 +448,7 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 
 /* text (author, snippet, counts) aligns on a shared baseline; controls
    (twisty, avatar, dot, pills, buttons) center themselves in the row */
-.chead { display: flex; align-items: baseline; gap: 8px; font-size: 13px; min-height: 24px; }
+.chead { display: flex; align-items: baseline; gap: 8px; font-size: 13px; min-height: 24px; cursor: pointer; }
 .chead .twisty, .chead .avatar, .chead .udot,
 .chead .rstat, .chead .replybtn, .chead .newchip { align-self: center; }
 .chead .rcount { align-self: baseline; }
@@ -403,6 +471,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 
 .chead .author { font-weight: 650; flex: none; letter-spacing: -.005em; }
 .chead .ctime { color: var(--faint); font-size: 11px; flex: none; white-space: nowrap; }
+.chead .ctitle {
+  font-weight: 650; color: var(--fg); letter-spacing: -.005em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; flex: 0 1 auto;
+}
 .chead .snippet {
   color: var(--muted); overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; min-width: 0; flex: 0 1 auto; cursor: default; font-size: 12.5px;
@@ -429,6 +502,31 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   font-weight: 650; box-shadow: 0 1px 4px rgba(9, 105, 218, .3);
 }
 .rstat.is-read { color: var(--ok); background: var(--ok-soft); border-color: transparent; }
+.rstat.is-open { color: #b58407; background: rgba(210, 153, 34, .14); border-color: transparent; font-weight: 600; }
+/* GitHub-style read dot: filled = unread, hollow = read; toggleable */
+.rdot {
+  width: 12px; height: 12px; border-radius: 50%; flex: none; padding: 0;
+  border: 2px solid var(--unread); background: var(--unread); cursor: pointer;
+  align-self: center;
+  transition: background .12s, opacity .12s;
+}
+.rdot.seen {
+  background: transparent; border-color: transparent; color: var(--ok);
+  width: auto; height: auto; font-size: 13px; opacity: .6;
+  display: inline-flex; align-items: center;
+}
+.rdot:hover { opacity: 1; }
+.seenby {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--faint); font-size: 11px; flex: none; align-self: center;
+}
+.replybtn.inhead { opacity: 0; }
+.citem.hovering > .chead .replybtn.inhead { opacity: 1; }
+.openertoggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; color: var(--muted); cursor: pointer; user-select: none;
+}
+.openertoggle input { accent-color: var(--accent); margin: 0; }
 .rstat:hover { filter: brightness(1.06); border-color: var(--accent); }
 /* own comments: "pending" is quiet waiting, not a call to action */
 .citem.mine > .chead .rstat.is-new {
@@ -436,16 +534,32 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   font-weight: 400; box-shadow: none;
 }
 
-.chead .replybtn {
+.cfoot { padding-left: 30px; min-height: 20px; }
+.replybtn {
   display: inline-flex; align-items: center; gap: 5px;
   border: 0; background: none; color: var(--muted); cursor: pointer;
-  font-size: 12px; padding: 2px 6px; border-radius: 6px;
+  font-size: 12px; padding: 2px 6px; margin-left: -6px; border-radius: 6px;
   flex: none; opacity: 0; transition: opacity .12s, color .12s, background .12s;
 }
-.citem:hover > .chead .replybtn { opacity: 1; }
-.chead .replybtn:hover { color: var(--accent); background: var(--accent-soft); }
+.citem.hovering > .cfoot .replybtn { opacity: 1; }
+.replybtn:hover { color: var(--accent); background: var(--accent-soft); }
 
 .cbody { font-size: 14px; padding-left: 30px; }
+.cpara { position: relative; }
+/* interject zone between paragraphs: invisible until hovered, then a
+   dashed seam with a centered "insert comment" label */
+.igap { position: relative; height: 12px; margin: 1px 0; cursor: pointer; }
+.igap::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  border-top: 1px dashed transparent; transition: border-color .12s;
+}
+.igap:hover::before { border-color: var(--accent-border); }
+.igap .iglabel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  font-size: 10.5px; color: var(--accent); background: var(--card);
+  padding: 0 8px; opacity: 0; transition: opacity .12s; white-space: nowrap;
+}
+.igap:hover .iglabel { opacity: 1; }
 .cbody > :first-child { margin-top: 3px; }
 .cbody > :last-child { margin-bottom: 2px; }
 .cbody p { margin: .55em 0; }
@@ -460,13 +574,26 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   border: 1px solid var(--accent-border); border-radius: 12px; margin: 6px 0 18px;
   background: var(--card); padding: 12px 14px; box-shadow: var(--shadow-card);
 }
+.editor .etitle {
+  width: 100%; margin-bottom: 8px; padding: 7px 12px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--fg);
+  font: 600 14px/1.4 var(--font-display);
+}
+.editor .etitle:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.editor .etitle::placeholder { font-weight: 400; color: var(--faint); }
 .editor textarea {
-  width: 100%; min-height: 68px; resize: vertical;
+  width: 100%; min-height: 92px; max-height: 340px; resize: vertical; overflow-y: auto;
   border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px;
   background: var(--bg); color: var(--fg); font: 14px/1.55 var(--font-ui);
   transition: border-color .12s;
 }
 .editor textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+.editor .epreview {
+  border: 1px dashed var(--border); border-radius: 10px;
+  padding: 10px 14px; min-height: 92px; max-height: 340px; overflow-y: auto;
+  background: var(--bg); padding-left: 14px !important;
+}
 .editor .ebar { display: flex; gap: 10px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .editor .ebar .spacer { flex: 1; }
 .editor .ebar kbd {

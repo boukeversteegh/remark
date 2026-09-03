@@ -1,18 +1,28 @@
 // remark parser: parses a markdown document into blocks, recognising inline
-// comment threads written as checkbox list items:
+// comment threads written as list items — either checkbox ("resolvable")
+// items or plain-dash items:
 //
 //   - [ ] Author: comment text <!--rv-->
 //
-//     - [x] Other: a nested reply
+//     - Other: a nested reply (plain item, not resolvable)
 //
-// A top-level checkbox item is a thread root when it carries the <!--rv-->
-// marker, or (for files written by hand / by the agent before adopting the
-// marker) when it starts with a short "Author:" prefix. Ordinary task lists
-// (e.g. an agent's task log) are left alone and rendered as plain markdown.
+// A checkbox item nested inside a thread is always a comment; a PLAIN "- "
+// item is a comment only when its text carries an author prefix or a
+// <!--thread-->/<!--rv--> marker — otherwise it is ordinary body list
+// content of the enclosing comment. A top-level item (either form) is a
+// thread root when it carries the marker, or (for files written by hand)
+// when it starts with a short "Author:" prefix. Ordinary task lists (e.g.
+// an agent's task log) are left alone and rendered as plain markdown.
 //
-// It also applies operations (add thread / reply / toggle read-checkbox) to a
-// fresh copy of the document, anchoring by content hashes rather than line
-// numbers so ops survive concurrent edits by other writers.
+// Per-item state:
+//   - resolvable: the item was written with a checkbox
+//   - checked:    for resolvable items this means "resolved"
+//   - seenBy:     readers listed in an optional <!--seen:A,B--> marker on
+//                 the item's first line (stripped from display and hashes)
+//
+// It also applies operations (add thread / reply / resolve / seen / stamp)
+// to a fresh copy of the document, anchoring by content hashes rather than
+// line numbers so ops survive concurrent edits by other writers.
 
 (function (root, factory) {
   if (typeof module !== 'undefined' && module.exports) module.exports = factory();
@@ -20,10 +30,14 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var MARKER = '<!--rv-->';
-  var MARKER_RE = /<!--\s*rv\s*-->/;
-  var MARKER_RE_G = /<!--\s*rv\s*-->/g;
+  var MARKER = '<!--thread-->';
+  var MARKER_RE = /<!--\s*(?:rv|thread)\s*-->/;
+  var MARKER_RE_G = /<!--\s*(?:rv|thread)\s*-->/g;
   var ITEM_RE = /^(\s*)- \[([ xX])\] (.*)$/;
+  var PLAIN_ITEM_RE = /^(\s*)- (?!\[[ xX]\] )(\S.*)$/;
+  var SEEN_RE = /<!--\s*seen:\s*([^>]*?)\s*-->/;
+  var SEEN_RE_G = /<!--\s*seen:[^>]*-->/g;
+  var SEEN_STRIP_RE = /[ \t]*<!--\s*seen:[^>]*-->/;
   var LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+/;
   var HEADING_RE = /^(#{1,6})\s+(.*)$/;
   var FENCE_RE = /^\s*(```|~~~)/;
@@ -35,7 +49,27 @@
   }
 
   function normalize(s) {
-    return s.replace(MARKER_RE_G, '').replace(/\s+/g, ' ').trim().slice(0, 400);
+    return s.replace(MARKER_RE_G, '').replace(SEEN_RE_G, '')
+      .replace(/\s+/g, ' ').trim().slice(0, 400);
+  }
+
+  // Matches EITHER item form and normalizes it into one shape, or null.
+  // No comment-gating here — callers decide (checkbox items are always
+  // comments when nested; plain items must pass isCommentText / the root
+  // heuristic).
+  function matchItemForm(line) {
+    var m = line.match(ITEM_RE);
+    if (m) return { indent: m[1].length, checked: m[2] !== ' ', resolvable: true, text: m[3] };
+    m = line.match(PLAIN_ITEM_RE);
+    if (m) return { indent: m[1].length, checked: false, resolvable: false, text: m[2] };
+    return null;
+  }
+
+  // Gate for PLAIN "- " items only: they count as comments when explicitly
+  // marked or when their text carries an author prefix.
+  function isCommentText(text) {
+    if (MARKER_RE.test(text)) return true;
+    return !!parseAuthor(text.replace(MARKER_RE_G, '').replace(SEEN_RE_G, '').trim());
   }
 
   function indentOf(line) {
@@ -77,73 +111,179 @@
     return startsSymbol && words.length <= 3;
   }
 
-  // Parses the checkbox-item tree starting at lines[start] (a thread root).
-  // Returns {item, end} where end is the last line index belonging to the
-  // thread (trailing blank lines excluded).
+  // Parses the comment-item tree starting at lines[start] (a thread root,
+  // checkbox or plain form). Returns {item, end} where end is the last line
+  // index belonging to the thread (trailing blank lines excluded).
   function parseItemTree(lines, start) {
-    var m = lines[start].match(ITEM_RE);
-    var rootIndent = m[1].length;
+    var m = matchItemForm(lines[start]);
+    var rootIndent = m.indent;
 
-    function newItem(indent, checked, firstLine, lineNo) {
+    function newItem(indent, checked, resolvable, firstLine, lineNo) {
       return {
-        indent: indent, checked: checked, bodyLines: [firstLine],
-        startLine: lineNo, endLine: lineNo, children: []
+        indent: indent, checked: checked, resolvable: resolvable,
+        bodyLines: [firstLine],
+        startLine: lineNo, endLine: lineNo, children: [],
+        // parts preserves the ORDER of text and nested items, so a reply can
+        // sit half-way through a comment (an interjection) and render there
+        parts: [{ lines: [firstLine], nos: [lineNo] }]
       };
     }
 
-    var rootItem = newItem(rootIndent, m[2] !== ' ', m[3], start);
+    function pushText(owner, text, lineNo, blanks) {
+      var last = owner.parts[owner.parts.length - 1];
+      if (!last || last.child) {
+        last = { lines: [], nos: [] };
+        owner.parts.push(last);
+        blanks = 0; // blanks between a child and resumed text are separators
+      }
+      for (var b = 0; b < blanks; b++) {
+        last.lines.push('');
+        last.nos.push(-1);
+      }
+      last.lines.push(text);
+      last.nos.push(lineNo);
+    }
+
+    var rootItem = newItem(rootIndent, m.checked, m.resolvable, m.text, start);
     var stack = [rootItem];
     var pendingBlanks = 0;
     var i = start + 1;
     var lastContent = start;
+    var inFence = false; // fenced code inside a comment body: lines that look
+                         // like checkbox items in there are NOT replies
 
     for (; i < lines.length; i++) {
       var line = lines[i];
       if (isBlank(line)) { pendingBlanks++; continue; }
       var ind = indentOf(line);
-      if (ind <= rootIndent) break;
+      if (!inFence && ind <= rootIndent) break;
 
-      var im = line.match(ITEM_RE);
-      if (im && im[1].length > rootIndent) {
-        var iind = im[1].length;
+      var im = !inFence && matchItemForm(line);
+      if (im && im.indent > rootIndent && (im.resolvable || isCommentText(im.text))) {
+        var iind = im.indent;
         while (stack.length > 1 && stack[stack.length - 1].indent >= iind) stack.pop();
         var parent = stack[stack.length - 1];
-        var child = newItem(iind, im[2] !== ' ', im[3], i);
+        var child = newItem(iind, im.checked, im.resolvable, im.text, i);
         parent.children.push(child);
+        parent.parts.push({ child: child });
         stack.push(child);
       } else {
         // continuation line: belongs to the deepest item shallower than it
-        while (stack.length > 1 && stack[stack.length - 1].indent >= ind) stack.pop();
+        if (!inFence) {
+          while (stack.length > 1 && stack[stack.length - 1].indent >= ind) stack.pop();
+        }
         var owner = stack[stack.length - 1];
-        for (var b = 0; b < pendingBlanks; b++) owner.bodyLines.push('');
-        owner.bodyLines.push(line.slice(Math.min(ind, owner.indent + 2)));
+        for (var b2 = 0; b2 < pendingBlanks; b2++) owner.bodyLines.push('');
+        var textLine = line.slice(Math.min(ind, owner.indent + 2));
+        owner.bodyLines.push(textLine);
+        pushText(owner, textLine, i, pendingBlanks);
+        if (FENCE_RE.test(line)) inFence = !inFence;
       }
       pendingBlanks = 0;
       lastContent = i;
       for (var s = 0; s < stack.length; s++) stack[s].endLine = i;
     }
 
-    finalizeItem(rootItem);
+    finalizeItem(rootItem, true);
     return { item: rootItem, end: lastContent };
   }
 
-  function finalizeItem(item) {
+  function finalizeItem(item, isRoot) {
     var raw = item.bodyLines.join('\n').replace(/\s+$/, '');
-    var display = raw.replace(MARKER_RE_G, '').replace(/[ \t]+$/gm, '');
-    var a = parseAuthor(display.split('\n')[0]);
-    item.author = a ? a.author : null;
-    item.time = null;
-    if (item.author) {
-      var tm = item.author.match(TIME_RE);
-      if (tm) {
-        item.time = tm[1];
-        item.author = item.author.slice(0, tm.index).trim();
-      }
+    item.seenBy = [];
+    var seenM = (item.bodyLines[0] || '').match(SEEN_RE);
+    if (seenM) {
+      item.seenBy = seenM[1].split(',')
+        .map(function (s2) { return s2.trim(); })
+        .filter(function (s2) { return s2 !== ''; });
     }
-    item.bodyMd = a ? [a.rest].concat(display.split('\n').slice(1)).join('\n') : display;
+    item.author = null;
+    item.time = null;
+    item.title = null;
+    item.segments = [];
+    var texts = [];
+    var firstText = true;
+
+    item.parts.forEach(function (part) {
+      if (part.child) {
+        finalizeItem(part.child, false);
+        item.segments.push({ type: 'item', item: part.child });
+        return;
+      }
+      var display = part.lines.join('\n').replace(/\s+$/, '')
+        .replace(MARKER_RE_G, '').replace(SEEN_RE_G, '').replace(/[ \t]+$/gm, '');
+      if (firstText) {
+        firstText = false;
+        var dl = display.split('\n');
+        var a = parseAuthor(dl[0]);
+        item.author = a ? a.author : null;
+        if (item.author) {
+          var tm = item.author.match(TIME_RE);
+          if (tm) {
+            item.time = tm[1];
+            item.author = item.author.slice(0, tm.index).trim();
+          }
+        }
+        display = a ? [a.rest].concat(dl.slice(1)).join('\n') : display;
+        // thread title: a root comment whose body's ENTIRE first line is
+        // bold ("**Title**") names the whole thread
+        if (isRoot) {
+          var bl = display.split('\n');
+          var tt = bl[0].match(/^\*\*([^*].*?)\*\*\s*$/);
+          if (tt) {
+            item.title = tt[1].trim();
+            display = bl.slice(1).join('\n');
+          }
+        }
+      }
+      display = display.replace(/^\n+/, '');
+      if (display.trim() !== '') {
+        item.segments.push({ type: 'text', md: display, part: part });
+        texts.push(display);
+      }
+    });
+
+    item.bodyMd = texts.join('\n\n').replace(/\s+$/, '');
     item.hasMarker = MARKER_RE.test(raw);
     item.hash = hashText(normalize(raw));
-    item.children.forEach(finalizeItem);
+  }
+
+  // the paragraphs of an item's own text (children excluded), each with a
+  // content hash and the file line it ends on — anchors for interjections.
+  // The first line is normalized the same way the renderer sees it (author
+  // prefix and title line stripped), so DOM-side hashes match.
+  function itemParagraphs(item) {
+    var out = [];
+    var firstText = true;
+    item.parts.forEach(function (part) {
+      if (part.child) return;
+      var lines2 = part.lines.slice();
+      var nos2 = part.nos.slice();
+      if (firstText) {
+        firstText = false;
+        var a = parseAuthor(lines2[0].replace(MARKER_RE_G, '').replace(SEEN_RE_G, ''));
+        if (a) lines2[0] = a.rest;
+        if (item.title && lines2.length &&
+            /^\*\*([^*].*?)\*\*\s*$/.test(lines2[0].replace(MARKER_RE_G, '').replace(SEEN_RE_G, '').trim())) {
+          lines2.shift();
+          nos2.shift();
+        }
+      }
+      var cur = null;
+      for (var i = 0; i < lines2.length; i++) {
+        var t = lines2[i];
+        if (t.trim() === '') { cur = null; continue; }
+        if (!cur) {
+          cur = { text: t, lastNo: nos2[i] };
+          out.push(cur);
+        } else {
+          cur.text += ' ' + t;
+          if (nos2[i] >= 0) cur.lastNo = nos2[i];
+        }
+      }
+    });
+    out.forEach(function (p) { p.hash = hashText(normalize(p.text)); });
+    return out;
   }
 
   function subtreeEnd(item) {
@@ -203,9 +343,9 @@
         continue;
       }
 
-      // thread root
-      var im = line.match(ITEM_RE);
-      if (im && im[1].length === 0 && isThreadRootText(im[3])) {
+      // thread root (checkbox or plain form, same gating for both)
+      var im = matchItemForm(line);
+      if (im && im.indent === 0 && isThreadRootText(im.text)) {
         var t = parseItemTree(lines, i);
         pushBlock('thread', i, t.end, { thread: t.item });
         i = t.end + 1;
@@ -224,9 +364,9 @@
             while (p < n && isBlank(lines[p])) p++;
             if (p >= n) break;
             var pin = indentOf(lines[p]);
-            var pim = lines[p].match(ITEM_RE);
+            var pim = matchItemForm(lines[p]);
             if (pin > 0) { k2 = p; continue; }
-            if (LIST_RE.test(lines[p]) && !(pim && isThreadRootText(pim[3]))) { k2 = p; continue; }
+            if (LIST_RE.test(lines[p]) && !(pim && isThreadRootText(pim.text))) { k2 = p; continue; }
             break;
           }
           last = k2;
@@ -277,12 +417,19 @@
 
   // ---- serialisation of new comments -----------------------------------
 
-  function commentLines(indent, checked, author, text, time) {
+  // withMarker: only thread ROOTS carry the sentinel — replies are replies
+  // by structure and stay clean.
+  // opener: true writes a resolvable checkbox item "- [ ] ..."; false writes
+  // a plain item "- ...". Defaults to true (checkbox) for back-compat.
+  function commentLines(indent, checked, author, text, time, withMarker, opener) {
+    if (opener === undefined) opener = true;
     var sp = new Array(indent + 1).join(' ');
     var spc = new Array(indent + 3).join(' ');
     var parts = text.replace(/\r\n/g, '\n').replace(/\s+$/, '').split('\n');
     var signed = author + (time ? ' (' + time + ')' : '');
-    var out = [sp + '- [' + (checked ? 'x' : ' ') + '] ' + signed + ': ' + parts[0] + ' ' + MARKER];
+    var bullet = opener ? '- [' + (checked ? 'x' : ' ') + '] ' : '- ';
+    var out = [sp + bullet + signed + ': ' + parts[0] +
+      (withMarker ? ' ' + MARKER : '')];
     for (var i = 1; i < parts.length; i++) {
       out.push(parts[i].trim() === '' ? '' : spc + parts[i]);
     }
@@ -291,9 +438,15 @@
 
   // ---- operations -------------------------------------------------------
 
-  // op = { type:'toggle', hash, occ, checked }
-  //    | { type:'reply',  parentHash, occ, author, text }
-  //    | { type:'add',    blockHash, occ, sectionHash, author, text, atEnd? }
+  // op = { type:'resolve', hash, occ, resolved }   (resolvable items only)
+  //    | { type:'toggle',  hash, occ, checked }    (alias of 'resolve')
+  //    | { type:'seen',    hash, occ, reader, on } (add/remove seen marker)
+  //    | { type:'reply',   parentHash, occ, author, text, opener? }
+  //    | { type:'add',     blockHash, occ, sectionHash, author, text, atEnd?, opener? }
+  //
+  // reply: opener falsy writes a plain "- " item; true writes a checkbox.
+  // add: opener defaults TRUE (thread roots are resolvable by default)
+  //      unless op.opener === false.
   //
   // Returns { text, results: [{op, ok, reason?}] }. Ops are applied one at a
   // time against a re-parse, so line numbers stay valid.
@@ -305,11 +458,53 @@
       var lines = doc.lines;
       var r = { op: op, ok: false };
 
-      if (op.type === 'toggle') {
+      if (op.type === 'stamp') {
+        // normalize a hand-typed comment: add missing author and/or timestamp
+        var sit = findByHash(doc.items, op.hash, op.occ);
+        if (!sit) { r.reason = 'comment not found'; results.push(r); continue; }
+        var slm = lines[sit.startLine].match(/^(\s*- (?:\[[ xX]\] )?)(.*)$/);
+        var srest = slm[2];
+        var newRest;
+        if (op.author) {
+          newRest = op.author + ' (' + op.time + '): ' + srest;
+        } else {
+          var am = srest.match(/^(.{1,48}?):\s*/);
+          if (!am) { r.reason = 'no author prefix to stamp'; results.push(r); continue; }
+          newRest = am[1] + ' (' + op.time + '): ' + srest.slice(am[0].length);
+        }
+        lines[sit.startLine] = slm[1] + newRest;
+        text = lines.join('\n');
+        r.ok = true;
+
+      } else if (op.type === 'toggle' || op.type === 'resolve') {
         var item = findByHash(doc.items, op.hash, op.occ);
         if (!item) { r.reason = 'comment not found in the current file'; results.push(r); continue; }
+        if (!item.resolvable) { r.reason = 'comment is not resolvable (plain item, no checkbox)'; results.push(r); continue; }
+        var want = op.type === 'resolve' ? op.resolved : op.checked;
         var lm = lines[item.startLine].match(ITEM_RE);
-        lines[item.startLine] = lm[1] + '- [' + (op.checked ? 'x' : ' ') + '] ' + lm[3];
+        lines[item.startLine] = lm[1] + '- [' + (want ? 'x' : ' ') + '] ' + lm[3];
+        text = lines.join('\n');
+        r.ok = true;
+
+      } else if (op.type === 'seen') {
+        var sit2 = findByHash(doc.items, op.hash, op.occ);
+        if (!sit2) { r.reason = 'comment not found in the current file'; results.push(r); continue; }
+        var ln0 = lines[sit2.startLine];
+        var sm2 = ln0.match(SEEN_RE);
+        var readers = sm2 ? sm2[1].split(',')
+          .map(function (x) { return x.trim(); })
+          .filter(function (x) { return x !== ''; }) : [];
+        var ri = readers.indexOf(op.reader);
+        if (op.on && ri === -1) readers.push(op.reader);
+        else if (!op.on && ri !== -1) readers.splice(ri, 1);
+        var ln1;
+        if (readers.length === 0) {
+          ln1 = sm2 ? ln0.replace(SEEN_STRIP_RE, '').replace(/[ \t]+$/, '') : ln0;
+        } else {
+          var tag = '<!--seen:' + readers.join(',') + '-->';
+          ln1 = sm2 ? ln0.replace(SEEN_RE, tag) : ln0.replace(/[ \t]+$/, '') + ' ' + tag;
+        }
+        lines[sit2.startLine] = ln1;
         text = lines.join('\n');
         r.ok = true;
 
@@ -317,7 +512,14 @@
         var parent = findByHash(doc.items, op.parentHash, op.occ);
         if (!parent) { r.reason = 'the comment being replied to is gone from the file'; results.push(r); continue; }
         var insertAt = subtreeEnd(parent) + 1;
-        var newLines = [''].concat(commentLines(parent.indent + 2, false, op.author, op.text, op.time));
+        // interjection: anchor the reply right after a specific paragraph
+        // INSIDE the parent comment instead of after its whole subtree
+        if (op.afterPara) {
+          var paras = itemParagraphs(parent).filter(function (p) { return p.hash === op.afterPara; });
+          var target = paras[op.afterParaOcc || 0] || paras[0];
+          if (target && target.lastNo >= 0) insertAt = target.lastNo + 1;
+        }
+        var newLines = [''].concat(commentLines(parent.indent + 2, false, op.author, op.text, op.time, false, !!op.opener));
         Array.prototype.splice.apply(lines, [insertAt, 0].concat(newLines));
         text = lines.join('\n');
         r.ok = true;
@@ -351,7 +553,7 @@
           while (insertLine > 0 && isBlank(lines[insertLine - 1])) insertLine--;
         }
         if (insertLine < 0) { r.reason = 'the paragraph this comment was attached to is gone from the file'; results.push(r); continue; }
-        var nl = [''].concat(commentLines(0, false, op.author, op.text, op.time));
+        var nl = [''].concat(commentLines(0, false, op.author, op.text, op.time, true, op.opener !== false));
         Array.prototype.splice.apply(lines, [insertLine, 0].concat(nl));
         text = lines.join('\n');
         r.ok = true;
@@ -371,6 +573,7 @@
     normalize: normalize,
     occurrenceOf: occurrenceOf,
     subtreeEnd: subtreeEnd,
+    itemParagraphs: itemParagraphs,
     MARKER: MARKER
   };
 });

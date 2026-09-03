@@ -200,6 +200,40 @@ func prefsPath() string {
 	return filepath.Join(d, "remark", "prefs.json")
 }
 
+// prefsGetKey / prefsSetKey give in-process code (e.g. window-bounds
+// tracking) access to the same merged prefs store the client uses.
+func prefsGetKey(key string, out any) bool {
+	prefsMu.Lock()
+	defer prefsMu.Unlock()
+	b, err := os.ReadFile(prefsPath())
+	if err != nil {
+		return false
+	}
+	cur := map[string]json.RawMessage{}
+	if json.Unmarshal(b, &cur) != nil {
+		return false
+	}
+	raw, ok := cur[key]
+	return ok && json.Unmarshal(raw, out) == nil
+}
+
+func prefsSetKey(key string, v any) {
+	prefsMu.Lock()
+	defer prefsMu.Unlock()
+	cur := map[string]json.RawMessage{}
+	if b, err := os.ReadFile(prefsPath()); err == nil {
+		json.Unmarshal(b, &cur)
+	}
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return
+	}
+	cur[key] = raw
+	os.MkdirAll(filepath.Dir(prefsPath()), 0o755)
+	b, _ := json.Marshal(cur)
+	os.WriteFile(prefsPath(), b, 0o644)
+}
+
 func handleGetPrefs(w http.ResponseWriter, r *http.Request) {
 	prefsMu.Lock()
 	defer prefsMu.Unlock()

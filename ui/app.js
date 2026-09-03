@@ -23,7 +23,8 @@ const S = {
   drafts: {},             // editorKey -> text (also mirrored to localStorage)
   editorsOpen: new Set(), // editor keys currently open
   collapsed: new Map(),   // thread root key -> bool (manual override)
-  optimistic: new Map(),  // item key -> desired checked state
+  optimistic: new Map(),  // item key -> desired resolved state
+  optimisticSeen: new Map(), // item key -> desired seen-by-me state
   known: null,            // Set of item keys seen in previous render
   focusMemo: null,
 };
@@ -33,6 +34,24 @@ const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
 
 marked.use({ gfm: true });
 function md(text) { return DOMPurify.sanitize(marked.parse(text)); }
+
+// fence-aware split of a comment body into paragraph chunks; chunk hashes
+// line up with RvParser.itemParagraphs so interjections can anchor on them
+function mdChunks(mdText) {
+  const chunks = [];
+  let cur = [];
+  let inFence = false;
+  for (const l of mdText.split('\n')) {
+    if (/^\s*(```|~~~)/.test(l)) inFence = !inFence;
+    if (!inFence && l.trim() === '') {
+      if (cur.length) { chunks.push(cur.join('\n')); cur = []; }
+    } else {
+      cur.push(l);
+    }
+  }
+  if (cur.length) chunks.push(cur.join('\n'));
+  return chunks;
+}
 function mdInline(text) { return DOMPurify.sanitize(marked.parseInline(text)); }
 
 function normEol(s) { return s.replace(/\r\n/g, '\n'); }
@@ -124,7 +143,9 @@ function idleStatus() {
 const draftsKey = () => 'drafts:' + S.path;
 function loadDrafts() {
   S.drafts = Object.assign({}, PREFS[draftsKey()] || {});
-  Object.keys(S.drafts).forEach(k => S.editorsOpen.add(k));
+  Object.keys(S.drafts).forEach(k => {
+    if (!k.endsWith(':title')) S.editorsOpen.add(k);
+  });
 }
 function persistDrafts() {
   const nonEmpty = {};
@@ -158,13 +179,28 @@ function annotate(parsed) {
   });
 }
 
+function normName(s) {
+  s = (s || '').toLowerCase().trim();
+  const i = s.search(/[a-z0-9]/);
+  return i > 0 ? s.slice(i) : s;
+}
 function isMe(author) {
-  return (author || '').toLowerCase() === S.me.toLowerCase();
+  return normName(author) === normName(S.me);
 }
 function effChecked(item) {
   return S.optimistic.has(item.key) ? S.optimistic.get(item.key) : item.checked;
 }
-function isUnread(item) { return !effChecked(item) && !isMe(item.author); }
+function seenByMe(item) {
+  if (S.optimisticSeen.has(item.key)) return S.optimisticSeen.get(item.key);
+  return (item.seenBy || []).some(n => normName(n) === normName(S.me));
+}
+// unread = someone else's comment you haven't marked seen. A legacy-style
+// tick on a resolvable item still counts as read so old files stay sane.
+function isUnread(item) {
+  if (isMe(item.author)) return false;
+  if (seenByMe(item)) return false;
+  return !(item.resolvable && effChecked(item));
+}
 
 function threadStats(root) {
   let count = 0, unread = 0;
@@ -186,10 +222,14 @@ function render() {
   annotate(parsed);
   S.parsed = parsed;
 
-  // clean confirmed optimistic toggles
+  // clean confirmed optimistic state
   for (const it of parsed.items) {
     if (S.optimistic.has(it.key) && S.optimistic.get(it.key) === it.checked) {
       S.optimistic.delete(it.key);
+    }
+    if (S.optimisticSeen.has(it.key)) {
+      const real = (it.seenBy || []).some(n => normName(n) === normName(S.me));
+      if (real === S.optimisticSeen.get(it.key)) S.optimisticSeen.delete(it.key);
     }
   }
 
@@ -219,9 +259,34 @@ function render() {
   railEntries.length = 0;
 
   let lastBlockEl = null;
+  let lastAnchorBlock = null; // anchor of the current thread cluster
+  let clusterThreads = 0;
+  let pendingEditor = null;
+
+  // ends a paragraph+threads cluster: the new-thread composer (and a ghost
+  // "new thread here" button) sit AFTER the cluster's threads, matching
+  // where a new comment is actually inserted in the file
+  const endCluster = () => {
+    if (S.mode !== 'margin' && clusterThreads > 0 && lastAnchorBlock &&
+        !S.editorsOpen.has('new:' + lastAnchorBlock.key)) {
+      const target = lastAnchorBlock;
+      const nb = document.createElement('button');
+      nb.className = 'newthreadbtn';
+      nb.innerHTML = iconHTML('message-square-plus');
+      nb.appendChild(document.createTextNode('New thread here'));
+      nb.addEventListener('click', () => toggleEditor('new:' + target.key));
+      doc.appendChild(nb);
+    }
+    clusterThreads = 0;
+    if (pendingEditor) {
+      doc.appendChild(buildEditor(pendingEditor.key, pendingEditor.block));
+      pendingEditor = null;
+    }
+  };
 
   for (const block of parsed.blocks) {
     if (block.type === 'thread') {
+      clusterThreads++;
       const card = buildThread(block);
       if (S.mode === 'margin') {
         rail.appendChild(card);
@@ -232,6 +297,7 @@ function render() {
       }
       continue;
     }
+    endCluster();
     const el = document.createElement('div');
     el.className = 'block';
     el.dataset.key = block.key;
@@ -244,12 +310,13 @@ function render() {
     el.appendChild(btn);
     doc.appendChild(el);
     lastBlockEl = el;
+    lastAnchorBlock = block;
 
-    // mount an open new-comment editor for this block
     if (S.editorsOpen.has('new:' + block.key)) {
-      doc.appendChild(buildEditor('new:' + block.key, block));
+      pendingEditor = { key: 'new:' + block.key, block };
     }
   }
+  endCluster();
 
   renderConflicts();
   updateUnreadUI();
@@ -274,6 +341,14 @@ function render() {
       ed.focus();
       try { ed.setSelectionRange(S.focusMemo.selStart, S.focusMemo.selEnd); } catch (e) {}
     }
+  }
+  if (S.pendingFocus) {
+    const ed = $('.editor[data-key="' + CSS.escape(S.pendingFocus) + '"] textarea');
+    if (ed) {
+      ed.focus();
+      try { ed.setSelectionRange(ed.value.length, ed.value.length); } catch (e) {}
+    }
+    S.pendingFocus = null;
   }
 
   if (S.mode === 'margin') requestAnimationFrame(layoutRail);
@@ -306,15 +381,62 @@ function buildThread(block) {
   card.className = 'thread' + (threadStats(root).unread ? ' has-unread' : '');
   card.dataset.rootKey = root.key;
   card.appendChild(buildItem(root));
+
+  // resolve/reopen at the thread's bottom — same author-owned resolution as
+  // the root's pill, reachable without scrolling back up
+  if (root.resolvable && !isCollapsed(root)) {
+    const resolved = effChecked(root);
+    const tf = document.createElement('div');
+    tf.className = 'tfoot';
+    const rbtn = document.createElement('button');
+    rbtn.className = 'rstat ' + (resolved ? 'is-read' : 'is-open');
+    rbtn.innerHTML = iconHTML(resolved ? 'clock' : 'check-check');
+    rbtn.appendChild(document.createTextNode(resolved ? 'Reopen thread' : 'Resolve thread'));
+    rbtn.title = 'Thread resolution — ' + (isMe(root.author) ? 'yours to settle' : 'owned by ' + (root.author || 'its author'));
+    rbtn.addEventListener('click', () => {
+      S.optimistic.set(root.key, !resolved);
+      submitOps([{ type: 'resolve', hash: root.hash, occ: root.occ, resolved: !resolved }]);
+      render();
+    });
+    tf.appendChild(rbtn);
+    card.appendChild(tf);
+  }
+
+  // scroll-to-top-of-thread button: lives in the right gutter, sticky so it
+  // stays on screen but never leaves the thread's own vertical extent
+  const rail2 = document.createElement('div');
+  rail2.className = 'tsticky';
+  const topBtn = document.createElement('button');
+  topBtn.className = 'ttop';
+  topBtn.title = 'Scroll to the top of this thread';
+  topBtn.innerHTML = iconHTML('chevron-down');
+  topBtn.addEventListener('click', () => {
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  rail2.appendChild(topBtn);
+  card.appendChild(rail2);
   return card;
 }
 
+function hasOpenEditor(item) {
+  if (S.editorsOpen.has('reply:' + item.key)) return true;
+  return item.children.some(hasOpenEditor);
+}
+
 // Whether this item starts out folded: roots fold by default once their
-// whole subtree is read; replies stay open. Manual toggles win.
+// whole subtree is read; replies stay open. The computed default is locked
+// in, so later read-state changes never move the UI — collapsing happens
+// only on explicit action. A subtree with an open editor never folds.
 function isCollapsed(item) {
+  if (hasOpenEditor(item)) {
+    S.collapsed.set(item.key, false);
+    return false;
+  }
   const manual = S.collapsed.get(item.key);
   if (manual !== undefined) return manual;
-  return !item.parent && threadStats(item).unread === 0;
+  const def = !item.parent && threadStats(item).unread === 0;
+  S.collapsed.set(item.key, def);
+  return def;
 }
 
 function buildItem(item) {
@@ -329,6 +451,12 @@ function buildItem(item) {
 
   const head = document.createElement('div');
   head.className = 'chead';
+  // the whole header row toggles collapse; buttons inside keep their own action
+  head.addEventListener('click', e => {
+    if (e.target.closest('button, input, a')) return;
+    S.collapsed.set(item.key, !collapsed);
+    render();
+  });
 
   const tw = document.createElement('button');
   tw.className = 'twisty';
@@ -339,13 +467,6 @@ function buildItem(item) {
     render();
   });
   head.appendChild(tw);
-
-  if (isUnread(item)) {
-    const dot = document.createElement('span');
-    dot.className = 'udot';
-    dot.title = 'Unread';
-    head.appendChild(dot);
-  }
 
   head.appendChild(avatarEl(item.author));
 
@@ -365,7 +486,13 @@ function buildItem(item) {
     head.appendChild(time);
   }
 
-  if (collapsed) {
+  if (item.title) {
+    const tt = document.createElement('span');
+    tt.className = 'ctitle';
+    tt.textContent = item.title;
+    tt.title = item.title;
+    head.appendChild(tt);
+  } else if (collapsed) {
     const snip = document.createElement('span');
     snip.className = 'snippet';
     snip.textContent = item.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 80);
@@ -391,52 +518,110 @@ function buildItem(item) {
     head.appendChild(nc);
   }
 
-  // read-status pill: makes the checkbox convention explicit. For the other
-  // side's comments it is your read-marker; for your own it shows whether
-  // the other side has processed (ticked) your comment.
-  const pill = document.createElement('button');
-  const checked = effChecked(item);
-  pill.className = 'rstat ' + (checked ? 'is-read' : 'is-new');
-  let pillIcon, pillLabel;
-  if (isMe(item.author)) {
-    pillIcon = checked ? 'check-check' : 'clock';
-    pillLabel = checked ? 'Processed' : 'Pending';
-    pill.title = checked
-      ? 'The other side ticked your comment — it has been processed. Click to untick.'
-      : 'Waiting for the other side to process this comment (they tick its checkbox).';
-  } else {
-    pillIcon = checked ? 'check-check' : 'check';
-    pillLabel = checked ? 'Read' : 'Mark read';
-    pill.title = checked
-      ? 'You marked this as read — click to mark unread'
-      : 'Mark as read (ticks the comment’s checkbox in the file)';
-  }
-  pill.innerHTML = iconHTML(pillIcon);
-  pill.appendChild(document.createTextNode(pillLabel));
-  pill.addEventListener('click', () => {
-    S.optimistic.set(item.key, !checked);
-    submitOps([{ type: 'toggle', hash: item.hash, occ: item.occ, checked: !checked }]);
-    render();
-  });
-  head.appendChild(pill);
-
-  if (!collapsed) {
+  // leaf comments get Reply in the header corner, before the status pills
+  if (!collapsed && item.children.length === 0) {
     const reply = document.createElement('button');
-    reply.className = 'replybtn';
+    reply.className = 'replybtn inhead';
     reply.innerHTML = iconHTML('reply');
     reply.appendChild(document.createTextNode('Reply'));
     reply.addEventListener('click', () => toggleEditor('reply:' + item.key));
     head.appendChild(reply);
   }
 
+  // resolution pill — only on items written with a checkbox; the status is
+  // the AUTHOR's to settle (anyone can click, the tooltip says whose call)
+  if (item.resolvable) {
+    const checked = effChecked(item);
+    const rpill = document.createElement('button');
+    rpill.className = 'rstat ' + (checked ? 'is-read' : 'is-open');
+    rpill.innerHTML = iconHTML(checked ? 'check-check' : 'clock');
+    rpill.appendChild(document.createTextNode(checked ? 'Resolved' : 'Open'));
+    rpill.title = 'Resolution — ' +
+      (isMe(item.author) ? 'yours to settle' : 'owned by ' + (item.author || 'its author')) +
+      (checked ? '. Click to reopen.' : '. Click to resolve.');
+    rpill.addEventListener('click', () => {
+      S.optimistic.set(item.key, !checked);
+      submitOps([{ type: 'resolve', hash: item.hash, occ: item.occ, resolved: !checked }]);
+      render();
+    });
+    head.appendChild(rpill);
+  }
+
+  // per-message read state: a GitHub-style dot on the right — filled when
+  // unread, hollow when read, toggleable, stored as a hidden seen-marker
+  if (!isMe(item.author)) {
+    const seen = seenByMe(item);
+    const rdot = document.createElement('button');
+    rdot.className = 'rdot' + (seen ? ' seen' : '');
+    if (seen) rdot.innerHTML = iconHTML('check');
+    rdot.title = seen
+      ? 'Read — click to mark unread'
+      : 'Unread — click to mark read (writes a seen-marker, just for you)';
+    rdot.addEventListener('click', () => {
+      S.optimisticSeen.set(item.key, !seen);
+      submitOps([{ type: 'seen', hash: item.hash, occ: item.occ, reader: S.me, on: !seen }]);
+      render();
+    });
+    head.appendChild(rdot);
+  } else if ((item.seenBy || []).length) {
+    const sb = document.createElement('span');
+    sb.className = 'seenby';
+    sb.innerHTML = iconHTML('check-check');
+    sb.appendChild(document.createTextNode('seen by ' + item.seenBy.join(', ')));
+    head.appendChild(sb);
+  }
+
   el.appendChild(head);
 
-  const body = document.createElement('div');
-  body.className = 'cbody';
-  body.innerHTML = md(item.bodyMd);
-  el.appendChild(body);
+  // segments preserve order: an interjection (a reply placed half-way
+  // through a comment) renders exactly where it sits in the markdown
+  for (const seg of item.segments) {
+    if (seg.type === 'text') {
+      const body = document.createElement('div');
+      body.className = 'cbody';
+      const chunks = mdChunks(seg.md);
+      chunks.forEach((chunk, ci) => {
+        const pHash = RvParser.hashText(RvParser.normalize(chunk));
+        const ikey = 'ipara:' + item.key + ':' + pHash;
+        const pe = document.createElement('div');
+        pe.className = 'cpara';
+        pe.innerHTML = md(chunk);
+        body.appendChild(pe);
+        // interject zone BETWEEN paragraphs only — a single-paragraph
+        // comment has no in-between, so it gets none (reply covers it)
+        if (ci < chunks.length - 1) {
+          const gap = document.createElement('div');
+          gap.className = 'igap';
+          gap.title = 'Insert a comment between these paragraphs';
+          gap.innerHTML = '<span class="iglabel">— insert comment —</span>';
+          gap.addEventListener('click', () => toggleEditor(ikey));
+          body.appendChild(gap);
+        }
+        if (S.editorsOpen.has(ikey)) {
+          body.appendChild(buildEditor(ikey, { item: item, paraHash: pHash }));
+        }
+      });
+      el.appendChild(body);
+    } else {
+      el.appendChild(buildItem(seg.item));
+    }
+  }
 
-  for (const c of item.children) el.appendChild(buildItem(c));
+  // exactly ONE reply affordance per comment: leaves have it in the header
+  // (scrolling up on a long comment is intentional friction toward flat
+  // discussion); only comments WITH children keep it after the subtree,
+  // where it appends at that level
+  if (!collapsed && item.children.length > 0) {
+    const foot = document.createElement('div');
+    foot.className = 'cfoot';
+    const reply = document.createElement('button');
+    reply.className = 'replybtn';
+    reply.innerHTML = iconHTML('reply');
+    reply.appendChild(document.createTextNode('Reply'));
+    reply.addEventListener('click', () => toggleEditor('reply:' + item.key));
+    foot.appendChild(reply);
+    el.appendChild(foot);
+  }
 
   if (S.editorsOpen.has('reply:' + item.key)) {
     el.appendChild(buildEditor('reply:' + item.key, item));
@@ -448,31 +633,100 @@ function buildItem(item) {
 // editors
 // ---------------------------------------------------------------------------
 function toggleEditor(key) {
-  if (S.editorsOpen.has(key) && !S.drafts[key]) S.editorsOpen.delete(key);
-  else S.editorsOpen.add(key);
+  if (S.editorsOpen.has(key) && !S.drafts[key]) {
+    S.editorsOpen.delete(key);
+  } else {
+    S.editorsOpen.add(key);
+    S.pendingFocus = key;
+  }
   render();
 }
 
 function buildEditor(key, target) {
   const isReply = key.startsWith('reply:');
+  const isInterject = key.startsWith('ipara:');
+  const isNewThread = !isReply && !isInterject;
+  const tKey = key + ':title';
   const wrap = document.createElement('div');
-  wrap.className = 'editor' + (isReply ? '' : ' newthread');
+  wrap.className = 'editor' + (isNewThread ? ' newthread' : '');
   wrap.dataset.key = key;
+
+  // new threads get an optional title line (never auto-focused)
+  let titleIn = null;
+  if (isNewThread) {
+    titleIn = document.createElement('input');
+    titleIn.className = 'etitle';
+    titleIn.placeholder = 'Title (optional)';
+    titleIn.value = S.drafts[tKey] || '';
+    titleIn.addEventListener('input', () => { S.drafts[tKey] = titleIn.value; persistDrafts(); });
+    titleIn.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); ta.focus(); }
+      if (e.key === 'Escape') close(false);
+    });
+    wrap.appendChild(titleIn);
+  }
 
   const ta = document.createElement('textarea');
   ta.placeholder = isReply ? 'Reply… (markdown, Ctrl+Enter to send)' : 'New comment… (markdown, Ctrl+Enter to send)';
   ta.value = S.drafts[key] || '';
-  ta.addEventListener('input', () => { S.drafts[key] = ta.value; persistDrafts(); });
-  ta.addEventListener('keydown', e => {
+  const autosize = () => {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight + 2, 340) + 'px';
+  };
+  ta.addEventListener('input', () => {
+    S.drafts[key] = ta.value;
+    persistDrafts();
+    autosize();
+  });
+  requestAnimationFrame(autosize);
+  wrap.addEventListener('keydown', e => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); }
     if (e.key === 'Escape') close(false);
   });
   wrap.appendChild(ta);
 
+  const preview = document.createElement('div');
+  preview.className = 'epreview cbody';
+  preview.style.display = 'none';
+  wrap.appendChild(preview);
+
   const bar = document.createElement('div');
   bar.className = 'ebar';
   bar.innerHTML = '<span>as <b></b></span><span class="spacer"></span><span><kbd>Ctrl</kbd> <kbd>⏎</kbd></span>';
   $('b', bar).textContent = S.me;
+
+  // opener toggle: a plain reply carries no status; ticking this writes a
+  // checkbox item with its own author-owned resolution. New threads default
+  // to resolvable — a root is a resolvable thing by nature.
+  const opLabel = document.createElement('label');
+  opLabel.className = 'openertoggle';
+  const opChk = document.createElement('input');
+  opChk.type = 'checkbox';
+  opChk.checked = isNewThread;
+  opLabel.appendChild(opChk);
+  opLabel.appendChild(document.createTextNode('needs resolution'));
+  bar.insertBefore(opLabel, bar.children[1]);
+
+  let previewing = false;
+  const previewBtn = document.createElement('button');
+  previewBtn.className = 'cancel';
+  previewBtn.textContent = 'Preview';
+  previewBtn.addEventListener('click', () => {
+    previewing = !previewing;
+    if (previewing) {
+      const titleText = titleIn ? titleIn.value.trim() : '';
+      preview.innerHTML = md((titleText ? '**' + titleText + '**\n\n' : '') + (ta.value || '*nothing to preview*'));
+      preview.style.display = '';
+      ta.style.display = 'none';
+      previewBtn.textContent = 'Edit';
+    } else {
+      preview.style.display = 'none';
+      ta.style.display = '';
+      previewBtn.textContent = 'Preview';
+      ta.focus();
+    }
+  });
+  bar.appendChild(previewBtn);
   const cancel = document.createElement('button');
   cancel.className = 'cancel';
   cancel.textContent = 'Discard';
@@ -487,16 +741,24 @@ function buildEditor(key, target) {
   wrap.appendChild(bar);
 
   function close(discard) {
-    if (discard) { delete S.drafts[key]; persistDrafts(); }
+    if (discard) { delete S.drafts[key]; delete S.drafts[tKey]; persistDrafts(); }
     S.editorsOpen.delete(key);
     render();
   }
   function send() {
-    const text = ta.value.trim();
-    if (!text) return;
+    let text = ta.value.trim();
+    const titleText = titleIn ? titleIn.value.trim().replace(/\*\*/g, '') : '';
+    if (!text && !titleText) return;
+    if (titleText) text = '**' + titleText + '**\n' + text;
     let op;
-    if (isReply) {
-      op = { type: 'reply', parentHash: target.hash, occ: target.occ, author: S.me, text, time: nowStamp() };
+    if (isInterject) {
+      op = {
+        type: 'reply', parentHash: target.item.hash, occ: target.item.occ,
+        afterPara: target.paraHash, author: S.me, text, time: nowStamp(),
+        opener: opChk.checked,
+      };
+    } else if (isReply) {
+      op = { type: 'reply', parentHash: target.hash, occ: target.occ, author: S.me, text, time: nowStamp(), opener: opChk.checked };
     } else {
       // find nearest preceding heading for the fallback anchor
       const bi = S.parsed.blocks.indexOf(target);
@@ -504,12 +766,21 @@ function buildEditor(key, target) {
       for (let i = bi; i >= 0; i--) {
         if (S.parsed.blocks[i].type === 'heading') { sectionHash = S.parsed.blocks[i].hash; break; }
       }
-      op = { type: 'add', blockHash: target.hash, occ: target.occ, sectionHash, author: S.me, text, time: nowStamp() };
+      op = { type: 'add', blockHash: target.hash, occ: target.occ, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked };
     }
     delete S.drafts[key];
+    delete S.drafts[tKey];
     persistDrafts();
     S.editorsOpen.delete(key);
-    submitOps([op]);
+    const ops = [op];
+    // replying implies you've read the parent — write your seen-marker on
+    // someone else's comment along with the reply
+    const seenTarget = isInterject ? target.item : (isReply ? target : null);
+    if (seenTarget && !isMe(seenTarget.author) && !seenByMe(seenTarget)) {
+      S.optimisticSeen.set(seenTarget.key, true);
+      ops.push({ type: 'seen', hash: seenTarget.hash, occ: seenTarget.occ, reader: S.me, on: true });
+    }
+    submitOps(ops);
     render();
   }
   return wrap;
@@ -654,6 +925,14 @@ function collectUnread(item, out) {
   item.children.forEach(c => collectUnread(c, out));
 }
 
+// a thread is "open" when it holds an unresolved resolvable item or
+// something you haven't read yet
+function threadOpen(item) {
+  if (item.resolvable && !effChecked(item)) return true;
+  if (isUnread(item)) return true;
+  return item.children.some(threadOpen);
+}
+
 function buildOutline() {
   const nav = $('#outline');
   nav.innerHTML = '';
@@ -661,16 +940,33 @@ function buildOutline() {
   head.className = 'ohead';
   head.innerHTML = iconHTML('table-of-contents');
   head.appendChild(document.createTextNode('Outline'));
+  const sp = document.createElement('span');
+  sp.className = 'spacer';
+  sp.style.flex = '1';
+  head.appendChild(sp);
+  const filterBtn = document.createElement('button');
+  filterBtn.className = 'ofilter';
+  filterBtn.textContent = S.outlineAll ? 'all' : 'open';
+  filterBtn.title = S.outlineAll
+    ? 'Showing every thread — click to show only open ones'
+    : 'Showing open threads only — click to show all';
+  filterBtn.addEventListener('click', () => {
+    S.outlineAll = !S.outlineAll;
+    setPref('outlineAll', S.outlineAll);
+    buildOutline();
+  });
+  head.appendChild(filterBtn);
   nav.appendChild(head);
 
   let current = null;
   const sections = [];
   for (const b of S.parsed.blocks) {
     if (b.type === 'heading') {
-      current = { block: b, unread: [] };
+      current = { block: b, unread: [], threads: [] };
       sections.push(current);
     } else if (b.type === 'thread' && current) {
       collectUnread(b.thread, current.unread);
+      current.threads.push(b.thread);
     }
   }
 
@@ -701,6 +997,32 @@ function buildOutline() {
       row.appendChild(mark);
     }
     nav.appendChild(row);
+
+    // the section's threads, jumpable, with a status dot; "open" filter
+    // hides fully-processed ones (upgrades to resolve-items once agreed)
+    for (const th of sec.threads) {
+      const stats = threadStats(th);
+      const open = threadOpen(th);
+      if (!S.outlineAll && !open) continue;
+      const trow = document.createElement('div');
+      trow.className = 'otrow';
+      const dot = document.createElement('span');
+      dot.className = 'ostat ' + (stats.unread ? 'unread' : open ? 'open' : 'done');
+      dot.title = stats.unread ? stats.unread + ' unread' : open ? 'awaiting a reply or tick' : 'all processed';
+      trow.appendChild(dot);
+      const txt = document.createElement('span');
+      txt.className = 'otxt';
+      txt.textContent = th.title ||
+        ((th.author ? th.author + ': ' : '') + th.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 46));
+      txt.title = txt.textContent;
+      trow.appendChild(txt);
+      trow.addEventListener('click', () => {
+        const unreadHere = [];
+        collectUnread(th, unreadHere);
+        revealItem(unreadHere[0] || th);
+      });
+      nav.appendChild(trow);
+    }
   }
 }
 
@@ -712,12 +1034,13 @@ function layoutRail() {
   if (S.mode !== 'margin') return;
   const rail = $('#rail');
   const railRect = rail.getBoundingClientRect();
+  const z = S.zoom || 1; // rects are in zoomed pixels, style.top/offsetHeight in CSS pixels
   let prevBottom = 0;
   for (const { card, anchorEl } of railEntries) {
     let want = 0;
     if (anchorEl) {
       const r = anchorEl.getBoundingClientRect();
-      want = r.top - railRect.top;
+      want = (r.top - railRect.top) / z;
     }
     const top = Math.max(want, prevBottom + 10);
     card.style.top = top + 'px';
@@ -733,6 +1056,17 @@ function scheduleLayout() {
 }
 new ResizeObserver(scheduleLayout).observe(document.body);
 window.addEventListener('resize', scheduleLayout);
+
+// only the INNERMOST hovered comment shows its Reply button — hovering a
+// deep subtree must not light up the whole ancestor staircase
+let hoveredItem = null;
+document.addEventListener('mouseover', e => {
+  const it = e.target.closest ? e.target.closest('.citem') : null;
+  if (it === hoveredItem) return;
+  if (hoveredItem) hoveredItem.classList.remove('hovering');
+  hoveredItem = it;
+  if (hoveredItem) hoveredItem.classList.add('hovering');
+});
 
 // draggable divider between document and comment rail (margin mode)
 function wireDivider() {
@@ -776,6 +1110,28 @@ function wireDivider() {
 // ---------------------------------------------------------------------------
 function detectEol() { S.eol = S.doc.content.includes('\r\n') ? '\r\n' : '\n'; }
 
+// remark stamps hand-typed comments itself: a bare item gets the local
+// user's name + time, an authored-but-unstamped item gets the time — a
+// couple of seconds after the file stops changing, so half-typed saves
+// from an external editor aren't grabbed mid-sentence
+let stampTimer = null;
+function scheduleAutoStamp() {
+  clearTimeout(stampTimer);
+  stampTimer = setTimeout(() => {
+    if (!S.parsed || S.saving) return;
+    const ops = [];
+    for (const it of S.parsed.items) {
+      if (it.time) continue;
+      if (!it.author) {
+        ops.push({ type: 'stamp', hash: it.hash, occ: it.occ, author: S.me, time: nowStamp() });
+      } else {
+        ops.push({ type: 'stamp', hash: it.hash, occ: it.occ, time: nowStamp() });
+      }
+    }
+    if (ops.length) submitOps(ops);
+  }, 2500);
+}
+
 function openEvents() {
   const es = new EventSource('/api/events?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN);
   es.onmessage = e => {
@@ -785,6 +1141,7 @@ function openEvents() {
     detectEol();
     render();
     if (!S.saving) idleStatus();
+    scheduleAutoStamp();
   };
   es.onopen = () => { if (!S.saving) idleStatus(); };
   es.onerror = () => setStatus('warn', 'watcher reconnecting…');
@@ -843,6 +1200,35 @@ function showLanding() {
 // ---------------------------------------------------------------------------
 // init
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// zoom: handled in-app (CSS zoom) so it can persist across restarts; the
+// browser's own zoom shortcuts are intercepted
+// ---------------------------------------------------------------------------
+function applyZoom() {
+  document.body.style.zoom = S.zoom || 1;
+  scheduleLayout();
+}
+let zoomStatusTimer = null;
+function setZoom(z) {
+  S.zoom = Math.min(2.5, Math.max(0.5, Math.round(z * 10) / 10));
+  setPref('zoom', S.zoom);
+  applyZoom();
+  setStatus('ok', Math.round(S.zoom * 100) + '%');
+  clearTimeout(zoomStatusTimer);
+  zoomStatusTimer = setTimeout(idleStatus, 1200);
+}
+window.addEventListener('keydown', e => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  if (e.key === '=' || e.key === '+') { e.preventDefault(); setZoom((S.zoom || 1) + 0.1); }
+  else if (e.key === '-') { e.preventDefault(); setZoom((S.zoom || 1) - 0.1); }
+  else if (e.key === '0') { e.preventDefault(); setZoom(1); }
+});
+window.addEventListener('wheel', e => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  setZoom((S.zoom || 1) + (e.deltaY < 0 ? 0.1 : -0.1));
+}, { passive: false });
+
 // native open-file dialog via the server; falls back to the manual path
 // input on platforms without one
 async function pickAndOpen() {
@@ -911,6 +1297,9 @@ async function init() {
   S.me = PREFS.me || 'Me';
   S.mode = PREFS.mode || 'inline';
   S.outline = PREFS.outline !== undefined ? PREFS.outline : true;
+  S.outlineAll = !!PREFS.outlineAll;
+  S.zoom = PREFS.zoom || 1;
+  applyZoom();
   if (!S.path) { showLanding(); return; }
   applyChrome();
   const fn = $('#filename');
@@ -938,6 +1327,20 @@ async function init() {
   render();
   idleStatus();
   openEvents();
+
+  // return to an in-progress draft after a restart
+  if (S.editorsOpen.size) {
+    const firstKey = S.editorsOpen.values().next().value;
+    const ed = $('.editor[data-key="' + CSS.escape(firstKey) + '"]');
+    if (ed) {
+      ed.scrollIntoView({ block: 'center' });
+      const ta = $('textarea', ed);
+      if (ta) {
+        ta.focus();
+        try { ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) {}
+      }
+    }
+  }
 }
 
 window.addEventListener('beforeunload', e => {
