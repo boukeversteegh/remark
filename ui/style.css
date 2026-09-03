@@ -590,7 +590,7 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
    of the last comment: flush with the card and below its own divider */
 .cfoot {
   min-height: 20px; border-top: 1px solid var(--border-soft);
-  margin: 0 -14px 0 -11px; padding: 7px 14px 8px 41px;
+  margin: 0 -14px 0 -11px; padding: 8px 14px 8px 14px;
 }
 /* a nested comment's reply slot (and the editor that replaces it) sits at
    the indent its reply will land on, with the subthread border running
@@ -601,9 +601,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   padding-left: 22px; padding-right: 0;
 }
 /* when the slot is the last row, its border runs on through the parent's
-   bottom padding to meet the next divider */
+   bottom padding to meet the next divider (gap stays close to the 8px top) */
 .citem .citem > .cfoot:last-child, .citem .citem > .editor:last-child {
-  margin-bottom: -9px; padding-bottom: 17px;
+  margin-bottom: -9px; padding-bottom: 9px;
 }
 /* input-shaped reply seed: quiet "type here" affordance; focusing swaps in
    the real editor */
