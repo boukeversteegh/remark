@@ -269,6 +269,13 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 .rbadge.unread { background: var(--accent); color: var(--accent-fg); }
 .rbadge.open { color: #b58407; background: rgba(210, 153, 34, .16); }
 .rbadge.clear { color: var(--ok); opacity: .7; }
+.rremove {
+  border: 0; background: none; color: var(--faint); cursor: pointer;
+  font-size: 15px; padding: 0 6px; flex: none; opacity: 0;
+  transition: opacity .12s, color .12s;
+}
+#recent a:hover .rremove { opacity: .7; }
+.rremove:hover { opacity: 1 !important; color: var(--danger); }
 
 /* who's here (presence) -------------------------------------------------- */
 .presence { margin-bottom: 18px; }

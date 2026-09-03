@@ -1674,6 +1674,17 @@ function showLanding() {
       const stat = document.createElement('span');
       stat.className = 'rstatus';
       a.appendChild(stat);
+      const rm = document.createElement('button');
+      rm.className = 'rremove';
+      rm.textContent = '×';
+      rm.title = 'Remove from recent files';
+      rm.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        setPref('recents', recents().filter(x => x !== p));
+        a.remove();
+      });
+      a.appendChild(rm);
       div.appendChild(a);
       // thread-status badges load async per file: blue = unread comments
       // for this profile, amber = open (unresolved) threads
