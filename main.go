@@ -67,6 +67,7 @@ by anyone else (add -json for NDJSON) and stays silent otherwise.
 `
 
 func main() {
+	attachConsole()
 	if len(os.Args) > 1 && os.Args[1] == "monitor" {
 		runMonitor(os.Args[2:])
 		return
