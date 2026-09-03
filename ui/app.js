@@ -1671,7 +1671,47 @@ function showLanding() {
       dd.textContent = dir.replace(/[\\/]+$/, '');
       a.appendChild(name);
       a.appendChild(dd);
+      const stat = document.createElement('span');
+      stat.className = 'rstatus';
+      a.appendChild(stat);
       div.appendChild(a);
+      // thread-status badges load async per file: blue = unread comments
+      // for this profile, amber = open (unresolved) threads
+      fetch('/api/file?path=' + encodeURIComponent(p) + '&t=' + TOKEN)
+        .then(r => r.ok ? r.json() : null)
+        .then(st => {
+          if (!st) return;
+          const doc2 = RvParser.parse(st.content.replace(/\r\n/g, '\n'));
+          const me = PREFS.me || 'Me';
+          let unread = 0, open = 0;
+          for (const it of doc2.items) {
+            const seen = (it.seenBy || []).some(n => n === me);
+            const legacyRead = it.resolvable && it.checked;
+            if (it.author !== me && !seen && !legacyRead) unread++;
+          }
+          for (const b of doc2.blocks) {
+            if (b.type === 'thread' && b.thread.resolvable && !b.thread.checked) open++;
+          }
+          if (unread) {
+            const u = document.createElement('span');
+            u.className = 'rbadge unread';
+            u.textContent = unread + ' unread';
+            stat.appendChild(u);
+          }
+          if (open) {
+            const o = document.createElement('span');
+            o.className = 'rbadge open';
+            o.textContent = open + ' open';
+            stat.appendChild(o);
+          }
+          if (!unread && !open) {
+            const c = document.createElement('span');
+            c.className = 'rbadge clear';
+            c.innerHTML = iconHTML('check');
+            stat.appendChild(c);
+          }
+        })
+        .catch(() => {});
     }
   }
   $('#openForm').addEventListener('submit', e => {
