@@ -89,7 +89,14 @@
   // display on items already inside a thread.
   function parseAuthor(firstLine) {
     var m = firstLine.match(/^(.{1,48}?):\s+(.*)$/);
-    if (!m) return null;
+    if (!m) {
+      // "Author (ts):" with nothing after the colon — the writer uses this
+      // for bodies that cannot sit inline (fences, lists, blank first line);
+      // only the unambiguous timestamped prefix qualifies as empty-bodied.
+      m = firstLine.match(/^(.{1,48}?):\s*$/);
+      if (!m || !TIME_RE.test(m[1])) return null;
+      m = [m[0], m[1], ''];
+    }
     var name = m[1];
     if (/https?$/i.test(name) || name.indexOf('](') !== -1 || name.indexOf('`') !== -1 ||
         name.indexOf('[') !== -1 || name.indexOf('*') !== -1) return null;
@@ -436,9 +443,15 @@
     var parts = text.replace(/\r\n/g, '\n').replace(/\s+$/, '').split('\n');
     var signed = author + (time ? ' (' + time + ')' : '');
     var bullet = opener ? '- [' + (checked ? 'x' : ' ') + '] ' : '- ';
-    var out = [sp + bullet + signed + ': ' + parts[0] +
+    // A first line that is blank, opens a fence or starts its own list item
+    // cannot sit inline after "Author:" — the whole body moves to
+    // continuation lines and the item line ends at the colon (the parser
+    // accepts that form when the prefix carries a timestamp).
+    var inline = parts[0];
+    var shunt = time && (inline.trim() === '' || FENCE_RE.test(inline) || LIST_RE.test(inline));
+    var out = [sp + bullet + signed + ':' + (shunt ? '' : ' ' + inline) +
       (withMarker ? ' ' + MARKER : '')];
-    for (var i = 1; i < parts.length; i++) {
+    for (var i = shunt ? 0 : 1; i < parts.length; i++) {
       out.push(parts[i].trim() === '' ? '' : spc + parts[i]);
     }
     return out;

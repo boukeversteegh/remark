@@ -45,17 +45,18 @@ type monItem struct {
 }
 
 var (
-	monItemRe   = regexp.MustCompile(`^(\s*)- \[( |x|X)\] (.*)$`)
-	monPlainRe  = regexp.MustCompile(`^(\s*)- (.*)$`)
-	monHeadRe   = regexp.MustCompile(`^(#{1,6})\s+(.*)$`)
-	monFenceRe  = regexp.MustCompile("^\\s*(```|~~~)")
-	monMarkerRe = regexp.MustCompile(`<!--\s*(?:rv|thread)\s*-->`)
-	monSeenRe   = regexp.MustCompile(`<!--\s*seen:([^>]*?)\s*-->`)
-	monAuthorRe = regexp.MustCompile(`^(.{1,48}?):\s+(.*)$`)
-	monTimeRe   = regexp.MustCompile(`\s*\((\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?)\)$`)
-	monTitleRe  = regexp.MustCompile(`^\*\*([^*].*?)\*\*\s*$`)
-	monSpaceRe  = regexp.MustCompile(`\s+`)
-	monSymbolRe = regexp.MustCompile(`^[A-Za-z0-9]`)
+	monItemRe        = regexp.MustCompile(`^(\s*)- \[( |x|X)\] (.*)$`)
+	monPlainRe       = regexp.MustCompile(`^(\s*)- (.*)$`)
+	monHeadRe        = regexp.MustCompile(`^(#{1,6})\s+(.*)$`)
+	monFenceRe       = regexp.MustCompile("^\\s*(```|~~~)")
+	monMarkerRe      = regexp.MustCompile(`<!--\s*(?:rv|thread)\s*-->`)
+	monSeenRe        = regexp.MustCompile(`<!--\s*seen:([^>]*?)\s*-->`)
+	monAuthorRe      = regexp.MustCompile(`^(.{1,48}?):\s+(.*)$`)
+	monAuthorEmptyRe = regexp.MustCompile(`^(.{1,48}?):\s*$`)
+	monTimeRe        = regexp.MustCompile(`\s*\((\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?)\)$`)
+	monTitleRe       = regexp.MustCompile(`^\*\*([^*].*?)\*\*\s*$`)
+	monSpaceRe       = regexp.MustCompile(`\s+`)
+	monSymbolRe      = regexp.MustCompile(`^[A-Za-z0-9]`)
 )
 
 func monNormalize(s string) string {
@@ -102,7 +103,13 @@ func monSameSet(a, b []string) bool {
 func monParseAuthor(line string) (author, timeStr, rest string, ok bool) {
 	m := monAuthorRe.FindStringSubmatch(line)
 	if m == nil {
-		return "", "", line, false
+		// "Author (ts):" with an empty rest — the writer's form for bodies
+		// that cannot sit inline (fences, lists); timestamped prefixes only.
+		if em := monAuthorEmptyRe.FindStringSubmatch(line); em != nil && monTimeRe.MatchString(em[1]) {
+			m = []string{em[0], em[1], ""}
+		} else {
+			return "", "", line, false
+		}
 	}
 	name := strings.TrimSpace(m[1])
 	if strings.ContainsAny(name, "`[]*") || strings.HasSuffix(strings.ToLower(name), "http") ||
