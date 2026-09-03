@@ -473,7 +473,6 @@ func runWindow(url, title string) bool {
 			noAnim := int32(1)
 			pDwmSetWindowAttribute.Call(hwnd, 3, /*DWMWA_TRANSITIONS_FORCEDISABLED*/
 				uintptr(unsafe.Pointer(&noAnim)), 4)
-			splashGone()
 			if !restoreWindowBounds(hwnd) {
 				// no saved placement: bring it back from off-screen, centered
 				sw, sh := metric(0), metric(1)
@@ -482,10 +481,13 @@ func runWindow(url, title string) bool {
 					uintptr(width), uintptr(height), swpNoZorderNoActivate)
 				pShowWindow.Call(hwnd, 5) // SW_SHOW
 			}
-			// the window was never activated (born off-screen), so without
-			// this it surfaces BEHIND whatever has focus and reads as
-			// "the app never opened"
+			// claim foreground BEFORE destroying the splash: while the
+			// splash (ours) is the foreground window, handing focus to
+			// another window of the same process is always allowed.
+			// Destroying it first hands foreground to some OTHER process,
+			// and then this call is denied — the app stays buried.
 			pSetForegroundWindow.Call(hwnd)
+			splashGone()
 		})
 		// user-driven minimize/maximize should animate normally again
 		time.Sleep(400 * time.Millisecond)
