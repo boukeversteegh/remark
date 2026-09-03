@@ -277,6 +277,7 @@ function render() {
   let lastAnchorBlock = null; // anchor of the current thread cluster
   let clusterThreads = 0;
   let pendingEditor = null;
+  let prevThreadBlock = null; // previous thread card in this cluster (seams)
 
   // ends a paragraph+threads cluster: the new-thread composer (and a ghost
   // "new thread here" button) sit AFTER the cluster's threads, matching
@@ -293,6 +294,7 @@ function render() {
       doc.appendChild(nb);
     }
     clusterThreads = 0;
+    prevThreadBlock = null;
     if (pendingEditor) {
       doc.appendChild(buildEditor(pendingEditor.key, pendingEditor.block));
       pendingEditor = null;
@@ -313,7 +315,22 @@ function render() {
         railEntries.push({ card, anchorEl: lastBlockEl, root: block.thread });
         if (lastBlockEl) markAnchor(lastBlockEl, block.thread, card);
       } else {
+        // a seam between consecutive threads inserts a new thread right
+        // there in the file — same affordance as between paragraphs
+        if (prevThreadBlock) {
+          const pt = prevThreadBlock;
+          const tgap = document.createElement('div');
+          tgap.className = 'igap tgap';
+          tgap.title = 'Insert a thread between these two';
+          tgap.innerHTML = '<span class="iglabel">— insert thread —</span>';
+          tgap.addEventListener('click', () => toggleEditor('new:' + pt.key));
+          doc.appendChild(tgap);
+          if (S.editorsOpen.has('new:' + pt.key)) {
+            doc.appendChild(buildEditor('new:' + pt.key, pt));
+          }
+        }
         doc.appendChild(card);
+        prevThreadBlock = block;
       }
       continue;
     }
@@ -934,7 +951,10 @@ function buildEditor(key, target) {
       for (let i = bi; i >= 0; i--) {
         if (S.parsed.blocks[i].type === 'heading') { sectionHash = S.parsed.blocks[i].hash; break; }
       }
-      op = { type: 'add', blockHash: target.hash, occ: target.occ, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked };
+      op = target.type === 'thread'
+        // seam between threads: the new root goes right AFTER this thread
+        ? { type: 'add', afterThreadHash: target.hash, occ: target.occ || 0, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked }
+        : { type: 'add', blockHash: target.hash, occ: target.occ, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked };
       // a just-sent thread is all-read by its author, which would default it
       // collapsed — seed the new root's key expanded before it first renders
       const rootPfx = S.me + ' (' + op.time + '): ';

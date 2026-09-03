@@ -603,7 +603,13 @@
       } else if (op.type === 'add') {
         var insertLine = -1;
         var anchor = null;
-        if (op.blockHash) {
+        if (op.afterThreadHash) {
+          // insert directly after a specific thread (the between-threads seam)
+          var tb = findByHash(doc.blocks.filter(function (b) { return b.type === 'thread'; }),
+            op.afterThreadHash, op.occ || 0);
+          if (tb) insertLine = tb.endLine + 1;
+        }
+        if (insertLine < 0 && op.blockHash) {
           anchor = findByHash(doc.blocks.filter(function (b) { return b.type !== 'thread'; }), op.blockHash, op.occ);
         }
         if (anchor) {

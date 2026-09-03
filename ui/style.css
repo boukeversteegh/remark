@@ -677,6 +677,10 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   padding: 0 8px; opacity: 0; transition: opacity .12s; white-space: nowrap;
 }
 .igap:hover .iglabel { opacity: 1; }
+/* seam between thread cards: same affordance, spans the column width and
+   eats a little of the cards' vertical margins */
+.tgap { height: 16px; margin: -12px 44px -12px 0; z-index: 5; }
+.tgap .iglabel { background: var(--bg); }
 .cbody > :first-child { margin-top: 3px; }
 .cbody > :last-child { margin-bottom: 2px; }
 .cbody p { margin: .55em 0; }
