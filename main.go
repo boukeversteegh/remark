@@ -36,7 +36,10 @@ Usage:
                                 breadcrumbs and file line numbers included.
                                 Selectors match at component boundaries:
                                 "14:05:31", "14:05", "2026-09-03 14:05" all
-                                work; ambiguous selectors list their matches.
+                                work; ambiguous selectors list their matches
+                                with two exact forms to copy: "16:58#2" (the
+                                nth match, document order) and "@1310" (the
+                                comment owning file line 1310).
                                 -depth N limits the subtree (0 = node alone),
                                 -parents prints full ancestor bodies
   remark install                copy the binary to a per-user location and

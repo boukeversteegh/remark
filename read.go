@@ -11,7 +11,10 @@ package main
 //
 // A selector matches a timestamp at component boundaries, so "22:18:07",
 // "21:11", or "2026-09-03 21:11" all address comments; when a selector is
-// ambiguous the matches are listed one per line to pick from.
+// ambiguous the matches are listed one per line to pick from. Pre-seconds
+// comments can share a stamp for real, so two exact forms exist and the
+// listing prints both per match: "16:58#2" is the nth match in document
+// order, "@1310" the comment that owns file line 1310.
 
 import (
 	"fmt"
@@ -163,6 +166,48 @@ func readMatch(t, sel string) bool {
 	return re.MatchString(t)
 }
 
+// readSelect resolves one selector against every comment: "@N" is the
+// comment owning file line N, "sel#N" the nth timestamp match, anything
+// else all timestamp matches (so the caller reports ambiguity).
+func readSelect(all []*readNode, sel string) (hits []*readNode) {
+	if strings.HasPrefix(sel, "@") {
+		ln, err := strconv.Atoi(sel[1:])
+		if err != nil {
+			return nil
+		}
+		var best *readNode
+		for _, n := range all { // deepest comment whose subtree spans line ln
+			if n.start < ln && ln <= readSubtreeEnd(n) {
+				if best == nil || n.start >= best.start {
+					best = n
+				}
+			}
+		}
+		if best != nil {
+			hits = append(hits, best)
+		}
+		return hits
+	}
+	nth := 0
+	if i := strings.LastIndex(sel, "#"); i >= 0 {
+		if v, err := strconv.Atoi(sel[i+1:]); err == nil && v > 0 {
+			nth, sel = v, sel[:i]
+		}
+	}
+	for _, n := range all {
+		if readMatch(n.time, sel) {
+			hits = append(hits, n)
+		}
+	}
+	if nth > 0 {
+		if nth > len(hits) {
+			return nil
+		}
+		return hits[nth-1 : nth]
+	}
+	return hits
+}
+
 func readSubtreeEnd(n *readNode) int {
 	for len(n.children) > 0 {
 		n = n.children[len(n.children)-1]
@@ -271,19 +316,16 @@ func runRead(args []string) {
 
 	seen := map[*readNode]bool{}
 	for _, sel := range sels {
-		var hits []*readNode
-		for _, n := range all {
-			if readMatch(n.time, sel) {
-				hits = append(hits, n)
-			}
-		}
+		hits := readSelect(all, sel)
 		switch {
 		case len(hits) == 0:
 			fmt.Printf("no comment matches %q\n", sel)
 		case len(hits) > 1:
-			fmt.Printf("%q is ambiguous — %d matches:\n", sel, len(hits))
-			for _, n := range hits {
-				fmt.Printf("  %-19s  %-12s %s\n", n.time, n.author, readFirstLine(n))
+			fmt.Printf("%q is ambiguous — %d matches, pick one by ordinal or line:\n", sel, len(hits))
+			w := len(sel) + 1 + len(strconv.Itoa(len(hits)))
+			for i, n := range hits {
+				fmt.Printf("  %-*s  @%-5d  %-19s  %-12s %s\n", w, fmt.Sprintf("%s#%d", sel, i+1), n.start+1,
+					n.time, n.author, readFirstLine(n))
 			}
 		default:
 			n := hits[0]
