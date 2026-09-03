@@ -23,6 +23,8 @@ list items, so you participate by editing the file with your normal tools.
 Usage:
   remark [flags] [file.md]      open a file in its own window
   remark monitor <files...>     watch files, print each new human comment
+  remark install                copy the binary to a per-user location and
+                                add it to your PATH
 
 Flags:
   -browser     open in the default browser instead of an app window
@@ -67,6 +69,10 @@ by anyone else (add -json for NDJSON) and stays silent otherwise.
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "monitor" {
 		runMonitor(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "install" {
+		runInstall()
 		return
 	}
 	port := flag.Int("port", 7333, "preferred port (falls back to next free)")

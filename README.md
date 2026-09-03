@@ -102,6 +102,7 @@ Some paragraph of the document being discussed.
 remark.exe path\to\review.md          # opens in its own window (WebView2)
 remark.exe -browser file.md           # use the default browser instead
 remark.exe -serve -port 7333 file.md  # headless server only
+remark.exe install                    # copy to a per-user dir + add to PATH
 ```
 
 Run it with no argument to get a landing page with a native file picker and
