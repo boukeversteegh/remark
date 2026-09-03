@@ -415,7 +415,11 @@ function wireResolve(btn, item, resolved) {
 function buildThread(block) {
   const root = block.thread;
   const card = document.createElement('div');
-  card.className = 'thread' + (threadStats(root).unread ? ' has-unread' : '');
+  // left-edge state: blue = has unread, amber = open (unresolved) but all
+  // read, neutral = resolved or status-free
+  const stripe = threadStats(root).unread ? ' has-unread'
+    : (root.resolvable && !effChecked(root) ? ' is-open' : '');
+  card.className = 'thread' + stripe;
   card.dataset.rootKey = root.key;
   card.appendChild(buildItem(root));
 

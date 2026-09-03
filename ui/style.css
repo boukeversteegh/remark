@@ -415,6 +415,8 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 }
 .thread.has-unread { border-color: var(--accent-border); }
 .thread.has-unread::before { background: var(--unread); opacity: 1; }
+/* open (unresolved) but fully read: amber edge, matching the Open pill */
+.thread.is-open::before { background: #d29922; opacity: .8; }
 #doc .twrap { position: relative; margin: 14px 44px 20px 0; }
 #doc .twrap .thread { margin: 0; scroll-margin-top: 56px; }
 .tfoot {
