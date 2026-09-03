@@ -10,6 +10,31 @@ about.
 
 ![remark showing a threaded discussion inside a markdown review document](assets/screenshot.png)
 
+## Why
+
+Discussing real work with an AI in a linear chat breaks down in predictable
+ways — remark is aimed at exactly those pain points:
+
+- You raise a few points, the agent comes back with several more, and you
+  lose track of which ones you have answered.
+- Returning to an earlier point desynchronizes you: the agent guesses wrong
+  about what you are replying to, and there is no precise way to refer to a
+  part of an earlier discussion.
+- The chat grows into a wall of text — huge, unorganized, useless for
+  looking up what was decided and why.
+- You have made many requests and cannot tell which ones were resolved.
+- Long linear chats are simply overwhelming.
+- Editing a large document is hard when the feedback sits in the chat
+  instead of next to the content it is about.
+- Sharing a markdown file and editing it concurrently sounds like the fix,
+  but ordinary editors are not built for concurrent edits by agents and
+  programs — you get conflicts and lost changes.
+
+remark's answer: every point is a **thread anchored to the text it is
+about**, with its own author-owned **resolution state**, per-reader
+**read-marks**, and **conflict-free concurrent writing** — all stored in the
+document itself.
+
 The other side (an agent, a teammate, a script) can keep writing to the file
 while you have unsent drafts open: remark keeps comment state in memory,
 watches the file in realtime, and saves via compare-and-swap with automatic
