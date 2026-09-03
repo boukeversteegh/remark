@@ -46,6 +46,7 @@ var (
 	pCallNextHookEx        = user32.NewProc("CallNextHookEx")
 	pGetCurrentThreadId    = kernel32.NewProc("GetCurrentThreadId")
 	pSetClassLongPtrW      = user32.NewProc("SetClassLongPtrW")
+	pSetForegroundWindow   = user32.NewProc("SetForegroundWindow")
 	pMonitorFromRect       = user32.NewProc("MonitorFromRect")
 	pGetMonitorInfoW       = user32.NewProc("GetMonitorInfoW")
 	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
@@ -355,6 +356,12 @@ func runWindow(url, title string) bool {
 	// CREATESTRUCT so it is BORN far off-screen — raceless, not a single
 	// frame ever paints on screen (moving or hiding it after creation always
 	// leaked one; and truly hiding it breaks WebView2 embedding).
+	// official WebView2 knob: the runtime reads this env var and uses it as
+	// the controller's initial background, before any API call could — the
+	// documented fix for the startup white flicker (AARRGGBB hex)
+	bgr := themeBGR()
+	os.Setenv("WEBVIEW2_DEFAULT_BACKGROUND_COLOR",
+		fmt.Sprintf("FF%02X%02X%02X", uint8(bgr), uint8(bgr>>8), uint8(bgr>>16)))
 	runtime.LockOSThread()
 	tid, _, _ := pGetCurrentThreadId.Call()
 	hook, _, _ := pSetWindowsHookExW.Call(5 /*WH_CBT*/, cbtOffscreenProc, 0, tid)
@@ -427,6 +434,10 @@ func runWindow(url, title string) bool {
 					uintptr(width), uintptr(height), swpNoZorderNoActivate)
 				pShowWindow.Call(hwnd, 5) // SW_SHOW
 			}
+			// the window was never activated (born off-screen), so without
+			// this it surfaces BEHIND whatever has focus and reads as
+			// "the app never opened"
+			pSetForegroundWindow.Call(hwnd)
 		})
 		go trackWindowBounds(hwnd, stop)
 	}()
