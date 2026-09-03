@@ -374,15 +374,22 @@ func newMux() *http.ServeMux {
 	// collisions get -2, -3, …
 	mux.HandleFunc("POST /api/image", authed(handlePostImage))
 	// serve files relative to a document's folder (images referenced by the
-	// markdown); locked to that folder — no absolute paths, no escaping
+	// markdown). Parent paths ("../shared/x.png") resolve the way markdown
+	// means them; absolute paths, UNC paths and anything but a regular file
+	// are refused, and the token keeps this private to the local window
 	mux.HandleFunc("GET /api/asset", authed(func(w http.ResponseWriter, r *http.Request) {
 		docDir := filepath.Dir(r.URL.Query().Get("path"))
-		rel := filepath.Clean(r.URL.Query().Get("f"))
-		if filepath.IsAbs(rel) || strings.HasPrefix(rel, "..") {
+		rel := filepath.FromSlash(r.URL.Query().Get("f"))
+		if rel == "" || filepath.IsAbs(rel) || strings.HasPrefix(rel, `\\`) {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		http.ServeFile(w, r, filepath.Join(docDir, rel))
+		target := filepath.Join(docDir, rel)
+		if st, err := os.Stat(target); err != nil || !st.Mode().IsRegular() {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, target)
 	}))
 	// links in the rendered document open in the system browser, not the
 	// app window; schemes are whitelisted so this can't be used to run things
