@@ -33,6 +33,9 @@ type presenceInfo struct {
 	// an event for it — the honest "reached the agent's monitor" stamp
 	// (design thread: it claims the line left the monitor, nothing more)
 	Delivered map[string]string `json:"delivered,omitempty"`
+	// Stalled: the process is alive but its stdout writes have been blocked
+	// for a while — the reader (the agent's harness) isn't draining the pipe
+	Stalled bool `json:"stalled,omitempty"`
 }
 
 func presenceDir() string {
@@ -90,6 +93,12 @@ func presenceAnnounce(name, kind string, patterns, files []string, stop <-chan s
 		os.WriteFile(pf, b, 0o644)
 	}
 	write()
+	presenceStalledSetter = func(v bool) {
+		if info.Stalled != v {
+			info.Stalled = v
+			write()
+		}
+	}
 	go func() {
 		<-stop
 		os.Remove(pf)
@@ -103,10 +112,21 @@ func presenceAnnounce(name, kind string, patterns, files []string, stop <-chan s
 	}
 }
 
+// presenceSetStalled is used by the monitor's write watchdog; it rewrites
+// the SAME record the announce created (matching announce's path scheme).
+var presenceStalledSetter func(bool)
+
+func presenceSetStalled(v bool) {
+	if presenceStalledSetter != nil {
+		presenceStalledSetter(v)
+	}
+}
+
 type presenceEntry struct {
 	Name      string `json:"name"`
 	Kind      string `json:"kind"`
 	Online    bool   `json:"online"`
+	Stalled   bool   `json:"stalled,omitempty"` // alive but its output isn't being read
 	LastSeen  string `json:"lastSeen"`
 	Delivered string `json:"delivered,omitempty"` // last event emitted for THIS file
 }

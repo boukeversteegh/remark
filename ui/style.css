@@ -650,7 +650,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   border-left: 2px solid var(--border-soft);
   padding-left: 11px; padding-right: 0;
 }
-/* the composer's text column matches the comment-text column too */
+/* the composer's text column matches the comment-text column too; the
+   root editor goes flush like the seed so the padding doesn't stack on
+   the item inset (nested editors keep their own margins via the rule
+   above, which is more specific) */
+.citem > .editor { margin: 0 -14px 0 -11px; padding-left: 11px; padding-right: 11px; }
 .citem > .editor textarea, .citem > .editor .etitle { padding-left: 30px; }
 /* when the slot is the last row, its border runs on through the parent's
    bottom padding to meet the next divider (gap stays close to the 8px top) */
@@ -661,11 +665,12 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
    the real editor */
 .cfoot .replyseed {
   width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px;
-  color: var(--muted); background: transparent;
+  color: var(--muted);
   border: 1px solid var(--border-soft); border-radius: 8px;
   /* placeholder text lines up with the comment TEXT column above it
      (item inset + avatar gutter), not with the container edge */
   padding: 6px 11px 6px 30px; cursor: text;
+  background: var(--code-bg);
 }
 .cfoot .replyseed::placeholder { color: var(--faint); }
 .cfoot .replyseed:hover { border-color: var(--border); background: var(--surface); }

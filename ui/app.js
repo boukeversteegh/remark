@@ -445,6 +445,20 @@ function wireResolve(btn, item, resolved) {
         S.optimisticSeen.set(it.key, true);
         ops.push({ type: 'seen', hash: it.hash, occ: it.occ, reader: S.me, on: true });
       }
+      // resolving folds the thread away — that's the point of settling it.
+      // Empty composers in the subtree close first (they'd invisibly pin it
+      // open); one with typed text keeps the thread open to protect the draft.
+      const subKeys = [];
+      (function walk(it) { subKeys.push(it.key); it.children.forEach(walk); })(item);
+      for (const ek of [...S.editorsOpen]) {
+        const inSub = subKeys.some(k =>
+          ek === 'reply:' + k || ek === 'edit:' + k || ek.startsWith('ipara:' + k + ':'));
+        if (inSub && !S.drafts[ek]) S.editorsOpen.delete(ek);
+      }
+      if (!item.parent && !hasOpenEditor(item)) {
+        S.collapsed.set(item.key, true);
+        persistCollapse(item.key, true);
+      }
     }
     S.optimistic.set(item.key, !resolved);
     ops.push({ type: 'resolve', hash: item.hash, occ: item.occ, resolved: !resolved });
@@ -878,28 +892,36 @@ function buildEditor(key, target) {
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight + 2, 340) + 'px';
   };
-  // paste an image, get a file on disk next to the document and a markdown
-  // link at the cursor; the clipboard's own filename wins when it has a
-  // real one, otherwise <docname>-<stamp>.png
-  ta.addEventListener('paste', async e => {
+  // paste an image: the link lands at the cursor immediately, but the BYTES
+  // stay in memory until Send — an accidental paste discarded with the
+  // draft leaves nothing on disk. The clipboard's own filename wins when it
+  // has a real one, otherwise <docname>-<stamp>.<ext>.
+  ta.addEventListener('paste', e => {
     const f = [...(e.clipboardData?.files || [])].find(x => x.type.startsWith('image/'));
     if (!f) return;
     e.preventDefault();
     const ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-    try {
-      const r = await fetch('/api/image?path=' + encodeURIComponent(S.path) +
-        '&name=' + encodeURIComponent(f.name || '') + '&ext=' + encodeURIComponent(ext) +
-        '&t=' + TOKEN, { method: 'POST', body: f });
-      if (!r.ok) throw new Error('upload failed');
-      const { file } = await r.json();
-      const link = '![' + file + '](' + file + ')';
-      const s0 = ta.selectionStart, s1 = ta.selectionEnd;
-      ta.value = ta.value.slice(0, s0) + link + ta.value.slice(s1);
-      ta.selectionStart = ta.selectionEnd = s0 + link.length;
-      ta.dispatchEvent(new Event('input'));
-    } catch (err) {
-      setStatus('warn', 'image paste failed');
+    let name = f.name && !/^image(\.[a-z0-9]+)?$/i.test(f.name)
+      ? f.name.replace(/[^A-Za-z0-9._-]+/g, '-') : '';
+    if (!name) {
+      const stem = splitPath(S.path).base.replace(/\.[^.]*$/, '');
+      const d = new Date(), pd = n => String(n).padStart(2, '0');
+      name = stem + '-' + d.getFullYear() + pd(d.getMonth() + 1) + pd(d.getDate()) +
+        '-' + pd(d.getHours()) + pd(d.getMinutes()) + pd(d.getSeconds()) + '.' + ext;
+    } else if (!/\.[a-z0-9]+$/i.test(name)) name += '.' + ext;
+    if (!S.pendingImgs) S.pendingImgs = new Map();
+    const pend = S.pendingImgs.get(key) || [];
+    let final = name, ix = 2;
+    while (pend.some(p => p.name === final)) {
+      final = name.replace(/(\.[^.]*)$/, '-' + (ix++) + '$1');
     }
+    pend.push({ name: final, file: f, ext });
+    S.pendingImgs.set(key, pend);
+    const link = '![' + final + '](' + final + ')';
+    const s0 = ta.selectionStart, s1 = ta.selectionEnd;
+    ta.value = ta.value.slice(0, s0) + link + ta.value.slice(s1);
+    ta.selectionStart = ta.selectionEnd = s0 + link.length;
+    ta.dispatchEvent(new Event('input'));
   });
   ta.addEventListener('input', () => {
     S.drafts[key] = ta.value;
@@ -969,15 +991,36 @@ function buildEditor(key, target) {
   wrap.appendChild(bar);
 
   function close(discard) {
-    if (discard) { delete S.drafts[key]; delete S.drafts[tKey]; persistDrafts(); }
+    if (discard) {
+      delete S.drafts[key]; delete S.drafts[tKey]; persistDrafts();
+      if (S.pendingImgs) S.pendingImgs.delete(key); // pasted bytes die with the draft
+    }
     S.editorsOpen.delete(key);
     render();
   }
-  function send() {
+  async function send() {
     let text = ta.value.trim();
     const titleText = titleIn ? titleIn.value.trim().replace(/\*\*/g, '') : '';
     if (!text && !titleText) return;
     if (titleText) text = '**' + titleText + '**\n' + text;
+    // pasted images hit the disk only now, at Send; a link the user deleted
+    // from the draft is skipped, a server collision-rename rewrites the link
+    const pend = (S.pendingImgs && S.pendingImgs.get(key)) || [];
+    for (const pi of pend) {
+      if (!text.includes('(' + pi.name + ')')) continue;
+      try {
+        const r = await fetch('/api/image?path=' + encodeURIComponent(S.path) +
+          '&name=' + encodeURIComponent(pi.name) + '&ext=' + encodeURIComponent(pi.ext) +
+          '&t=' + TOKEN, { method: 'POST', body: pi.file });
+        if (!r.ok) throw new Error('save failed');
+        const { file } = await r.json();
+        if (file !== pi.name) text = text.split(pi.name).join(file);
+      } catch (err) {
+        setStatus('warn', 'image save failed — comment not sent');
+        return;
+      }
+    }
+    if (S.pendingImgs) S.pendingImgs.delete(key);
     let op;
     if (isEdit) {
       // unchanged text AND unchanged form: just restore

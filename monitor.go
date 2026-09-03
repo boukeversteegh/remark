@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -409,6 +410,30 @@ func runMonitor(args []string) {
 		stampDelivered = presenceAnnounce(*as, "agent", fileArgs, files, stop)
 	}
 
+	// event lines go through a writer goroutine so a reader that stops
+	// draining the pipe blocks only the writer; a watchdog then flips the
+	// presence record to "stalled" — active pipe-drainage detection, so the
+	// human sees "online (stalled)" instead of inferring it from missing
+	// delivery checks
+	outCh := make(chan string, 1024)
+	var lastWrote int64 = time.Now().Unix()
+	go func() {
+		for line := range outCh {
+			fmt.Println(line)
+			atomic.StoreInt64(&lastWrote, time.Now().Unix())
+		}
+	}()
+	go func() {
+		stalled := false
+		for range time.Tick(3 * time.Second) {
+			blocked := len(outCh) > 0 && time.Now().Unix()-atomic.LoadInt64(&lastWrote) > 10
+			if blocked != stalled {
+				stalled = blocked
+				presenceSetStalled(stalled)
+			}
+		}
+	}()
+
 	type fileState struct {
 		hash  [32]byte
 		items []*monItem
@@ -493,7 +518,7 @@ func runMonitor(args []string) {
 					if ev.Thread != "" {
 						ctx += " › " + ev.Thread
 					}
-					fmt.Printf("%s %s | %s | %s: %s%s\n", mark, ev.File, ctx, ev.Author, oneLine(ev.Text), suffix)
+					outCh <- fmt.Sprintf("%s %s | %s | %s: %s%s", mark, ev.File, ctx, ev.Author, oneLine(ev.Text), suffix)
 				}
 			}
 			if emitted {
