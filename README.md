@@ -12,28 +12,31 @@ about.
 
 ## Why
 
-Discussing real work with an AI in a linear chat breaks down in predictable
-ways — remark is aimed at exactly those pain points:
+Working with an AI on anything substantial has a familiar failure mode: the
+discussion outgrows the chat.
 
-- You raise a few points, the agent comes back with several more, and you
-  lose track of which ones you have answered.
-- Returning to an earlier point desynchronizes you: the agent guesses wrong
-  about what you are replying to, and there is no precise way to refer to a
-  part of an earlier discussion.
-- The chat grows into a wall of text — huge, unorganized, useless for
+- You raise three points, the agent comes back with five, and you lose
+  track of which ones you've answered.
+- You return to an earlier point and the agent guesses wrong about what
+  you're replying to — there's no way to point precisely at a moment in the
+  discussion.
+- Anything you say while the agent is working arrives late and out of
+  context — so you interrupt it, or wait.
+- The chat grows into a wall of text: huge, unorganized, useless for
   looking up what was decided and why.
-- You have made many requests and cannot tell which ones were resolved.
-- Long linear chats are simply overwhelming.
-- Editing a large document is hard when the feedback sits in the chat
-  instead of next to the content it is about.
-- Sharing a markdown file and editing it concurrently sounds like the fix,
-  but ordinary editors are not built for concurrent edits by agents and
-  programs — you get conflicts and lost changes.
+- Requests pile up, and nothing tells you which ones were actually
+  resolved. Long linear chats are simply overwhelming.
+- Comments about a document live in the chat, nowhere near the text they're
+  about.
+- The obvious fix — both of you editing one markdown file — ends in edit
+  conflicts, because editors aren't designed for concurrent edits by agents
+  and programs.
 
-remark's answer: every point is a **thread anchored to the text it is
-about**, with its own author-owned **resolution state**, per-reader
-**read-marks**, and **conflict-free concurrent writing** — all stored in the
-document itself.
+remark moves the discussion into the document: every point is a **thread
+anchored to the text it's about**, with author-owned **resolution**,
+per-reader **read-marks**, and **conflict-free concurrent writing**. A
+thought added mid-work isn't a queued chat message — it's a comment sitting
+in exact context, waiting where the agent will look.
 
 The other side (an agent, a teammate, a script) can keep writing to the file
 while you have unsent drafts open: remark keeps comment state in memory,
