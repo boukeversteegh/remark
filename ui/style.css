@@ -143,6 +143,7 @@ button { font-family: var(--font-ui); }
   transition: background .12s, color .12s, border-color .12s;
 }
 .iconbtn:hover { background: var(--surface); border-color: var(--border); color: var(--fg); }
+.iconbtn.active { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
 
 .me {
   display: inline-flex; align-items: center; gap: 6px;

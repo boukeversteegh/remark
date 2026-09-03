@@ -286,6 +286,8 @@ function render() {
 
   for (const block of parsed.blocks) {
     if (block.type === 'thread') {
+      // toolbar filter: resolved threads drop out of view entirely
+      if (S.hideResolved && block.thread.resolvable && effChecked(block.thread)) continue;
       clusterThreads++;
       const card = buildThread(block);
       if (S.mode === 'margin') {
@@ -1369,6 +1371,21 @@ function wireTopbar() {
   });
   $('#collapseAll').innerHTML = iconHTML('chevrons-down-up');
   $('#expandAll').innerHTML = iconHTML('chevrons-up-down');
+  const hrBtn = $('#hideResolvedBtn');
+  const syncHideResolved = () => {
+    hrBtn.innerHTML = iconHTML('check-check');
+    hrBtn.classList.toggle('active', !!S.hideResolved);
+    hrBtn.title = S.hideResolved
+      ? 'Resolved threads are hidden — click to show them'
+      : 'Hide resolved threads';
+  };
+  syncHideResolved();
+  hrBtn.addEventListener('click', () => {
+    S.hideResolved = !S.hideResolved;
+    setPref('hideResolved', S.hideResolved);
+    syncHideResolved();
+    render();
+  });
   const segIcons = { inline: 'wrap-text', margin: 'panel-right' };
   for (const b of $$('#modeSeg button')) {
     b.innerHTML = iconHTML(segIcons[b.dataset.mode]);
@@ -1408,6 +1425,7 @@ async function init() {
   S.mode = PREFS.mode || 'inline';
   S.outline = PREFS.outline !== undefined ? PREFS.outline : true;
   S.outlineAll = !!PREFS.outlineAll;
+  S.hideResolved = !!PREFS.hideResolved;
   S.zoom = PREFS.zoom || 1;
   applyZoom();
   if (!S.path) { showLanding(); return; }
