@@ -633,6 +633,22 @@ function buildItem(item) {
     sb.dataset.tip = 'Seen by ' + item.seenBy.join(', ');
     head.appendChild(sb);
   }
+  // the delivery ladder's first rung: a single check per agent whose
+  // monitor emitted events for this file after the comment was written —
+  // "reached X's monitor", nothing more. Upgrades to the ✓✓ above once
+  // that agent writes its seen-marker.
+  if (isMe(item.author) && item.time) {
+    const seenNorm = new Set((item.seenBy || []).map(normName));
+    for (const pr of S.presence || []) {
+      if (pr.kind !== 'agent' || !pr.delivered || pr.delivered < item.time) continue;
+      if (seenNorm.has(normName(pr.name))) continue;
+      const dv = document.createElement('span');
+      dv.className = 'dcheck';
+      dv.innerHTML = iconHTML('check');
+      dv.dataset.tip = 'Reached ' + pr.name + "'s monitor at " + pr.delivered.slice(11);
+      head.appendChild(dv);
+    }
+  }
 
   el.appendChild(head);
 
@@ -1209,7 +1225,9 @@ async function fetchPresence() {
     if (j !== lastPresenceJson) {
       lastPresenceJson = j;
       S.presence = list;
-      buildOutline();
+      // full render, not just the outline: delivery checks live on the
+      // comments themselves and must update without a file change
+      render();
     }
   } catch (e) { /* server briefly away; keep last known state */ }
 }

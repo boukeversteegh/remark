@@ -149,7 +149,7 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	if prefsGetKey("me", &me) && me != "" {
 		stop := make(chan struct{})
 		defer close(stop)
-		presenceAnnounce(me, "human", nil, []string{p}, stop)
+		_ = presenceAnnounce(me, "human", nil, []string{p}, stop)
 	}
 
 	var lastHash string

@@ -238,7 +238,7 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
   border-radius: 10px; box-shadow: var(--shadow-float);
   font-size: 13px; line-height: 1.45;
 }
-.notice.warn { border-left-color: #d29922; }
+.notice.warn { border-left-color: var(--danger); background: var(--danger-soft); }
 .notice.ok { border-left-color: var(--ok); }
 .ndismiss {
   position: absolute; top: 4px; right: 6px;
@@ -585,7 +585,15 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   position: relative; cursor: default;
 }
 .seenby:hover { opacity: 1; }
+/* single check: delivered to an agent's monitor, not yet seen */
+.dcheck {
+  display: inline-flex; align-items: center;
+  color: var(--faint); opacity: .7; font-size: 11px; flex: none; align-self: center;
+  position: relative; cursor: default;
+}
+.dcheck:hover { opacity: 1; }
 /* names live in a tooltip; the header shows just the double check */
+.dcheck::after,
 .seenby::after {
   content: attr(data-tip);
   position: absolute; bottom: calc(100% + 7px); right: -4px;
@@ -596,7 +604,7 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   opacity: 0; transform: translateY(3px); pointer-events: none;
   transition: opacity .12s ease, transform .12s ease;
 }
-.seenby:hover::after { opacity: 1; transform: none; }
+.seenby:hover::after, .dcheck:hover::after { opacity: 1; transform: none; }
 .replybtn.inhead { opacity: 0; }
 .citem.hovering > .chead .replybtn.inhead { opacity: 1; }
 .openertoggle {

@@ -365,6 +365,7 @@ func runMonitor(args []string) {
 			ignored[monNormAuthor(n)] = true
 		}
 	}
+	stampDelivered := func(string) {}
 	if *as != "" {
 		// identity: self-exclusion plus one presence heartbeat covering the
 		// whole monitoring scope (patterns stay patterns — a glob monitor is
@@ -372,7 +373,7 @@ func runMonitor(args []string) {
 		ignored[monNormAuthor(*as)] = true
 		stop := make(chan struct{})
 		defer close(stop)
-		presenceAnnounce(*as, "agent", fileArgs, files, stop)
+		stampDelivered = presenceAnnounce(*as, "agent", fileArgs, files, stop)
 	}
 
 	type fileState struct {
@@ -411,6 +412,7 @@ func runMonitor(args []string) {
 				continue
 			}
 			items := monParse(string(b))
+			emitted := false
 			for _, ev := range monDiff(filepath.Base(f), st.items, items) {
 				actor := ev.Author
 				if ev.Type == "seen" && ev.Reader != "" {
@@ -419,6 +421,7 @@ func runMonitor(args []string) {
 				if ignored[monNormAuthor(actor)] {
 					continue
 				}
+				emitted = true
 				if *asJSON {
 					j, _ := json.Marshal(ev)
 					fmt.Println(string(j))
@@ -448,6 +451,10 @@ func runMonitor(args []string) {
 					}
 					fmt.Printf("%s %s | %s | %s: %s%s\n", mark, ev.File, ctx, ev.Author, oneLine(ev.Text), suffix)
 				}
+			}
+			if emitted {
+				// events left the monitor — the honest per-file delivery stamp
+				stampDelivered(f)
 			}
 			st.hash = h
 			st.items = items
