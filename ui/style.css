@@ -714,12 +714,14 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 /* input-shaped reply seed: quiet "type here" affordance; focusing swaps in
    the real editor */
 .cfoot .replyseed {
-  width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px;
+  box-sizing: border-box; font: inherit; font-size: 12.5px;
   color: var(--muted);
   border: 1px solid var(--border-soft); border-radius: 8px;
-  /* placeholder text lines up with the comment TEXT column above it
-     (item inset + avatar gutter), not with the container edge */
-  padding: 6px 11px 6px 30px; cursor: text;
+  /* the box itself starts at the comment TEXT column above it (item inset
+     + avatar gutter) — margin, not padding, so the seed's left border
+     roughly aligns with where posted text will appear */
+  margin-left: 30px; width: calc(100% - 30px);
+  padding: 6px 11px; cursor: text;
   /* a translucent darkener, so the seed reads darker than WHATEVER panel
      it sits on, in both themes */
   background: var(--seed-bg);

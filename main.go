@@ -29,6 +29,16 @@ Usage:
   remark recent                 list recent files, one path per line —
                                 feed it to monitor to watch them all
   remark recent open            open a window for every recent file
+  remark read <file>            index of every thread: timestamp, author,
+                                title, reply count — orient before editing
+  remark read <file> <time...>  print the comment matching a timestamp plus
+                                its whole subtree, ancestors as one-line
+                                breadcrumbs and file line numbers included.
+                                Selectors match at component boundaries:
+                                "14:05:31", "14:05", "2026-09-03 14:05" all
+                                work; ambiguous selectors list their matches.
+                                -depth N limits the subtree (0 = node alone),
+                                -parents prints full ancestor bodies
   remark install                copy the binary to a per-user location and
                                 add it to your PATH
 
@@ -51,13 +61,17 @@ The markdown convention — a complete exchange looks like this:
       - Bouke (2026-09-03 14:09): good, add it <!--seen:agent-->
 
 Rules an agent must follow when writing:
-  * Sign every comment: "Name (YYYY-MM-DD HH:mm): ". Unsigned items are
+  * Sign every comment: "Name (YYYY-MM-DD HH:mm:ss): ". Unsigned items are
     presumed to be the local human. Identity is the LITERAL string: names
     match byte for byte (no case folding, no emoji stripping), so pick ONE
     exact name and use it everywhere — your author prefix, your -as flag
     and your seen-marker entries must be identical. The timestamp is what marks a nested
     "- " line as a comment — ordinary list bullets inside a comment body
     (even "Word: text" ones) are left alone, so bodies may contain lists.
+  * Timestamps are comment IDENTITY: write seconds precision, and never
+    give two comments in one file the same timestamp — if the second you
+    are writing in is taken, bump forward one second. remark read
+    addresses comments by these timestamps.
   * New thread roots are top-level list items attached under the paragraph
     they discuss, marked with an invisible <!--thread--> comment, and
     usually opened as "- [ ]" (an open checkbox = this needs an answer).
@@ -130,6 +144,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "install" {
 		runInstall()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "read" {
+		runRead(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "recent" {

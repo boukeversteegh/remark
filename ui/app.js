@@ -80,7 +80,23 @@ function nowStamp() {
   const d = new Date();
   const p = n => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
-    ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
+// Timestamps are comment identity, so a new comment may not share one with
+// any existing comment — bump seconds forward until free.
+function uniqueStamp() {
+  const taken = new Set();
+  try {
+    RvParser.parse(normEol(S.doc.content)).items.forEach(it => { if (it.time) taken.add(it.time); });
+  } catch (e) { /* unparseable doc: plain nowStamp is still fine */ }
+  let d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  const fmt = () => d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+    ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  let t = fmt();
+  while (taken.has(t)) { d = new Date(d.getTime() + 1000); t = fmt(); }
+  return t;
 }
 
 async function api(method, path, body) {
@@ -578,6 +594,9 @@ function buildItem(item) {
     (unreplied ? ' unreplied' : '') +
     (isMe(item.author) ? ' mine' : '');
   el.dataset.ikey = item.key;
+  // timestamps are comment identity — expose each as a linkable anchor, so
+  // markdown can reference a comment as [](#r20260903221807)
+  if (item.time) el.id = 'r' + item.time.replace(/\D/g, '');
 
   const head = document.createElement('div');
   head.className = 'chead';
@@ -1036,11 +1055,11 @@ function buildEditor(key, target) {
     } else if (isInterject) {
       op = {
         type: 'reply', parentHash: target.item.hash, occ: target.item.occ,
-        afterPara: target.paraHash, author: S.me, text, time: nowStamp(),
+        afterPara: target.paraHash, author: S.me, text, time: uniqueStamp(),
         opener: opChk.checked,
       };
     } else if (isReply) {
-      op = { type: 'reply', parentHash: target.hash, occ: target.occ, author: S.me, text, time: nowStamp(), opener: opChk.checked };
+      op = { type: 'reply', parentHash: target.hash, occ: target.occ, author: S.me, text, time: uniqueStamp(), opener: opChk.checked };
     } else {
       // find nearest preceding heading for the fallback anchor
       const bi = S.parsed.blocks.indexOf(target);
@@ -1051,11 +1070,11 @@ function buildEditor(key, target) {
       op = target.type === 'thread'
         // seam between threads: the new root goes right AFTER this thread,
         // anchored by its ROOT comment's stable hash
-        ? { type: 'add', afterThreadHash: target.thread.hash, occ: target.thread.occ || 0, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked }
+        ? { type: 'add', afterThreadHash: target.thread.hash, occ: target.thread.occ || 0, sectionHash, author: S.me, text, time: uniqueStamp(), opener: opChk.checked }
         : target.type === 'heading'
           // empty-section target: land at the section's end
-          ? { type: 'add', sectionHash: target.hash, author: S.me, text, time: nowStamp(), opener: opChk.checked }
-          : { type: 'add', blockHash: target.hash, occ: target.occ, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked };
+          ? { type: 'add', sectionHash: target.hash, author: S.me, text, time: uniqueStamp(), opener: opChk.checked }
+          : { type: 'add', blockHash: target.hash, occ: target.occ, sectionHash, author: S.me, text, time: uniqueStamp(), opener: opChk.checked };
       // a just-sent thread is all-read by its author, which would default it
       // collapsed — seed the new root's key expanded before it first renders
       const rootPfx = S.me + ' (' + op.time + '): ';
@@ -1173,7 +1192,7 @@ function renderConflicts() {
       retry.appendChild(document.createTextNode('Append at end'));
       retry.addEventListener('click', () => {
         S.conflicts.splice(idx, 1);
-        submitOps([{ type: 'add', blockHash: null, occ: 0, sectionHash: c.op.sectionHash || null, author: c.op.author, text: c.op.text, time: c.op.time || nowStamp(), atEnd: true }]);
+        submitOps([{ type: 'add', blockHash: null, occ: 0, sectionHash: c.op.sectionHash || null, author: c.op.author, text: c.op.text, time: c.op.time || uniqueStamp(), atEnd: true }]);
         renderConflicts();
       });
       const copy = document.createElement('button');
