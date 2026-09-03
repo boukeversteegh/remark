@@ -1900,6 +1900,17 @@ document.addEventListener('click', e => {
   }
 });
 
+
+// the splash (index.html) covers load + first paint; drop it once painted
+function dismissSplash() {
+  const sp = $('#splash');
+  if (!sp) return;
+  requestAnimationFrame(() => {
+    sp.classList.add('gone');
+    setTimeout(() => sp.remove(), 300);
+  });
+}
+
 async function init() {
   await loadPrefs();
   S.me = PREFS.me || 'Me';
@@ -1912,7 +1923,7 @@ async function init() {
     S.collapsedSaved = JSON.parse(localStorage.getItem('remark:collapsed:' + S.path) || '{}');
   } catch (e) { S.collapsedSaved = {}; }
   applyZoom();
-  if (!S.path) { showLanding(); return; }
+  if (!S.path) { showLanding(); dismissSplash(); return; }
   applyChrome();
   const fn = $('#filename');
   fn.textContent = '';
@@ -1941,6 +1952,7 @@ async function init() {
   openEvents();
   fetchPresence();
   setInterval(fetchPresence, 5000);
+  dismissSplash();
 
   // return to an in-progress draft after a restart
   if (S.editorsOpen.size) {

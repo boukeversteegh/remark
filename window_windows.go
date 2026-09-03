@@ -152,13 +152,20 @@ func styleTitleBar(hwnd uintptr) {
 // runWindow opens the app in a native WebView2 window. Returns false if the
 // WebView2 runtime is unavailable so the caller can fall back to a browser.
 func runWindow(url, title string) bool {
+	// create the window at its RESTORED size, so restoring bounds after
+	// creation only repositions it — no visible resize jump on launch
+	width, height := 1280, 940
+	var p winPlacement
+	if prefsGetKey("win", &p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
+		width, height = int(p.R-p.X), int(p.B-p.Y)
+	}
 	w := webview2.NewWithOptions(webview2.WebViewOptions{
 		Debug:     false,
 		AutoFocus: true,
 		WindowOptions: webview2.WindowOptions{
 			Title:  title,
-			Width:  1280,
-			Height: 940,
+			Width:  uint(width),
+			Height: uint(height),
 			IconId: 1, // embedded via rsrc_windows_amd64.syso (assets/icon.ico)
 			Center: true,
 		},
