@@ -1,4 +1,4 @@
-# remark ✏️
+# <img src="assets/logo.png" width="28" align="top" alt=""> remark
 
 **A discussion tool built on top of markdown.** remark renders a markdown
 document and lets people — and AI agents — hold threaded discussions inside
@@ -79,7 +79,11 @@ remark.exe -serve -port 7333 file.md  # headless server only
 Run it with no argument to get a landing page with a native file picker and
 recent files. Try it on the bundled sample: `remark.exe examples\demo.md`.
 
-### For agents: `remark monitor`
+### For agents: `remark --help` and `remark monitor`
+
+`remark --help` prints the full convention above in agent-digestible form —
+telling an agent "let's discuss this in doc.md, run `remark --help` to learn
+the format" is enough for it to participate correctly.
 
 ```
 remark monitor <files-or-globs...> [-ignore-author name,name] [-json] [-interval 300ms]
