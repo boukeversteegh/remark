@@ -488,9 +488,19 @@ function buildItem(item) {
   const st = threadStats(item);
   const collapsed = isCollapsed(item);
   const el = document.createElement('div');
+  // your own comment with no reply yet (no child, nothing after it at its
+  // level) wears an amber edge while the thread is unresolved — a
+  // comment-level "awaiting reply", never propagated to thread status
+  let root = item;
+  while (root.parent) root = root.parent;
+  const lastAtLevel = !item.parent ||
+    item.parent.children[item.parent.children.length - 1] === item;
+  const unreplied = !(root.resolvable && effChecked(root)) &&
+    isMe(item.author) && item.children.length === 0 && lastAtLevel;
   el.className = 'citem' +
     (isUnread(item) ? ' unread' : '') +
     (collapsed ? ' collapsed' : '') +
+    (unreplied ? ' unreplied' : '') +
     (isMe(item.author) ? ' mine' : '');
   el.dataset.ikey = item.key;
 
