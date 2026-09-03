@@ -286,8 +286,11 @@ function render() {
 
   for (const block of parsed.blocks) {
     if (block.type === 'thread') {
-      // toolbar filter: resolved threads drop out of view entirely
-      if (S.hideResolved && block.thread.resolvable && effChecked(block.thread)) continue;
+      // toolbar filter: resolved threads drop out of view entirely — but
+      // never ones with unread comments, or the unread navigation would
+      // point at nothing
+      if (S.hideResolved && block.thread.resolvable && effChecked(block.thread) &&
+          threadStats(block.thread).unread === 0) continue;
       clusterThreads++;
       const card = buildThread(block);
       if (S.mode === 'margin') {
@@ -377,6 +380,38 @@ function markAnchor(blockEl, root, card) {
   card.addEventListener('mouseleave', () => blockEl.classList.remove('anchor-hl'));
 }
 
+// Resolving a subtree that still has unread comments is not allowed
+// blind: the first click arms the button into an inline question with the
+// count ("Mark N unread as read & resolve?"); a second click within a few
+// seconds marks them all read and resolves in one batch. Reopening never
+// asks.
+function wireResolve(btn, item, resolved) {
+  btn.addEventListener('click', () => {
+    const ops = [];
+    if (!resolved) {
+      const unread = [];
+      collectUnread(item, unread);
+      if (unread.length && !btn.dataset.armed) {
+        btn.dataset.armed = '1';
+        btn.classList.add('confirming');
+        btn.innerHTML = iconHTML('check-check');
+        btn.appendChild(document.createTextNode(
+          'Mark ' + unread.length + ' unread as read & resolve?'));
+        setTimeout(() => { if (btn.isConnected && btn.dataset.armed) render(); }, 5000);
+        return;
+      }
+      for (const it of unread) {
+        S.optimisticSeen.set(it.key, true);
+        ops.push({ type: 'seen', hash: it.hash, occ: it.occ, reader: S.me, on: true });
+      }
+    }
+    S.optimistic.set(item.key, !resolved);
+    ops.push({ type: 'resolve', hash: item.hash, occ: item.occ, resolved: !resolved });
+    submitOps(ops);
+    render();
+  });
+}
+
 function buildThread(block) {
   const root = block.thread;
   const card = document.createElement('div');
@@ -395,11 +430,7 @@ function buildThread(block) {
     rbtn.innerHTML = iconHTML(resolved ? 'clock' : 'check-check');
     rbtn.appendChild(document.createTextNode(resolved ? 'Reopen thread' : 'Resolve thread'));
     rbtn.title = 'Thread resolution — ' + (isMe(root.author) ? 'yours to settle' : 'owned by ' + (root.author || 'its author'));
-    rbtn.addEventListener('click', () => {
-      S.optimistic.set(root.key, !resolved);
-      submitOps([{ type: 'resolve', hash: root.hash, occ: root.occ, resolved: !resolved }]);
-      render();
-    });
+    wireResolve(rbtn, root, resolved);
     tf.appendChild(rbtn);
     card.appendChild(tf);
   }
@@ -553,11 +584,7 @@ function buildItem(item) {
     rpill.title = 'Resolution — ' +
       (isMe(item.author) ? 'yours to settle' : 'owned by ' + (item.author || 'its author')) +
       (checked ? '. Click to reopen.' : '. Click to resolve.');
-    rpill.addEventListener('click', () => {
-      S.optimistic.set(item.key, !checked);
-      submitOps([{ type: 'resolve', hash: item.hash, occ: item.occ, resolved: !checked }]);
-      render();
-    });
+    wireResolve(rpill, item, checked);
     head.appendChild(rpill);
   }
 
@@ -1372,12 +1399,15 @@ function wireTopbar() {
   $('#collapseAll').innerHTML = iconHTML('chevrons-down-up');
   $('#expandAll').innerHTML = iconHTML('chevrons-up-down');
   const hrBtn = $('#hideResolvedBtn');
+  // the button reads as "Show resolved": bright blue while resolved threads
+  // are visible, quiet/dark while they are filtered out
   const syncHideResolved = () => {
     hrBtn.innerHTML = iconHTML('check-check');
-    hrBtn.classList.toggle('active', !!S.hideResolved);
+    hrBtn.appendChild(document.createTextNode('Show resolved'));
+    hrBtn.classList.toggle('active', !S.hideResolved);
     hrBtn.title = S.hideResolved
       ? 'Resolved threads are hidden — click to show them'
-      : 'Hide resolved threads';
+      : 'Showing resolved threads — click to hide them';
   };
   syncHideResolved();
   hrBtn.addEventListener('click', () => {

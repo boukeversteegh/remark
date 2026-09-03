@@ -144,6 +144,7 @@ button { font-family: var(--font-ui); }
 }
 .iconbtn:hover { background: var(--surface); border-color: var(--border); color: var(--fg); }
 .iconbtn.active { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
+#hideResolvedBtn { width: auto; padding: 0 10px; gap: 6px; font-size: 12px; font-weight: 550; }
 
 .me {
   display: inline-flex; align-items: center; gap: 6px;
@@ -570,6 +571,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 }
 .openertoggle input { accent-color: var(--accent); margin: 0; }
 .rstat:hover { filter: brightness(1.06); border-color: var(--accent); }
+/* armed resolve button asking about unread comments */
+.rstat.confirming, .tfoot .rstat.confirming {
+  color: #b58407; background: rgba(210, 153, 34, .16);
+  border: 1px solid rgba(210, 153, 34, .45); font-weight: 600;
+}
 /* own comments: "pending" is quiet waiting, not a call to action */
 .citem.mine > .chead .rstat.is-new {
   background: none; color: var(--muted); border: 1px dashed var(--border);
@@ -581,6 +587,14 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .cfoot {
   min-height: 20px; border-top: 1px solid var(--border-soft);
   margin: 0 -14px 0 -11px; padding: 7px 14px 8px 41px;
+}
+/* a nested comment's reply slot (and the editor that replaces it) sits at
+   the indent its reply will land on, with the subthread border running
+   down beside it — only the root's slot spans the card */
+.citem .citem > .cfoot, .citem .citem > .editor {
+  margin-left: 22px; margin-right: 0;
+  border-left: 2px solid var(--border-soft);
+  padding-left: 22px; padding-right: 0;
 }
 /* input-shaped reply seed: quiet "type here" affordance; focusing swaps in
    the real editor */
