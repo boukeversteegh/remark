@@ -1,7 +1,7 @@
 # Review — PR #42: Refactor the ingestion pipeline
 
 > Add your comments inline (as a `- [ ]` item under the relevant section) — I'm watching this file and will reply.
-> My replies start with a checkbox — tick it when read; your tick without a follow-up closes the thread.
+> A checkbox is a comment's resolution, settled by its author; the little dot marks what you haven't read yet.
 
 ## 🤖 Task log
 

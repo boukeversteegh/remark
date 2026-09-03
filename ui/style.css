@@ -435,8 +435,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .citem { padding: 10px 14px 9px 11px; }
 .citem + .citem, .citem .citem { border-top: 1px solid var(--border-soft); }
 /* direct replies to the root render FLAT under it (GitHub-style stack);
-   only deeper subthreads indent */
-.citem .citem { padding-right: 0; border-radius: 0; }
+   only deeper subthreads indent. Nested rows escape their parent's padding
+   so their edges and separators run flush with the card. */
+.citem > .citem { margin-left: -11px; margin-right: -14px; border-radius: 0; }
 .citem .citem .citem {
   margin-left: 22px; border-left: 2px solid var(--border-soft);
 }

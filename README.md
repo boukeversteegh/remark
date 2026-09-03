@@ -8,6 +8,8 @@ portable, diffable `.md` file. Use it to review an agent's work, co-edit a
 living document, or keep a structured conversation anchored to the text it is
 about.
 
+![remark showing a threaded discussion inside a markdown review document](assets/screenshot.png)
+
 The other side (an agent, a teammate, a script) can keep writing to the file
 while you have unsent drafts open: remark keeps comment state in memory,
 watches the file in realtime, and saves via compare-and-swap with automatic
