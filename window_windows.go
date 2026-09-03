@@ -228,7 +228,7 @@ func splashDbg(f string, a ...any) {
 // showSplash puts up a small fixed-size centered window in the theme's
 // background color with the app icon, instantly — it covers window creation
 // and WebView2 initialization while the real window stays hidden.
-const splashW, splashH = 340, 190
+const splashW, splashH = 184, 172
 
 // splashPaint draws the card: the app icon at 96px with real alpha over the
 // theme background (a STATIC control painted transparent pixels white and
@@ -248,7 +248,7 @@ func splashPaint(hdc uintptr) {
 	}
 	pSetTextColor.Call(hdc, fg)
 	txt, _ := syscall.UTF16PtrFromString("remark")
-	rect := struct{ l, t, r, b int32 }{0, 128, splashW, 168}
+	rect := struct{ l, t, r, b int32 }{0, 126, splashW, 158}
 	pDrawTextW.Call(hdc, uintptr(unsafe.Pointer(txt)), ^uintptr(0), /*-1*/
 		uintptr(unsafe.Pointer(&rect)), 0x1|0x20 /*DT_CENTER|DT_SINGLELINE*/)
 	pSelectObject.Call(hdc, old)
@@ -294,6 +294,11 @@ func showSplash() func() {
 		uintptr(unsafe.Pointer(cls)), 0, wsPopup|wsVisible,
 		uintptr(int32(sw/2-splashW/2)), uintptr(int32(sh/2-splashH/2)),
 		splashW, splashH, 0, 0, inst, 0)
+	if hwnd != 0 {
+		round := int32(2)                     // DWMWCP_ROUND — Windows 11 rounded corners
+		pDwmSetWindowAttribute.Call(hwnd, 33, /*DWMWA_WINDOW_CORNER_PREFERENCE*/
+			uintptr(unsafe.Pointer(&round)), 4)
+	}
 	pUpdateWindow.Call(hwnd)
 	return func() {
 		if hwnd != 0 {
