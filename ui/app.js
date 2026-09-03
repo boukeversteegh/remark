@@ -217,10 +217,25 @@ function threadStats(root) {
 // ---------------------------------------------------------------------------
 const railEntries = []; // [{card, anchorEl}] in doc order, for margin layout
 
+// best display rendition per participant: markers store bare handles
+// ("claude") but the document knows the dressed name ("🤖 Claude")
+function prettyName(n) {
+  const hit = S.names && S.names.get(normName(n));
+  return hit || n;
+}
+
 function render() {
   const parsed = RvParser.parse(normEol(S.doc.content));
   annotate(parsed);
   S.parsed = parsed;
+
+  S.names = new Map();
+  const claimName = n => {
+    const k = normName(n);
+    if (k && (!S.names.has(k) || n.length > S.names.get(k).length)) S.names.set(k, n);
+  };
+  for (const it of parsed.items) if (it.author) claimName(it.author);
+  for (const pr of S.presence || []) claimName(pr.name);
 
   // clean confirmed optimistic state
   for (const it of parsed.items) {
@@ -630,7 +645,7 @@ function buildItem(item) {
     const sb = document.createElement('span');
     sb.className = 'seenby';
     sb.innerHTML = iconHTML('check-check');
-    sb.dataset.tip = 'Seen by ' + item.seenBy.join(', ');
+    sb.dataset.tip = 'Seen by ' + item.seenBy.map(prettyName).join(', ');
     head.appendChild(sb);
   }
   // the delivery ladder's first rung: a single check per agent whose
@@ -645,7 +660,7 @@ function buildItem(item) {
       const dv = document.createElement('span');
       dv.className = 'dcheck';
       dv.innerHTML = iconHTML('check');
-      dv.dataset.tip = 'Reached ' + pr.name + "'s monitor at " + pr.delivered.slice(11);
+      dv.dataset.tip = 'Reached ' + prettyName(pr.name) + "'s monitor at " + pr.delivered.slice(11);
       head.appendChild(dv);
     }
   }
