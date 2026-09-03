@@ -35,21 +35,51 @@ const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
 marked.use({ gfm: true });
 function md(text) {
   const clean = DOMPurify.sanitize(marked.parse(text));
+  const needsRefs = /#r\d{8}/.test(clean);
+  if (!clean.includes('<img') && !needsRefs) return clean;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = clean;
   // relative image links resolve against the DOCUMENT's folder, not the
   // app origin — route them through the scoped asset endpoint
-  if (clean.includes('<img')) {
-    const tpl = document.createElement('template');
-    tpl.innerHTML = clean;
-    for (const img of tpl.content.querySelectorAll('img')) {
-      const src = img.getAttribute('src') || '';
-      if (src && !/^([a-z][a-z0-9+.-]*:|\/)/i.test(src)) {
-        img.src = '/api/asset?path=' + encodeURIComponent(S.path) +
-          '&f=' + encodeURIComponent(src) + '&t=' + TOKEN;
-      }
+  for (const img of tpl.content.querySelectorAll('img')) {
+    const src = img.getAttribute('src') || '';
+    if (src && !/^([a-z][a-z0-9+.-]*:|\/)/i.test(src)) {
+      img.src = '/api/asset?path=' + encodeURIComponent(S.path) +
+        '&f=' + encodeURIComponent(src) + '&t=' + TOKEN;
     }
-    return tpl.innerHTML;
   }
-  return clean;
+  if (needsRefs) linkCommentRefs(tpl.content);
+  return tpl.innerHTML;
+}
+
+// bare #r<digits> in prose becomes a link to that comment's anchor (the
+// digits are a comment timestamp) — plain text in the file, clickable in
+// the render. Code spans and existing links are left alone.
+function linkCommentRefs(rootNode) {
+  const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    if (n.parentElement && n.parentElement.closest('code, pre, a')) continue;
+    if (/#r\d{8}/.test(n.nodeValue)) hits.push(n);
+  }
+  for (const n of hits) {
+    const s = n.nodeValue;
+    const frag = document.createDocumentFragment();
+    const re = /#r(\d{8,14})/g;
+    let last = 0, m;
+    while ((m = re.exec(s))) {
+      frag.appendChild(document.createTextNode(s.slice(last, m.index)));
+      const a = document.createElement('a');
+      a.href = '#r' + m[1];
+      a.textContent = '#r' + m[1];
+      a.className = 'cref';
+      frag.appendChild(a);
+      last = m.index + m[0].length;
+    }
+    frag.appendChild(document.createTextNode(s.slice(last)));
+    n.parentNode.replaceChild(frag, n);
+  }
 }
 
 // fence-aware split of a comment body into paragraph chunks; chunk hashes
@@ -1903,9 +1933,33 @@ document.addEventListener('click', e => {
     e.preventDefault();
     const want = decodeURIComponent(href.slice(1)).toLowerCase();
     const slug = s => s.toLowerCase().trim().replace(/[^\w\- ]+/g, '').replace(/\s+/g, '-');
-    const target = document.getElementById(want) ||
+    let target = document.getElementById(want) ||
       [...document.querySelectorAll('#doc h1,#doc h2,#doc h3,#doc h4,#doc h5,#doc h6')]
         .find(h => slug(h.textContent) === want);
+    // a comment reference whose element isn't rendered: the comment sits in
+    // a collapsed thread — expand its ancestry and retry
+    if (!target && /^r\d{8,}$/.test(want)) {
+      const digits = want.slice(1);
+      let found = null;
+      const walk = (items, anc) => items.forEach(it => {
+        const chain = anc.concat(it);
+        if (it.time && it.time.replace(/\D/g, '') === digits) found = chain;
+        if (it.children) walk(it.children, chain);
+      });
+      try { walk(RvParser.parse(normEol(S.doc.content)).items, []); } catch (err) {}
+      if (found) {
+        for (const p of found) {
+          S.collapsed.set(p.key, false);
+          persistCollapse(p.key, false);
+        }
+        render();
+        target = document.getElementById(want);
+        if (!target) {
+          toast('warn', 'That comment is in a hidden resolved thread — turn on “Show resolved” to jump to it.');
+          return;
+        }
+      }
+    }
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
