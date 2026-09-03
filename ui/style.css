@@ -23,6 +23,7 @@
   --shadow-card: 0 1px 2px rgba(27, 35, 44, .05), 0 3px 10px rgba(27, 35, 44, .05);
   --shadow-float: 0 4px 10px rgba(27, 35, 44, .08), 0 12px 32px rgba(27, 35, 44, .10);
   --code-bg: #eef1f5;
+  --seed-bg: rgba(27, 35, 44, .05);
   --thumb: #c9d2db;
   --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-display: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -53,6 +54,7 @@
     --shadow-card: 0 1px 2px rgba(0, 0, 0, .35), 0 4px 14px rgba(0, 0, 0, .25);
     --shadow-float: 0 6px 16px rgba(0, 0, 0, .45), 0 16px 40px rgba(0, 0, 0, .35);
     --code-bg: #1d2630;
+    --seed-bg: rgba(0, 0, 0, .24);
     --thumb: #39434e;
   }
 }
@@ -672,7 +674,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   /* placeholder text lines up with the comment TEXT column above it
      (item inset + avatar gutter), not with the container edge */
   padding: 6px 11px 6px 30px; cursor: text;
-  background: var(--code-bg);
+  /* a translucent darkener, so the seed reads darker than WHATEVER panel
+     it sits on, in both themes */
+  background: var(--seed-bg);
 }
 .cfoot .replyseed::placeholder { color: var(--faint); }
 .cfoot .replyseed:hover { border-color: var(--border); background: var(--surface); }
