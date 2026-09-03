@@ -51,6 +51,13 @@ var (
 	pGetMonitorInfoW       = user32.NewProc("GetMonitorInfoW")
 	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
 	pCreateSolidBrush      = gdi32.NewProc("CreateSolidBrush")
+	pDrawIconEx            = user32.NewProc("DrawIconEx")
+	pDrawTextW             = user32.NewProc("DrawTextW")
+	pCreateFontW           = gdi32.NewProc("CreateFontW")
+	pSetTextColor          = gdi32.NewProc("SetTextColor")
+	pSetBkMode             = gdi32.NewProc("SetBkMode")
+	pSelectObject          = gdi32.NewProc("SelectObject")
+	pDeleteObject          = gdi32.NewProc("DeleteObject")
 )
 
 // window placement persisted to prefs so size/position (and maximized
@@ -221,42 +228,72 @@ func splashDbg(f string, a ...any) {
 // showSplash puts up a small fixed-size centered window in the theme's
 // background color with the app icon, instantly — it covers window creation
 // and WebView2 initialization while the real window stays hidden.
+const splashW, splashH = 340, 190
+
+// splashPaint draws the card: the app icon at 96px with real alpha over the
+// theme background (a STATIC control painted transparent pixels white and
+// capped the size — the old complaints), and the wordmark beneath it.
+func splashPaint(hdc uintptr) {
+	if splashIconH != 0 {
+		pDrawIconEx.Call(hdc, (splashW-96)/2, 22, splashIconH, 96, 96, 0, 0, 3 /*DI_NORMAL*/)
+	}
+	name, _ := syscall.UTF16PtrFromString("Segoe UI")
+	font, _, _ := pCreateFontW.Call(^uintptr(27) /*-28px*/, 0, 0, 0, 600, /*semibold*/
+		0, 0, 0, 0, 0, 0, 5 /*CLEARTYPE_QUALITY*/, 0, uintptr(unsafe.Pointer(name)))
+	old, _, _ := pSelectObject.Call(hdc, font)
+	pSetBkMode.Call(hdc, 1 /*TRANSPARENT*/)
+	fg := uintptr(colorref(0x1c, 0x21, 0x28))
+	if isDarkTheme() {
+		fg = uintptr(colorref(0xe4, 0xea, 0xf1))
+	}
+	pSetTextColor.Call(hdc, fg)
+	txt, _ := syscall.UTF16PtrFromString("remark")
+	rect := struct{ l, t, r, b int32 }{0, 128, splashW, 168}
+	pDrawTextW.Call(hdc, uintptr(unsafe.Pointer(txt)), ^uintptr(0), /*-1*/
+		uintptr(unsafe.Pointer(&rect)), 0x1|0x20 /*DT_CENTER|DT_SINGLELINE*/)
+	pSelectObject.Call(hdc, old)
+	pDeleteObject.Call(font)
+}
+
+var splashWndProc = syscall.NewCallback(func(hwnd, msg, wp, lp uintptr) uintptr {
+	if msg == 0x000F { // WM_PAINT
+		var ps [72]byte // PAINTSTRUCT
+		hdc, _, _ := pBeginPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps[0])))
+		if hdc != 0 {
+			splashPaint(hdc)
+			pEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps[0])))
+		}
+		return 0
+	}
+	r, _, _ := pDefWindowProcW.Call(hwnd, msg, wp, lp)
+	return r
+})
+
 func showSplash() func() {
 	inst, _, _ := pGetModuleHandleW.Call(0)
 	bg := themeBGR()
 	// the embedded app icon — rsrc assigns it an id somewhere in 1..32
 	for id := uintptr(1); id <= 32 && splashIconH == 0; id++ {
-		splashIconH, _, _ = pLoadImageW.Call(inst, id, 1 /*IMAGE_ICON*/, 48, 48, 0)
+		splashIconH, _, _ = pLoadImageW.Call(inst, id, 1 /*IMAGE_ICON*/, 96, 96, 0)
 	}
 	splashDbg("icon handle: %d", splashIconH)
 	brush, _, _ := pCreateSolidBrush.Call(bg)
 	cls, _ := syscall.UTF16PtrFromString("remarkSplash")
 	wc := wndClassExW{
-		wndProc:    pDefWindowProcW.Addr(),
+		wndProc:    splashWndProc,
 		instance:   inst,
 		background: brush,
 		className:  cls,
 	}
 	wc.size = uint32(unsafe.Sizeof(wc))
 	pRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc)))
-	const w, h = 320, 160
 	sw, sh := metric(0), metric(1) // SM_CXSCREEN, SM_CYSCREEN
 	const wsPopup, wsVisible = 0x80000000, 0x10000000
 	const exToolWindow, exTopmost = 0x80, 0x8
 	hwnd, _, _ := pCreateWindowExW.Call(exToolWindow|exTopmost,
 		uintptr(unsafe.Pointer(cls)), 0, wsPopup|wsVisible,
-		uintptr(int32(sw/2-w/2)), uintptr(int32(sh/2-h/2)), w, h, 0, 0, inst, 0)
-	// the icon is a standard STATIC child control — no custom painting
-	if hwnd != 0 && splashIconH != 0 {
-		st, _ := syscall.UTF16PtrFromString("STATIC")
-		const wsChild, wsVisibleC, ssIcon, ssCenterImage = 0x40000000, 0x10000000, 0x3, 0x200
-		ic, _, _ := pCreateWindowExW.Call(0, uintptr(unsafe.Pointer(st)), 0,
-			wsChild|wsVisibleC|ssIcon|ssCenterImage,
-			uintptr(int32(w/2-24)), uintptr(int32(h/2-24)), 48, 48, hwnd, 0, inst, 0)
-		const stmSetIcon = 0x0170
-		r, _, _ := pSendMessageW.Call(ic, stmSetIcon, splashIconH, 0)
-		splashDbg("static hwnd: %d seticon ret: %d", ic, r)
-	}
+		uintptr(int32(sw/2-splashW/2)), uintptr(int32(sh/2-splashH/2)),
+		splashW, splashH, 0, 0, inst, 0)
 	pUpdateWindow.Call(hwnd)
 	return func() {
 		if hwnd != 0 {
@@ -425,6 +462,12 @@ func runWindow(url, title string) bool {
 		// DestroyWindow in particular silently fails cross-thread (which
 		// left windows invisible behind an immortal splash)
 		w.Dispatch(func() {
+			// no DWM maximize/restore animation for the reveal itself —
+			// the window must SNAP into place, already painted, not tween
+			// from its normal rect while the user watches
+			noAnim := int32(1)
+			pDwmSetWindowAttribute.Call(hwnd, 3, /*DWMWA_TRANSITIONS_FORCEDISABLED*/
+				uintptr(unsafe.Pointer(&noAnim)), 4)
 			splashGone()
 			if !restoreWindowBounds(hwnd) {
 				// no saved placement: bring it back from off-screen, centered
@@ -438,6 +481,12 @@ func runWindow(url, title string) bool {
 			// this it surfaces BEHIND whatever has focus and reads as
 			// "the app never opened"
 			pSetForegroundWindow.Call(hwnd)
+		})
+		// user-driven minimize/maximize should animate normally again
+		time.Sleep(400 * time.Millisecond)
+		w.Dispatch(func() {
+			anim := int32(0)
+			pDwmSetWindowAttribute.Call(hwnd, 3, uintptr(unsafe.Pointer(&anim)), 4)
 		})
 		go trackWindowBounds(hwnd, stop)
 	}()
