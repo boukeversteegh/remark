@@ -64,6 +64,7 @@
 html, body { margin: 0; padding: 0; }
 body {
   background: var(--bg); color: var(--fg);
+  padding-top: 45px; /* room for the fixed #topbar */
   font: 15px/1.65 var(--font-ui);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -108,9 +109,12 @@ button { font-family: var(--font-ui); }
 
 /* top bar ---------------------------------------------------------------- */
 #topbar {
-  position: sticky; top: 0; z-index: 50;
+  /* fixed, not sticky: sticky rides in the document flow, so overscroll
+     past the page edge drags it away — same disease the sidebar had */
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  height: 45px; box-sizing: border-box;
   display: flex; align-items: center; gap: 12px;
-  padding: 8px 16px;
+  padding: 0 16px;
   background: var(--bg2);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border-soft);

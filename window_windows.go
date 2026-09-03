@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
 
 	webview2 "github.com/jchv/go-webview2"
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -37,6 +39,10 @@ var (
 	pUpdateWindow          = user32.NewProc("UpdateWindow")
 	pFindWindowW           = user32.NewProc("FindWindowW")
 	pSetWindowPos          = user32.NewProc("SetWindowPos")
+	pSetWindowsHookExW     = user32.NewProc("SetWindowsHookExW")
+	pUnhookWindowsHookEx   = user32.NewProc("UnhookWindowsHookEx")
+	pCallNextHookEx        = user32.NewProc("CallNextHookEx")
+	pGetCurrentThreadId    = kernel32.NewProc("GetCurrentThreadId")
 	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
 	pCreateSolidBrush      = gdi32.NewProc("CreateSolidBrush")
 )
@@ -241,6 +247,35 @@ func showSplash() func() {
 	}
 }
 
+
+type cbtCreateWndW struct {
+	lpcs        *createStructW
+	insertAfter uintptr
+}
+
+type createStructW struct {
+	createParams, instance, menu, parent uintptr
+	cy, cx, y, x, style                  int32
+	_                                    int32
+	name, class                          *uint16
+	exStyle                              uint32
+}
+
+// cbtOffscreenProc rewrites creation coordinates of the "webview" class
+// window so it is created off-screen; everything else passes through.
+var cbtOffscreenProc = syscall.NewCallback(func(nCode, wparam, lparam uintptr) uintptr {
+	if nCode == 3 /*HCBT_CREATEWND*/ && lparam != 0 {
+		cw := (*cbtCreateWndW)(unsafe.Pointer(lparam))
+		if cw.lpcs != nil && uintptr(unsafe.Pointer(cw.lpcs.class)) > 0xFFFF &&
+			windows.UTF16PtrToString(cw.lpcs.class) == "webview" {
+			cw.lpcs.x = -32000
+			cw.lpcs.y = -32000
+		}
+	}
+	r, _, _ := pCallNextHookEx.Call(0, nCode, wparam, lparam)
+	return r
+})
+
 func runWindow(url, title string) bool {
 	// splash FIRST: it must be on screen before the webview window is even
 	// created, so nothing white ever paints uncovered
@@ -253,29 +288,13 @@ func runWindow(url, title string) bool {
 		width, height = int(p.R-p.X), int(p.B-p.Y)
 	}
 	// the library shows its window DURING creation and pumps messages while
-	// WebView2 initializes — seconds of white around the splash. A watcher
-	// keeps the window hidden from the instant it exists until New returns.
-	hideStop := make(chan struct{})
-	go func() {
-		cls, _ := syscall.UTF16PtrFromString("webview")
-		ttl, _ := syscall.UTF16PtrFromString(title)
-		for {
-			select {
-			case <-hideStop:
-				return
-			default:
-			}
-			if h, _, _ := pFindWindowW.Call(uintptr(unsafe.Pointer(cls)),
-				uintptr(unsafe.Pointer(ttl))); h != 0 {
-				// move it far off-screen (NOT hidden — WebView2 refuses to
-				// embed into a hidden window); nothing paints on screen
-				const swpNoSizeNoZorderNoActivate = 0x1 | 0x4 | 0x10
-				pSetWindowPos.Call(h, 0, ^uintptr(31999), ^uintptr(31999), 0, 0,
-					swpNoSizeNoZorderNoActivate)
-			}
-			time.Sleep(time.Millisecond)
-		}
-	}()
+	// WebView2 initializes. A same-thread CBT hook rewrites the window's
+	// CREATESTRUCT so it is BORN far off-screen — raceless, not a single
+	// frame ever paints on screen (moving or hiding it after creation always
+	// leaked one; and truly hiding it breaks WebView2 embedding).
+	runtime.LockOSThread()
+	tid, _, _ := pGetCurrentThreadId.Call()
+	hook, _, _ := pSetWindowsHookExW.Call(5 /*WH_CBT*/, cbtOffscreenProc, 0, tid)
 	w := webview2.NewWithOptions(webview2.WebViewOptions{
 		Debug:     false,
 		AutoFocus: true,
@@ -287,7 +306,9 @@ func runWindow(url, title string) bool {
 			Center: true,
 		},
 	})
-	close(hideStop)
+	if hook != 0 {
+		pUnhookWindowsHookEx.Call(hook)
+	}
 	if w == nil {
 		return false
 	}
