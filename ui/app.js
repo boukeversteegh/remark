@@ -563,8 +563,9 @@ function buildItem(item) {
     head.appendChild(eb);
   }
 
-  // leaf comments get Reply in the header corner, before the status pills
-  if (!collapsed && item.children.length === 0) {
+  // leaf comments get Reply in the header corner, before the status pills —
+  // except thread roots, whose reply affordance is the bottom slot
+  if (!collapsed && item.children.length === 0 && item.parent) {
     const reply = document.createElement('button');
     reply.className = 'replybtn inhead';
     reply.innerHTML = iconHTML('reply');
@@ -703,7 +704,10 @@ function buildItem(item) {
   // (scrolling up on a long comment is intentional friction toward flat
   // discussion); only comments WITH children keep it after the subtree,
   // where it appends at that level
-  if (!collapsed && item.children.length > 0 && !S.editorsOpen.has('reply:' + item.key)) {
+  // thread roots always have the bottom slot (even childless — a fresh
+  // thread must be answerable without hunting for the header ↩)
+  if (!collapsed && (item.children.length > 0 || !item.parent) &&
+      !S.editorsOpen.has('reply:' + item.key)) {
     const foot = document.createElement('div');
     foot.className = 'cfoot';
     // a quiet input-shaped seed: "here is where you type" — focusing it
