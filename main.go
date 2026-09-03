@@ -63,13 +63,34 @@ Rules an agent must follow when writing:
   * Do not touch document text outside the discussion items unless asked;
     ordinary checklists without <!--thread--> are content, not comments.
 
-To wait for the human instead of polling, run:
+Waiting for replies:
   remark monitor doc.md -as <yourname>
-It prints one line per new comment, checkbox toggle or read-marker change
-by anyone else (add -json for NDJSON) and stays silent otherwise. -as also
-announces your presence: remark windows on the file show you as online in
-the "Who's here" panel while your monitor runs, so the human knows their
-messages are being heard.
+
+  This is a STREAM, not a command that finishes. It prints one line per new
+  comment, checkbox toggle or read-marker change by anyone else, and keeps
+  running until you stop it.
+
+  Agents: attach it the way your harness attaches a long-running watcher —
+  a background/monitor task that hands you each stdout line as it arrives.
+  Do NOT call it as an ordinary blocking shell command: that parks your turn
+  and the comments only reach you when the call is killed. A monitor that
+  returns immediately with just "watching N file(s)" and nothing after it is
+  the symptom of exactly that mistake.
+
+  Each event line is:
+    <mark> <file> | <section> › <thread> | <author>: <text>
+  with <mark> being 💬 comment, ☑/☐ resolution toggle, 👁 read marker.
+
+  -json emits one NDJSON object per event instead, with fields:
+    type ("comment"|"toggle"|"seen"), file, author, text,
+    time, checked, seenBy, section, thread   (last five omitted when empty)
+
+  -as also announces your presence: remark windows on a file in your scope
+  show you as online in the "Who's here" panel while the monitor runs, so
+  the human knows their messages are being heard. To ignore additional
+  authors (say, a second agent on the same file), -ignore-author takes a
+  comma-separated list and combines with -as; giving a flag twice does NOT
+  accumulate — the last value wins.
 `
 
 func main() {
