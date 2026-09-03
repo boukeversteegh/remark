@@ -9,7 +9,9 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -392,6 +394,47 @@ func newMux() *http.ServeMux {
 			return
 		}
 		jsonOut(w, http.StatusBadRequest, map[string]string{"error": "unsupported scheme"})
+	}))
+	// a relative link in the document, resolved against the document's
+	// folder: markdown opens in a second remark window (exactly what
+	// `remark other.md` does), any other existing file in its default app.
+	// Only existing regular files qualify, so this cannot run anything.
+	mux.HandleFunc("GET /api/openfile", authed(func(w http.ResponseWriter, r *http.Request) {
+		doc := r.URL.Query().Get("path")
+		href := r.URL.Query().Get("href")
+		if i := strings.IndexAny(href, "#?"); i >= 0 {
+			href = href[:i]
+		}
+		if u, err := url.PathUnescape(href); err == nil {
+			href = u
+		}
+		if doc == "" || href == "" {
+			jsonOut(w, http.StatusBadRequest, map[string]string{"error": "missing path or href"})
+			return
+		}
+		target := filepath.FromSlash(href)
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(doc), target)
+		}
+		if st, err := os.Stat(target); err != nil || !st.Mode().IsRegular() {
+			jsonOut(w, http.StatusNotFound, map[string]string{"error": "no such file: " + target})
+			return
+		}
+		switch strings.ToLower(filepath.Ext(target)) {
+		case ".md", ".markdown", ".mdown", ".mkd", ".txt":
+			exe, err := os.Executable()
+			if err == nil {
+				err = exec.Command(exe, target).Start()
+			}
+			if err != nil {
+				jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			jsonOut(w, http.StatusOK, map[string]any{"ok": true, "remark": true, "path": target})
+		default:
+			openBrowser(target)
+			jsonOut(w, http.StatusOK, map[string]any{"ok": true, "remark": false, "path": target})
+		}
 	}))
 	return mux
 }

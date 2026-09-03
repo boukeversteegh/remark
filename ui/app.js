@@ -1983,7 +1983,15 @@ document.addEventListener('click', e => {
              href.startsWith(location.origin + '/?')) {
     // the app's own navigation (landing recents open files this way)
   } else {
-    e.preventDefault(); // relative/unknown links: nowhere sensible to go in-app
+    // a relative link: markdown opens in a second remark window, any other
+    // local file in its default app — this window itself never navigates
+    e.preventDefault();
+    if (!S.path) return;
+    fetch('/api/openfile?path=' + encodeURIComponent(S.path) +
+          '&href=' + encodeURIComponent(href) + '&t=' + TOKEN)
+      .then(r => r.json()).then(j => {
+        if (j.error) toast('warn', 'Can’t open that link: ' + String(j.error).replace(/[<>&]/g, ''));
+      }).catch(() => {});
   }
 });
 

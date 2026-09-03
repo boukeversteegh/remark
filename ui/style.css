@@ -707,7 +707,8 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .citem > .editor { margin: 0 -14px 0 -11px; padding-left: 11px; padding-right: 11px; }
 /* like the reply seed: the input's own left border starts at the text
    column — margin outside the box, not padding inside it */
-.citem > .editor textarea, .citem > .editor .etitle {
+.citem > .editor textarea, .citem > .editor .etitle,
+.citem > .editor .epreview, .citem > .editor .ebar {
   margin-left: 30px; width: calc(100% - 30px);
 }
 /* when the slot is the last row, its border runs on through the parent's
