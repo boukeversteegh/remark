@@ -604,10 +604,12 @@
         var insertLine = -1;
         var anchor = null;
         if (op.afterThreadHash) {
-          // insert directly after a specific thread (the between-threads seam)
-          var tb = findByHash(doc.blocks.filter(function (b) { return b.type === 'thread'; }),
-            op.afterThreadHash, op.occ || 0);
-          if (tb) insertLine = tb.endLine + 1;
+          // insert directly after a specific thread (the between-threads
+          // seam). Anchored by the thread's ROOT ITEM hash — stable across
+          // replies and seen-changes, unlike the block hash which covers
+          // the whole subtree.
+          var tri = findByHash(doc.items, op.afterThreadHash, op.occ || 0);
+          if (tri && !tri.parent) insertLine = subtreeEnd(tri) + 1;
         }
         if (insertLine < 0 && op.blockHash) {
           anchor = findByHash(doc.blocks.filter(function (b) { return b.type !== 'thread'; }), op.blockHash, op.occ);

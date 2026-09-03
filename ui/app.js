@@ -1049,8 +1049,9 @@ function buildEditor(key, target) {
         if (S.parsed.blocks[i].type === 'heading') { sectionHash = S.parsed.blocks[i].hash; break; }
       }
       op = target.type === 'thread'
-        // seam between threads: the new root goes right AFTER this thread
-        ? { type: 'add', afterThreadHash: target.hash, occ: target.occ || 0, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked }
+        // seam between threads: the new root goes right AFTER this thread,
+        // anchored by its ROOT comment's stable hash
+        ? { type: 'add', afterThreadHash: target.thread.hash, occ: target.thread.occ || 0, sectionHash, author: S.me, text, time: nowStamp(), opener: opChk.checked }
         : target.type === 'heading'
           // empty-section target: land at the section's end
           ? { type: 'add', sectionHash: target.hash, author: S.me, text, time: nowStamp(), opener: opChk.checked }

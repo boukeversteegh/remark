@@ -481,6 +481,18 @@ func runMonitor(args []string) {
 				continue
 			}
 			items := monParse(string(b))
+			// torn-read guard: hand editors and scripts don't all write
+			// atomically; if most known comments just "vanished", we probably
+			// read mid-write — settle briefly and re-read before diffing,
+			// or half the file gets re-emitted as new on the next tick
+			if len(st.items) > 10 && len(items) < len(st.items)/2 {
+				time.Sleep(150 * time.Millisecond)
+				if b2, err := os.ReadFile(f); err == nil {
+					b = b2
+					h = sha256.Sum256(b)
+					items = monParse(string(b))
+				}
+			}
 			emitted := false
 			for _, ev := range monDiff(filepath.Base(f), st.items, items) {
 				actor := ev.Author
