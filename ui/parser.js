@@ -222,8 +222,15 @@
         item.segments.push({ type: 'item', item: part.child });
         return;
       }
-      var display = part.lines.join('\n').replace(/\s+$/, '')
-        .replace(MARKER_RE_G, '').replace(SEEN_RE_G, '').replace(/[ \t]+$/gm, '');
+      // structural markers live on the item's FIRST line only — strip them
+      // there and nowhere else, so a body can *talk about* `<!--seen:-->`
+      // (e.g. in backticks) without the text vanishing
+      var display = part.lines.join('\n').replace(/\s+$/, '').replace(/[ \t]+$/gm, '');
+      if (firstText) {
+        var dstrip = display.split('\n');
+        dstrip[0] = dstrip[0].replace(MARKER_RE_G, '').replace(SEEN_RE_G, '').replace(/[ \t]+$/, '');
+        display = dstrip.join('\n');
+      }
       var raw2 = display;
       if (firstText) {
         firstText = false;
