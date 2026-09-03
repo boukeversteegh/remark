@@ -32,17 +32,29 @@ func runInstall() {
 		}
 		data, err := os.ReadFile(exe)
 		if err == nil {
-			// a running instance may lock the old file — move it aside first
+			// a running instance may lock the old file — move it aside first;
+			// fall back to a unique name if a previous .old~ is itself locked
 			if _, statErr := os.Stat(dest); statErr == nil {
 				old := dest + ".old~"
 				os.Remove(old)
-				os.Rename(dest, old)
+				if renameErr := os.Rename(dest, old); renameErr != nil {
+					old = fmt.Sprintf("%s.old-%d~", dest, os.Getpid())
+					if renameErr = os.Rename(dest, old); renameErr != nil {
+						fmt.Fprintln(os.Stderr, "remark install: cannot replace the running binary — close remark windows and run `remark install` again")
+						os.Exit(1)
+					}
+				}
 			}
 			err = os.WriteFile(dest, data, 0o755)
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "remark install:", err)
 			os.Exit(1)
+		}
+		if stale, _ := filepath.Glob(dest + ".old*"); stale != nil {
+			for _, s := range stale {
+				os.Remove(s) // best effort; locked ones vanish on a later run
+			}
 		}
 		fmt.Println("installed", dest)
 	} else {

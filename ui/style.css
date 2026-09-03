@@ -399,6 +399,17 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   display: flex; justify-content: flex-end;
   padding: 8px 12px 10px; border-top: 1px solid var(--border-soft);
 }
+/* the footer Resolve/Reopen is an ACTION, not a status badge: neutral
+   gray GitHub-style button regardless of thread state (the colored pill
+   in the header remains the status) */
+.tfoot .rstat, .tfoot .rstat.is-open, .tfoot .rstat.is-read {
+  color: var(--fg); background: var(--code-bg);
+  border: 1px solid var(--border); border-radius: 6px;
+  font-weight: 500; padding: 4px 12px;
+}
+.tfoot .rstat:hover {
+  filter: none; background: var(--border-soft); border-color: var(--faint);
+}
 .tsticky {
   position: absolute; top: 8px; bottom: 8px; right: -38px; width: 30px;
   pointer-events: none;
