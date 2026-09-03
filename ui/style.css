@@ -624,8 +624,8 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .rstat:hover { filter: brightness(1.06); border-color: var(--accent); }
 /* armed resolve button asking about unread comments */
 .rstat.confirming, .tfoot .rstat.confirming {
-  color: #b58407; background: rgba(210, 153, 34, .16);
-  border: 1px solid rgba(210, 153, 34, .45); font-weight: 600;
+  color: var(--accent-fg); background: var(--accent);
+  border: 1px solid var(--accent); font-weight: 600;
 }
 /* own comments: "pending" is quiet waiting, not a call to action */
 .citem.mine > .chead .rstat.is-new {
@@ -648,8 +648,10 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .citem .citem > .cfoot, .citem .citem > .editor {
   margin-left: 22px; margin-right: 0;
   border-left: 2px solid var(--border-soft);
-  padding-left: 0; padding-right: 0;
+  padding-left: 11px; padding-right: 0;
 }
+/* the composer's text column matches the comment-text column too */
+.citem > .editor textarea, .citem > .editor .etitle { padding-left: 30px; }
 /* when the slot is the last row, its border runs on through the parent's
    bottom padding to meet the next divider (gap stays close to the 8px top) */
 .citem .citem > .cfoot:last-child, .citem .citem > .editor:last-child {
@@ -661,7 +663,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px;
   color: var(--muted); background: transparent;
   border: 1px solid var(--border-soft); border-radius: 8px;
-  padding: 6px 11px; cursor: text;
+  /* placeholder text lines up with the comment TEXT column above it
+     (item inset + avatar gutter), not with the container edge */
+  padding: 6px 11px 6px 30px; cursor: text;
 }
 .cfoot .replyseed::placeholder { color: var(--faint); }
 .cfoot .replyseed:hover { border-color: var(--border); background: var(--surface); }
