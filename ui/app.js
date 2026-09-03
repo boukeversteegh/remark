@@ -447,8 +447,15 @@ function buildThread(block) {
     card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   rail2.appendChild(topBtn);
-  card.appendChild(rail2);
-  return card;
+  // the card clips its contents (overflow: hidden for the rounded corners),
+  // so the gutter rail must live OUTSIDE it — a positioning wrapper carries
+  // both. Margin mode has no gutter rail and keeps the bare card.
+  if (S.mode === 'margin') return card;
+  const twrap = document.createElement('div');
+  twrap.className = 'twrap';
+  twrap.appendChild(card);
+  twrap.appendChild(rail2);
+  return twrap;
 }
 
 function hasOpenEditor(item) {
