@@ -1043,7 +1043,11 @@ function buildPresence() {
     row.appendChild(avatarEl(display.get(k)));
     const nm = document.createElement('span');
     nm.className = 'pname';
-    nm.textContent = display.get(k) + (r.isMe ? ' (you)' : '');
+    // the avatar already shows a leading emoji — don't repeat it in the name
+    let dispName = display.get(k);
+    const em = dispName.match(/^\p{Extended_Pictographic}️?\s*/u);
+    if (em && dispName.length > em[0].length) dispName = dispName.slice(em[0].length);
+    nm.textContent = dispName + (r.isMe ? ' (you)' : '');
     row.appendChild(nm);
     const st = document.createElement('span');
     st.className = 'pstat ' + (r.online ? 'on' : 'off');
