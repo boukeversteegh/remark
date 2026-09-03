@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -22,10 +23,12 @@ discussions inside it. The whole conversation lives in the file as plain
 list items, so you participate by editing the file with your normal tools.
 
 Usage:
-  remark [flags] [file.md]      open a file in its own window
+  remark [flags] [files...]     open each document in its own window
+                                (globs accepted)
   remark monitor <files...>     watch files, print each new human comment
   remark recent                 list recent files, one path per line —
                                 feed it to monitor to watch them all
+  remark recent open            open a window for every recent file
   remark install                copy the binary to a per-user location and
                                 add it to your PATH
 
@@ -132,8 +135,26 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "recent" {
 		// one path per line, so an agent can do:
 		//   remark monitor $(remark recent) -as <name>
+		// "remark recent open" opens a window per recent file instead.
 		var rec []string
 		prefsGetKey("recents", &rec)
+		if len(os.Args) > 2 && os.Args[2] == "open" {
+			exe, err := os.Executable()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "remark recent open:", err)
+				os.Exit(1)
+			}
+			n := 0
+			for _, p := range rec {
+				if _, err := os.Stat(p); err == nil {
+					if exec.Command(exe, p).Start() == nil {
+						n++
+					}
+				}
+			}
+			fmt.Printf("remark: opening %d recent file(s)\n", n)
+			return
+		}
 		for _, p := range rec {
 			if _, err := os.Stat(p); err == nil {
 				fmt.Println(p)
@@ -171,9 +192,31 @@ func main() {
 		os.Exit(1)
 	}
 
+	// multiple documents (or globs), like monitor takes them: this process
+	// keeps the first, every further document gets its own spawned window
+	var docs []string
+	for _, a := range flag.Args() {
+		if m, _ := filepath.Glob(a); m != nil {
+			docs = append(docs, m...)
+		} else {
+			docs = append(docs, a)
+		}
+	}
+	if len(docs) > 1 {
+		if exe, err := os.Executable(); err == nil {
+			for _, f := range docs[1:] {
+				exec.Command(exe, f).Start()
+			}
+		}
+	}
+
 	u := fmt.Sprintf("http://127.0.0.1:%d/?t=%s", p, token)
 	title := "remark"
-	if f := flag.Arg(0); f != "" {
+	first := ""
+	if len(docs) > 0 {
+		first = docs[0]
+	}
+	if f := first; f != "" {
 		abs, err := filepath.Abs(f)
 		if err == nil {
 			u += "&f=" + url.QueryEscape(abs)
