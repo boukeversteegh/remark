@@ -17,6 +17,9 @@ func attachConsole() {
 	if r == 0 {
 		return
 	}
+	// our output is UTF-8; classic conhost defaults to the OEM codepage and
+	// renders em-dashes as mojibake
+	k.NewProc("SetConsoleOutputCP").Call(65001)
 	if _, err := os.Stdout.Stat(); err != nil {
 		if f, e := os.OpenFile("CONOUT$", os.O_WRONLY, 0); e == nil {
 			os.Stdout = f
