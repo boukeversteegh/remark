@@ -268,6 +268,7 @@ type monEvent struct {
 	Author  string   `json:"author"`
 	Time    string   `json:"time,omitempty"`
 	Checked bool     `json:"checked"`
+	Reader  string   `json:"reader,omitempty"` // seen-events: who was added to the marker
 	SeenBy  []string `json:"seenBy,omitempty"`
 	Section string   `json:"section,omitempty"`
 	Thread  string   `json:"thread,omitempty"`
@@ -292,9 +293,21 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Text: it.Text})
 		}
 		if !monSameSet(prev.SeenBy, it.SeenBy) {
-			evs = append(evs, monEvent{Type: "seen", File: file, Author: it.Author,
-				Time: it.Time, Checked: it.Checked, SeenBy: it.SeenBy,
-				Section: it.Section, Thread: it.Thread, Text: it.Text})
+			// the ACTOR of a seen-event is whoever was added to the marker,
+			// not the comment's author — one event per added reader, so the
+			// ignore filter judges the person who acted. Removals aren't
+			// worth reporting.
+			prevSet := map[string]bool{}
+			for _, n := range prev.SeenBy {
+				prevSet[n] = true
+			}
+			for _, n := range it.SeenBy {
+				if !prevSet[n] {
+					evs = append(evs, monEvent{Type: "seen", File: file, Author: it.Author,
+						Reader: n, Time: it.Time, Checked: it.Checked, SeenBy: it.SeenBy,
+						Section: it.Section, Thread: it.Thread, Text: it.Text})
+				}
+			}
 		}
 	}
 	return evs
@@ -399,7 +412,11 @@ func runMonitor(args []string) {
 			}
 			items := monParse(string(b))
 			for _, ev := range monDiff(filepath.Base(f), st.items, items) {
-				if ignored[monNormAuthor(ev.Author)] {
+				actor := ev.Author
+				if ev.Type == "seen" && ev.Reader != "" {
+					actor = ev.Reader
+				}
+				if ignored[monNormAuthor(actor)] {
 					continue
 				}
 				if *asJSON {
@@ -417,7 +434,13 @@ func runMonitor(args []string) {
 						}
 					case "seen":
 						mark = "👁"
-						suffix = " (seen by " + strings.Join(ev.SeenBy, ", ") + ")"
+						// the added name says what HAPPENED; the full set only
+						// says what the state is now
+						if ev.Reader != "" {
+							suffix = " (read by " + ev.Reader + ")"
+						} else {
+							suffix = " (seen by " + strings.Join(ev.SeenBy, ", ") + ")"
+						}
 					}
 					ctx := ev.Section
 					if ev.Thread != "" {

@@ -98,7 +98,11 @@ Waiting for replies:
 
   -json emits one NDJSON object per event instead, with fields:
     type ("comment"|"toggle"|"seen"), file, author, text,
-    time, checked, seenBy, section, thread   (last five omitted when empty)
+    time, checked, reader, seenBy, section, thread  (omitted when empty).
+  For seen-events the ACTOR is "reader" — the name just added to the
+  marker; "author" stays the comment's author. The -as/-ignore-author
+  filter judges the reader on seen-events, so you are never woken by
+  your own read-markers and always learn when someone reads yours.
 
   -as also announces your presence: remark windows on a file in your scope
   show you as online in the "Who's here" panel while the monitor runs, so
