@@ -140,5 +140,25 @@ const t4 = '- [x] Bouke (2026-09-03 12:00): settled text <!--thread--> <!--seen:
   ok(!bad.results[0].ok && bad.text === t1, 'missing hash: no-op with reason');
 }
 
+// ---- 7. opener rewrites the item's form -------------------------------
+{
+  const base = '- [ ] Me (2026-09-03 15:00): **T** <!--thread-->\n\n  - Claude (2026-09-03 15:01): plain reply <!--seen:Me-->\n';
+  const plain = P.parse(base).items[1];
+  const up = P.applyOps(base, [{ type: 'edit', hash: plain.hash, occ: 0, text: 'plain reply', opener: true }]);
+  ok(up.results[0].ok && up.text.includes('  - [ ] Claude (2026-09-03 15:01): plain reply <!--seen:Me-->'),
+     'opener:true turns a plain reply into an unresolved checkbox, markers kept');
+  const upIt = P.parse(up.text).items[1];
+  ok(upIt.resolvable === true && upIt.checked === false, 'converted item parses resolvable');
+
+  const down = P.applyOps(up.text, [{ type: 'edit', hash: upIt.hash, occ: 0, text: 'plain reply', opener: false }]);
+  ok(down.results[0].ok && down.text === base, 'opener:false strips the checkbox back to the original');
+
+  const resolved = base.replace('- [ ] Me', '- [x] Me');
+  const root = P.parse(resolved).items[0];
+  const keep = P.applyOps(resolved, [{ type: 'edit', hash: root.hash, occ: 0, text: '**T**\nnew body', opener: true }]);
+  ok(keep.results[0].ok && keep.text.includes('- [x] Me (2026-09-03 15:00): **T** <!--thread-->'),
+     'opener:true on a resolved item keeps the x');
+}
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 if (failed) process.exit(1);

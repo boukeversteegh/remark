@@ -814,10 +814,10 @@ function buildEditor(key, target) {
   opLabel.className = 'openertoggle';
   const opChk = document.createElement('input');
   opChk.type = 'checkbox';
-  opChk.checked = isNewThread;
+  opChk.checked = isEdit ? !!target.resolvable : isNewThread;
   opLabel.appendChild(opChk);
   opLabel.appendChild(document.createTextNode('needs resolution'));
-  if (!isEdit) bar.insertBefore(opLabel, bar.children[1]); // edits keep the item's form
+  bar.insertBefore(opLabel, bar.children[1]); // edits can change the form too
 
   let previewing = false;
   const previewBtn = document.createElement('button');
@@ -864,9 +864,12 @@ function buildEditor(key, target) {
     if (titleText) text = '**' + titleText + '**\n' + text;
     let op;
     if (isEdit) {
-      if (text === target.rawBody) { close(true); return; } // unchanged: just restore
-      // no timestamp change on edit; hash/occ identify the PRE-edit item
+      // unchanged text AND unchanged form: just restore
+      if (text === target.rawBody && opChk.checked === !!target.resolvable) { close(true); return; }
+      // no timestamp change on edit; hash/occ identify the PRE-edit item.
+      // opener rewrites the item's form when the toggle moved.
       op = { type: 'edit', hash: target.hash, occ: target.occ, text };
+      if (opChk.checked !== !!target.resolvable) op.opener = opChk.checked;
       // the edit changes the item's hash — keep its thread expanded under
       // the key the edited item will get
       const pfx = target.author ? target.author + (target.time ? ' (' + target.time + ')' : '') + ': ' : '';

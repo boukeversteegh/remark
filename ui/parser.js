@@ -576,6 +576,14 @@
         var seenTag = (eln.match(SEEN_RE) || [''])[0];
         eln = eln.replace(MARKER_RE_G, '').replace(SEEN_RE_G, '').replace(/[ \t]+$/, '');
         var ebm = eln.match(/^(\s*- (?:\[[ xX]\] )?)(.*)$/);
+        // op.opener (optional) rewrites the item's FORM: true gives it a
+        // checkbox (keeping an existing checked state), false strips it
+        if (op.opener !== undefined) {
+          var eind2 = new Array(eit.indent + 1).join(' ');
+          ebm[1] = op.opener
+            ? eind2 + '- [' + (eit.resolvable && eit.checked ? 'x' : ' ') + '] '
+            : eind2 + '- ';
+        }
         var ea = parseAuthor(ebm[2]);
         var espc = new Array(eit.indent + 3).join(' ');
         var ebody = op.text.replace(/\r\n/g, '\n').replace(/\s+$/, '').split('\n');
