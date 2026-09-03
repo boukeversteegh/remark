@@ -118,8 +118,16 @@ telling an agent "let's discuss this in doc.md, run `remark --help` to learn
 the format" is enough for it to participate correctly.
 
 ```
-remark monitor <files-or-globs...> [-ignore-author name,name] [-json] [-interval 300ms]
+remark monitor <files-or-globs...> [-as name] [-json] [-interval 300ms]
 ```
+
+`-as` is the agent's own author name: its writes are excluded from the
+event stream, and the monitor drops a pid-file style presence record so any
+remark window on a file in its scope shows the agent as **online** in the
+"Who's here" panel (above the outline, next to the local profile and every
+author in the document). Liveness is the pid itself — no heartbeat, no
+server needed, and a crashed agent reads as offline immediately.
+(`-ignore-author name,name` still works as a filter-only flag.)
 
 A headless watcher built for AI agents (a Claude hook, a `Monitor` command, a
 script): it emits one line per **new comment** and per **read-checkbox

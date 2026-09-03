@@ -971,9 +971,81 @@ function threadOpen(item) {
   return item.children.some(threadOpen);
 }
 
+// "who's here": every author seen in the document plus everyone announced
+// via a presence heartbeat, with a clear online/offline signal — its main
+// job is answering "is the agent actually listening right now?"
+function buildPresence() {
+  const wrap = document.createElement('div');
+  wrap.className = 'presence';
+  const head = document.createElement('div');
+  head.className = 'ohead';
+  head.innerHTML = iconHTML('users');
+  head.appendChild(document.createTextNode("Who's here"));
+  wrap.appendChild(head);
+
+  // display names: prefer the document's rendition (emoji, casing) and the
+  // longest variant seen
+  const display = new Map();
+  const claim = n => {
+    const k = normName(n);
+    if (k && (!display.has(k) || n.length > display.get(k).length)) display.set(k, n);
+    return k;
+  };
+  const rows = new Map();
+  if (S.me) rows.set(claim(S.me), { online: false, isMe: true });
+  for (const it of S.parsed.items) {
+    if (!it.author) continue;
+    const k = claim(it.author);
+    if (k && !rows.has(k)) rows.set(k, { online: false });
+  }
+  for (const p of S.presence || []) {
+    const k = claim(p.name);
+    if (!k) continue;
+    const r = rows.get(k) || {};
+    rows.set(k, { ...r, online: p.online, lastSeen: p.lastSeen });
+  }
+  const sorted = [...rows.entries()].sort((a, b) =>
+    (b[1].isMe ? 1 : 0) - (a[1].isMe ? 1 : 0) ||
+    (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0) ||
+    display.get(a[0]).localeCompare(display.get(b[0])));
+  for (const [k, r] of sorted) {
+    const row = document.createElement('div');
+    row.className = 'prow';
+    row.appendChild(avatarEl(display.get(k)));
+    const nm = document.createElement('span');
+    nm.className = 'pname';
+    nm.textContent = display.get(k) + (r.isMe ? ' (you)' : '');
+    row.appendChild(nm);
+    const st = document.createElement('span');
+    st.className = 'pstat ' + (r.online ? 'on' : 'off');
+    st.textContent = r.online ? 'online' : 'offline';
+    if (!r.online && r.lastSeen) st.title = 'last seen ' + r.lastSeen;
+    row.appendChild(st);
+    wrap.appendChild(row);
+  }
+  return wrap;
+}
+
+let lastPresenceJson = '';
+async function fetchPresence() {
+  if (!S.path) return;
+  try {
+    const r = await fetch('/api/presence?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN);
+    if (!r.ok) return;
+    const list = await r.json();
+    const j = JSON.stringify(list);
+    if (j !== lastPresenceJson) {
+      lastPresenceJson = j;
+      S.presence = list;
+      buildOutline();
+    }
+  } catch (e) { /* server briefly away; keep last known state */ }
+}
+
 function buildOutline() {
   const nav = $('#outline');
   nav.innerHTML = '';
+  nav.appendChild(buildPresence());
   const head = document.createElement('div');
   head.className = 'ohead';
   head.innerHTML = iconHTML('table-of-contents');
@@ -1365,6 +1437,8 @@ async function init() {
   render();
   idleStatus();
   openEvents();
+  fetchPresence();
+  setInterval(fetchPresence, 5000);
 
   // return to an in-progress draft after a restart
   if (S.editorsOpen.size) {

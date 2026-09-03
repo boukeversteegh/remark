@@ -224,6 +224,21 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 #divider { display: none; }
 .block { scroll-margin-top: 60px; }
 
+/* who's here (presence) -------------------------------------------------- */
+.presence { margin-bottom: 18px; }
+.prow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 6px; font-size: 12.5px; color: var(--fg);
+}
+.prow .avatar { flex: none; }
+.prow .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.pstat { flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
+.pstat::before { content: ''; width: 7px; height: 7px; border-radius: 50%; }
+.pstat.on { color: var(--ok); }
+.pstat.on::before { background: var(--ok); }
+.pstat.off { color: var(--faint); }
+.pstat.off::before { background: var(--faint); opacity: .45; }
+
 /* outline panel ---------------------------------------------------------- */
 #outline {
   display: none; flex: none; width: 268px;

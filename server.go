@@ -142,6 +142,15 @@ func handleEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
+	// an open watcher means a human is looking at this file — announce the
+	// local profile for the presence panel while the stream lives
+	var me string
+	if prefsGetKey("me", &me) && me != "" {
+		stop := make(chan struct{})
+		defer close(stop)
+		presenceAnnounce(me, "human", nil, []string{p}, stop)
+	}
+
 	var lastHash string
 	var lastMtime int64
 	var lastSize int64
@@ -299,5 +308,8 @@ func newMux() *http.ServeMux {
 	}))
 	mux.HandleFunc("GET /api/prefs", authed(handleGetPrefs))
 	mux.HandleFunc("POST /api/prefs", authed(handlePostPrefs))
+	mux.HandleFunc("GET /api/presence", authed(func(w http.ResponseWriter, r *http.Request) {
+		jsonOut(w, http.StatusOK, presenceList(r.URL.Query().Get("path")))
+	}))
 	return mux
 }

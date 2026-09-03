@@ -64,9 +64,12 @@ Rules an agent must follow when writing:
     ordinary checklists without <!--thread--> are content, not comments.
 
 To wait for the human instead of polling, run:
-  remark monitor doc.md -ignore-author <yourname>
+  remark monitor doc.md -as <yourname>
 It prints one line per new comment, checkbox toggle or read-marker change
-by anyone else (add -json for NDJSON) and stays silent otherwise.
+by anyone else (add -json for NDJSON) and stays silent otherwise. -as also
+announces your presence: remark windows on the file show you as online in
+the "Who's here" panel while your monitor runs, so the human knows their
+messages are being heard.
 `
 
 func main() {

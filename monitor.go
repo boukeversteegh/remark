@@ -302,7 +302,8 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 
 func runMonitor(args []string) {
 	fs := flag.NewFlagSet("monitor", flag.ExitOnError)
-	ignore := fs.String("ignore-author", "", "comma-separated authors whose changes are not reported (e.g. the agent itself)")
+	as := fs.String("as", "", "the agent's own author name: announces presence and implies -ignore-author for it")
+	ignore := fs.String("ignore-author", "", "comma-separated authors whose changes are not reported (deprecated alias: prefer -as)")
 	asJSON := fs.Bool("json", false, "emit NDJSON instead of human-readable lines")
 	interval := fs.Duration("interval", 300*time.Millisecond, "poll interval")
 
@@ -313,7 +314,8 @@ func runMonitor(args []string) {
 		if strings.HasPrefix(a, "-") {
 			flagArgs = append(flagArgs, a)
 			needsValue := !strings.Contains(a, "=") &&
-				(strings.Contains(a, "ignore-author") || strings.Contains(a, "interval"))
+				(strings.Contains(a, "ignore-author") || strings.Contains(a, "interval") ||
+					strings.TrimLeft(a, "-") == "as")
 			if needsValue && i+1 < len(args) {
 				i++
 				flagArgs = append(flagArgs, args[i])
@@ -349,6 +351,15 @@ func runMonitor(args []string) {
 		if n = strings.TrimSpace(n); n != "" {
 			ignored[monNormAuthor(n)] = true
 		}
+	}
+	if *as != "" {
+		// identity: self-exclusion plus one presence heartbeat covering the
+		// whole monitoring scope (patterns stay patterns — a glob monitor is
+		// one participant, not one per matched file)
+		ignored[monNormAuthor(*as)] = true
+		stop := make(chan struct{})
+		defer close(stop)
+		presenceAnnounce(*as, "agent", fileArgs, files, stop)
 	}
 
 	type fileState struct {
