@@ -28,6 +28,11 @@ var (
 	pCreateWindowExW       = user32.NewProc("CreateWindowExW")
 	pDestroyWindow         = user32.NewProc("DestroyWindow")
 	pDefWindowProcW        = user32.NewProc("DefWindowProcW")
+	pBeginPaint            = user32.NewProc("BeginPaint")
+	pEndPaint              = user32.NewProc("EndPaint")
+	pGetClientRect         = user32.NewProc("GetClientRect")
+	pDrawIconEx            = user32.NewProc("DrawIconEx")
+	pUpdateWindow          = user32.NewProc("UpdateWindow")
 	gdi32                  = syscall.NewLazyDLL("gdi32.dll")
 	pCreateSolidBrush      = gdi32.NewProc("CreateSolidBrush")
 )
@@ -167,9 +172,38 @@ type wndClassExW struct {
 	iconSm                             uintptr
 }
 
+type paintStructW struct {
+	hdc         uintptr
+	erase       int32
+	rc          [4]int32
+	restore     int32
+	incUpdate   int32
+	rgbReserved [32]byte
+}
+
+var splashIconH uintptr
+
+// splashProc paints the app icon centered on the theme-colored card.
+var splashProc = syscall.NewCallback(func(hwnd, msg, wparam, lparam uintptr) uintptr {
+	if msg == 0x000F { // WM_PAINT
+		var ps paintStructW
+		hdc, _, _ := pBeginPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
+		var rc [4]int32
+		pGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
+		const sz = 48
+		pDrawIconEx.Call(hdc,
+			uintptr(int32((rc[2]-rc[0])/2-sz/2)), uintptr(int32((rc[3]-rc[1])/2-sz/2)),
+			splashIconH, sz, sz, 0, 0, 3 /* DI_NORMAL */)
+		pEndPaint.Call(hwnd, uintptr(unsafe.Pointer(&ps)))
+		return 0
+	}
+	r, _, _ := pDefWindowProcW.Call(hwnd, msg, wparam, lparam)
+	return r
+})
+
 // showSplash puts up a small fixed-size centered window in the theme's
-// background color, instantly — it covers WebView2 initialization while the
-// real window stays hidden. Returns a destroy func.
+// background color with the app icon, instantly — it covers window creation
+// and WebView2 initialization while the real window stays hidden.
 func showSplash() func() {
 	inst, _, _ := pGetModuleHandleW.Call(0)
 	// theme-matching brush (same registry read the titlebar uses)
@@ -181,23 +215,25 @@ func showSplash() func() {
 		}
 		k.Close()
 	}
+	splashIconH, _, _ = pLoadIconW.Call(inst, 1) // the embedded app icon
 	brush, _, _ := pCreateSolidBrush.Call(bg)
 	cls, _ := syscall.UTF16PtrFromString("remarkSplash")
 	wc := wndClassExW{
-		wndProc:    pDefWindowProcW.Addr(),
+		wndProc:    splashProc,
 		instance:   inst,
 		background: brush,
 		className:  cls,
 	}
 	wc.size = uint32(unsafe.Sizeof(wc))
 	pRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc)))
-	const w, h = 320, 120
+	const w, h = 320, 160
 	sw, sh := metric(0), metric(1) // SM_CXSCREEN, SM_CYSCREEN
 	const wsPopup, wsVisible = 0x80000000, 0x10000000
 	const exToolWindow, exTopmost = 0x80, 0x8
 	hwnd, _, _ := pCreateWindowExW.Call(exToolWindow|exTopmost,
 		uintptr(unsafe.Pointer(cls)), 0, wsPopup|wsVisible,
 		uintptr(int32(sw/2-w/2)), uintptr(int32(sh/2-h/2)), w, h, 0, 0, inst, 0)
+	pUpdateWindow.Call(hwnd)
 	return func() {
 		if hwnd != 0 {
 			pDestroyWindow.Call(hwnd)
@@ -206,6 +242,9 @@ func showSplash() func() {
 }
 
 func runWindow(url, title string) bool {
+	// splash FIRST: it must be on screen before the webview window is even
+	// created, so nothing white ever paints uncovered
+	splashGone := showSplash()
 	// create the window at its RESTORED size, so restoring bounds after
 	// creation only repositions it — no visible resize jump on launch
 	width, height := 1280, 940
@@ -233,7 +272,6 @@ func runWindow(url, title string) bool {
 	// until the UI reports its first paint, then appears once, at its final
 	// placement — no white flash, no resize jump
 	pShowWindow.Call(hwnd, 0) // SW_HIDE
-	splashGone := showSplash()
 	styleTitleBar(hwnd)
 	setWindowIcon(hwnd)
 	stop := make(chan struct{})
