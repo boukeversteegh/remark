@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -310,6 +311,17 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("POST /api/prefs", authed(handlePostPrefs))
 	mux.HandleFunc("GET /api/presence", authed(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, presenceList(r.URL.Query().Get("path")))
+	}))
+	// links in the rendered document open in the system browser, not the
+	// app window; schemes are whitelisted so this can't be used to run things
+	mux.HandleFunc("GET /api/openurl", authed(func(w http.ResponseWriter, r *http.Request) {
+		u := r.URL.Query().Get("u")
+		if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") || strings.HasPrefix(u, "mailto:") {
+			openBrowser(u)
+			jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
+			return
+		}
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": "unsupported scheme"})
 	}))
 	return mux
 }

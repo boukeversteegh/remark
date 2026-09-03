@@ -1419,6 +1419,30 @@ function wireTopbar() {
   $('#unreadBtn').addEventListener('click', jumpUnread);
 }
 
+// links: anchors jump in place, everything external opens in the system
+// browser via the server (the app window must never navigate away)
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[href]');
+  if (!a) return;
+  const href = a.getAttribute('href');
+  if (href.startsWith('#')) {
+    e.preventDefault();
+    const want = decodeURIComponent(href.slice(1)).toLowerCase();
+    const slug = s => s.toLowerCase().trim().replace(/[^\w\- ]+/g, '').replace(/\s+/g, '-');
+    const target = document.getElementById(want) ||
+      [...document.querySelectorAll('#doc h1,#doc h2,#doc h3,#doc h4,#doc h5,#doc h6')]
+        .find(h => slug(h.textContent) === want);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  if (/^(https?:|mailto:)/i.test(href)) {
+    e.preventDefault();
+    fetch('/api/openurl?u=' + encodeURIComponent(href) + '&t=' + TOKEN);
+  } else if (!href.startsWith(location.origin)) {
+    e.preventDefault(); // relative/file links: nowhere sensible to go in-app
+  }
+});
+
 async function init() {
   await loadPrefs();
   S.me = PREFS.me || 'Me';
