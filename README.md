@@ -57,7 +57,10 @@ Some paragraph of the document being discussed.
 ```
 
 - A **top-level** authored item is a thread root; **indented** items under it
-  are replies (arbitrary nesting supported, flat threads encouraged).
+  are replies (arbitrary nesting supported, flat threads encouraged). A
+  nested plain item counts as a reply only when it carries a *timestamped*
+  author prefix — ordinary list bullets inside a comment body (even
+  `Word: text` ones) stay body content, so bodies may freely contain lists.
 - A **checkbox** on a comment is its **resolution**, settled by its author:
   `- [ ]` opens something that needs an answer (thread roots usually do),
   `- [x]` means its author considers it settled. **Plain `- ` replies carry

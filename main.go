@@ -44,7 +44,10 @@ The markdown convention (how to write a comment):
 
 Rules an agent must follow when writing:
   * Always sign with an explicit author prefix: "Name (YYYY-MM-DD HH:mm): ".
-    Unsigned items are presumed to be the local human.
+    Unsigned items are presumed to be the local human. The timestamp is what
+    marks a nested "- " line as a comment — ordinary list bullets inside a
+    comment body (even "Word: text" ones) are left alone, so bodies may
+    freely contain lists.
   * New thread roots are top-level list items attached under the paragraph
     they discuss, marked with an invisible <!--thread--> comment, and
     usually opened as "- [ ]" (an open checkbox = this needs an answer).

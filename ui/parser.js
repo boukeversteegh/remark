@@ -66,10 +66,14 @@
   }
 
   // Gate for PLAIN "- " items only: they count as comments when explicitly
-  // marked or when their text carries an author prefix.
+  // marked or when their text carries a TIMESTAMPED author prefix. The
+  // timestamp is required because ordinary body bullets like "- Homepage:
+  // the intro page" would otherwise read as comments by author "Homepage"
+  // (and the auto-stamper would then write timestamps into them).
   function isCommentText(text) {
     if (MARKER_RE.test(text)) return true;
-    return !!parseAuthor(text.replace(MARKER_RE_G, '').replace(SEEN_RE_G, '').trim());
+    var a = parseAuthor(text.replace(MARKER_RE_G, '').replace(SEEN_RE_G, '').trim());
+    return !!a && TIME_RE.test(a.author);
   }
 
   function indentOf(line) {

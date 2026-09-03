@@ -185,7 +185,9 @@ func monParse(content string) []*monItem {
 			stripped := monSeenRe.ReplaceAllString(text, "")
 			if monMarkerRe.MatchString(stripped) {
 				isItem = true
-			} else if _, _, _, ok := monParseAuthor(monMarkerRe.ReplaceAllString(stripped, "")); ok {
+			} else if _, ts, _, ok := monParseAuthor(monMarkerRe.ReplaceAllString(stripped, "")); ok && ts != "" {
+				// timestamp required, or body bullets like "- Homepage: intro"
+				// would read as comments by author "Homepage"
 				isItem = true
 			}
 			if !isItem {

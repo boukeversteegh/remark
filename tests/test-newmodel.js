@@ -15,7 +15,8 @@ const t1 = [
   '- [ ] Bouke (2026-09-03 10:00): opener question <!--thread-->', '',
   '  - Claude (2026-09-03 10:01): plain reply, not resolvable', '',
   '    - [x] Bouke (2026-09-03 10:02): nested checkbox reply', '',
-  '  - Claude: second plain reply',
+  '  - Claude (2026-09-03 10:03): second plain reply', '',
+  '  - Homepage: an untimestamped body bullet, NOT a comment',
 ].join('\n');
 {
   const th = threads(t1);
@@ -33,6 +34,8 @@ const t1 = [
      'nested checkbox reply resolvable+checked');
   ok(r.children[1].author === 'Claude' && r.children[1].resolvable === false,
      'second plain reply is a comment');
+  ok(!r.children.some(c => c.author === 'Homepage') && /Homepage/.test(r.rawBody || ''),
+     'untimestamped "Word:" bullet stays body content, not a comment');
   ok(P.parse(t1).items.every(i => Array.isArray(i.seenBy) && i.seenBy.length === 0),
      'seenBy defaults to [] everywhere');
 }
@@ -54,9 +57,10 @@ const t2 = [
   ok(r.children.length === 1 && r.children[0].resolvable === true,
      'checkbox reply under plain root');
 }
-// plain authored root WITHOUT marker (strict heuristic)
+// plain authored root WITHOUT marker (strict heuristic; replies need the
+// timestamped prefix to count as comments)
 {
-  const th = threads('- Bouke: hand-written plain root\n\n  - Claude: reply');
+  const th = threads('- Bouke: hand-written plain root\n\n  - Claude (2026-09-03 11:01): reply');
   ok(th.length === 1 && th[0].thread.children.length === 1,
      'plain root via author heuristic (no marker)');
 }
@@ -166,9 +170,11 @@ const t4 = [
      !ad2.text.includes('[ ] Bouke (2026-09-03 14:03)'), 'add opener=false writes plain root');
   ok(threads(ad2.text).length === 1, 'plain added root reparses as thread');
 
-  // stamp on a plain item
-  const st = P.applyOps(t1, [{ type: 'stamp', hash: r.children[1].hash, occ: 0, time: '2026-09-03 14:04' }]);
-  ok(st.results[0].ok && st.text.includes('  - Claude (2026-09-03 14:04): second plain reply'),
+  // stamp on a plain item (an untimestamped hand-written root)
+  const su = '- Bouke: hand-written plain root <!--thread-->';
+  const suh = P.parse(su).items[0].hash;
+  const st = P.applyOps(su, [{ type: 'stamp', hash: suh, occ: 0, time: '2026-09-03 14:04' }]);
+  ok(st.results[0].ok && st.text.includes('- Bouke (2026-09-03 14:04): hand-written plain root'),
      'stamp handles plain items');
 }
 
