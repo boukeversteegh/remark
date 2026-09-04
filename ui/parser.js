@@ -556,7 +556,21 @@
         if (op.afterPara) {
           var paras = itemParagraphs(parent).filter(function (p) { return p.hash === op.afterPara; });
           var target = paras[op.afterParaOcc || 0] || paras[0];
-          if (target && target.lastNo >= 0) insertAt = target.lastNo + 1;
+          if (target && target.lastNo >= 0) {
+            insertAt = target.lastNo + 1;
+            // interjections already sitting at this point keep their order:
+            // the new one goes after the last of them, not between the
+            // paragraph and the first
+            var moved = true;
+            while (moved) {
+              moved = false;
+              for (var ci = 0; ci < parent.children.length; ci++) {
+                var ch = parent.children[ci];
+                var gapOk = ch.startLine === insertAt || (ch.startLine === insertAt + 1 && isBlank(lines[insertAt]));
+                if (gapOk) { insertAt = subtreeEnd(ch) + 1; moved = true; break; }
+              }
+            }
+          }
         }
         var newLines = [''].concat(commentLines(parent.indent + 2, false, op.author, op.text, op.time, false, !!op.opener));
         Array.prototype.splice.apply(lines, [insertAt, 0].concat(newLines));

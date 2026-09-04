@@ -647,7 +647,7 @@ function isCollapsed(item) {
   return def;
 }
 
-function buildItem(item) {
+function buildItem(item, opts) {
   const st = threadStats(item);
   const collapsed = isCollapsed(item);
   const el = document.createElement('div');
@@ -873,6 +873,7 @@ function buildItem(item) {
     list.lastElementChild.appendChild(w);
   };
   let lastBody = null;
+  let lastParaHash = null; // the paragraph an interjection after it anchors on
   let pendingLi = null; // cards awaiting the list continuation in the next text
   for (let si = 0; si < item.segments.length; si++) {
     const seg = item.segments[si];
@@ -883,6 +884,7 @@ function buildItem(item) {
       const chunks = mdChunks(seg.md);
       chunks.forEach((chunk, ci) => {
         const pHash = RvParser.hashText(RvParser.normalize(chunk));
+        lastParaHash = pHash;
         const ikey = 'ipara:' + item.key + ':' + pHash;
         const pe = document.createElement('div');
         pe.className = 'cpara';
@@ -920,9 +922,10 @@ function buildItem(item) {
       el.appendChild(body);
       lastBody = body;
     } else {
-      const card = buildItem(seg.item);
-      const tl = trailingList(lastBody);
       const nxt = item.segments[si + 1];
+      // mid-body (more of the parent's text follows) = an interjection
+      const card = buildItem(seg.item, { interjected: !!nxt });
+      const tl = trailingList(lastBody);
       const nxtFirst = nxt && nxt.type === 'text'
         ? (nxt.md.split('\n').find(l => l.trim() !== '') || '') : '';
       if (tl && /^ {0,3}(?:[-*+]|\d+[.)])\s/.test(nxtFirst)) {
@@ -931,6 +934,22 @@ function buildItem(item) {
         hangInLi(tl, card); // nested under the final list item
       } else {
         el.appendChild(card);
+        // the seam survives an interjection: another comment can be placed
+        // at the same point, landing after the ones already there. Anchored
+        // on the paragraph before them (what the parser positions by);
+        // the key is unique per existing card so its editor opens right here
+        if (nxt && lastParaHash && !editing) {
+          const akey = 'ipara:' + item.key + ':' + lastParaHash + ':after:' + seg.item.key;
+          const gap = document.createElement('div');
+          gap.className = 'igap';
+          gap.title = 'Insert another comment here';
+          gap.innerHTML = '<span class="iglabel">— insert comment —</span>';
+          gap.addEventListener('click', () => toggleEditor(akey));
+          el.appendChild(gap);
+          if (S.editorsOpen.has(akey)) {
+            el.appendChild(buildEditor(akey, { item: item, paraHash: lastParaHash }));
+          }
+        }
       }
     }
   }
@@ -942,7 +961,9 @@ function buildItem(item) {
   // where it appends at that level
   // thread roots always have the bottom slot (even childless — a fresh
   // thread must be answerable without hunting for the header ↩)
-  if (!collapsed && (item.children.length > 0 || !item.parent) &&
+  // interjections (a comment sitting mid-body of its parent) get it too:
+  // their header ↩ is easy to lose between the parent's paragraphs
+  if (!collapsed && (item.children.length > 0 || !item.parent || (opts && opts.interjected)) &&
       !S.editorsOpen.has('reply:' + item.key)) {
     const foot = document.createElement('div');
     foot.className = 'cfoot';
