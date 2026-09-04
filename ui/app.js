@@ -1369,16 +1369,25 @@ const freshRows = new Map();         // normName -> focused-milliseconds accumul
 
 // toasts: noticeable but never in the way of writing — a fixed stack in the
 // corner; every notice is dismiss-only (the back-online one by spec, the
-// offline one because "the agent can't hear you" shouldn't quietly vanish)
-function toast(kind, html) {
+// offline one because "the agent can't hear you" shouldn't quietly vanish).
+// A keyed notice replaces any earlier notice with the same key, so a
+// state that flips back and forth (an agent's presence) shows its latest
+// value once instead of stacking up
+function toast(kind, html, key) {
   let box = $('#notices');
   if (!box) {
     box = document.createElement('div');
     box.id = 'notices';
     document.body.appendChild(box);
   }
+  if (key) {
+    for (const old of box.querySelectorAll('.notice')) {
+      if (old.dataset.key === key) old.remove();
+    }
+  }
   const n = document.createElement('div');
   n.className = 'notice ' + kind;
+  if (key) n.dataset.key = key;
   n.innerHTML = html;
   const x = document.createElement('button');
   x.className = 'ndismiss';
@@ -1404,18 +1413,18 @@ async function fetchPresence() {
         const now = cur.get(k);
         if (p.online && (!now || !now.online)) {
           offlineNotified.add(k);
-          toast('warn', '<b>' + p.name + '</b> went offline — comments on this file are not being heard right now.');
+          toast('warn', '<b>' + p.name + '</b> went offline — comments on this file are not being heard right now.', 'presence:' + k);
         }
       }
       for (const [k, p] of cur) {
         const was = prevAgents.get(k);
         if (p.online && p.stalled && (!was || !was.stalled)) {
-          toast('warn', '<b>' + p.name + "</b>'s monitor is stalled — it is running but its output isn't being read.");
+          toast('warn', '<b>' + p.name + "</b>'s monitor is stalled — it is running but its output isn't being read.", 'presence:' + k);
         }
         if (p.online && (!was || !was.online)) {
           if (offlineNotified.has(k)) {
             offlineNotified.delete(k);
-            toast('ok', '<b>' + p.name + '</b> is back online.');
+            toast('ok', '<b>' + p.name + '</b> is back online.', 'presence:' + k);
           } else {
             freshRows.set(k, 0); // quiet arrival: green row for a while
           }
