@@ -593,9 +593,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
    root level where ordinary replies stay flat — otherwise it reads as the
    parent's own next paragraph */
 .citem > .citem.interjected {
-  margin-left: 11px; border-left: 2px solid var(--border-soft); border-radius: 0 8px 8px 0;
+  /* left edge at the parent's TEXT column (item inset + avatar gutter),
+     the same 30px the reply seed aligns to */
+  margin-left: 30px; border-left: 2px solid var(--border-soft); border-radius: 0 8px 8px 0;
 }
-.citem > .igap.iafter { margin-left: 22px; }
+.citem > .igap.iafter { margin-left: 30px; }
 .citem.unread { background: var(--card-unread); }
 .citem.collapsed { padding-bottom: 9px; }
 .citem.collapsed > .cbody,
