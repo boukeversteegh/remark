@@ -1104,6 +1104,64 @@ function buildEditor(key, target) {
     }
   });
   bar.appendChild(previewBtn);
+  // delete (own comments, edit mode only): the footer turns into an inline
+  // confirmation that spells out what goes — how many comments, per author,
+  // with their resolution state — before one op removes the whole subtree
+  if (isEdit && isMe(target.author)) {
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = 'Delete…';
+    del.title = 'Remove this comment and every reply under it';
+    del.addEventListener('click', () => {
+      const perAuthor = new Map();
+      let total = 0;
+      (function walk(it) {
+        total++;
+        const who = it.author || '(unsigned)';
+        const st = perAuthor.get(who) || { n: 0, open: 0, resolved: 0, plain: 0 };
+        st.n++;
+        if (it.resolvable) { if (effChecked(it)) st.resolved++; else st.open++; } else st.plain++;
+        perAuthor.set(who, st);
+        it.children.forEach(walk);
+      })(target);
+      const box = document.createElement('div');
+      box.className = 'delconfirm';
+      const q = document.createElement('div');
+      q.className = 'dq';
+      q.textContent = total === 1 ? 'Remove this comment?' : 'Remove ' + total + ' comments?';
+      box.appendChild(q);
+      const ul = document.createElement('ul');
+      for (const [who, st] of [...perAuthor.entries()].sort((a, b) => b[1].n - a[1].n)) {
+        const li = document.createElement('li');
+        const parts = [];
+        if (st.open) parts.push(st.open + ' open');
+        if (st.resolved) parts.push(st.resolved + ' resolved');
+        if (st.plain) parts.push(st.plain + ' without status');
+        li.textContent = who + ': ' + st.n + ' (' + parts.join(', ') + ')';
+        ul.appendChild(li);
+      }
+      box.appendChild(ul);
+      const row = document.createElement('div');
+      row.className = 'drow';
+      const no = document.createElement('button');
+      no.className = 'cancel';
+      no.textContent = 'Keep';
+      no.addEventListener('click', () => { box.remove(); bar.style.display = ''; });
+      const yes = document.createElement('button');
+      yes.className = 'send danger';
+      yes.textContent = total === 1 ? 'Delete' : 'Delete ' + total;
+      yes.addEventListener('click', () => {
+        close(true);
+        submitOps([{ type: 'delete', hash: target.hash, occ: target.occ }]);
+      });
+      row.appendChild(no);
+      row.appendChild(yes);
+      box.appendChild(row);
+      bar.style.display = 'none';
+      wrap.appendChild(box);
+    });
+    bar.appendChild(del);
+  }
   const cancel = document.createElement('button');
   cancel.className = 'cancel';
   cancel.textContent = isEdit ? 'Cancel' : 'Discard';

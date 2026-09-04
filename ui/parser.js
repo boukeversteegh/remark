@@ -479,6 +479,7 @@
   //    | { type:'reply',   parentHash, occ, author, text, opener? }
   //    | { type:'add',     blockHash, occ, sectionHash, author, text, atEnd?, opener? }
   //    | { type:'edit',    hash, occ, text }        (rewrite an item's body text)
+  //    | { type:'delete',  hash, occ }              (remove an item + its subtree)
   //
   // reply: opener falsy writes a plain "- " item; true writes a checkbox.
   // add: opener defaults TRUE (thread roots are resolvable by default)
@@ -644,6 +645,21 @@
         if (insertLine < 0) { r.reason = 'the paragraph this comment was attached to is gone from the file'; results.push(r); continue; }
         var nl = [''].concat(commentLines(0, false, op.author, op.text, op.time, true, op.opener !== false));
         Array.prototype.splice.apply(lines, [insertLine, 0].concat(nl));
+        text = lines.join('\n');
+        r.ok = true;
+
+      } else if (op.type === 'delete') {
+        // removes the item and its whole subtree (replies, interjections);
+        // hash/occ resolve against the current file, so a reply that landed
+        // under it meanwhile is still inside the span and goes with it —
+        // the caller has confirmed the count on fresh content
+        var dit = findByHash(doc.items, op.hash, op.occ);
+        if (!dit) { r.reason = 'comment not found in the current file'; results.push(r); continue; }
+        var dstart = dit.startLine, dend = subtreeEnd(dit);
+        // swallow the blank line that separated it from what came before,
+        // so two blanks don't meet
+        if (dstart > 0 && isBlank(lines[dstart - 1]) && (dend + 1 >= lines.length || isBlank(lines[dend + 1]))) dstart--;
+        lines.splice(dstart, dend - dstart + 1);
         text = lines.join('\n');
         r.ok = true;
 

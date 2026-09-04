@@ -874,6 +874,21 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   font-size: 12.5px; padding: 4px 8px; border-radius: 6px;
 }
 .editor button.cancel:hover { background: var(--danger-soft); color: var(--danger); }
+/* delete: quiet in the bar; the confirmation replaces the bar and lists
+   what goes before anything is written */
+.editor button.del {
+  border: 0; background: none; color: var(--faint); font: inherit; font-size: 12px;
+  padding: 4px 8px; border-radius: 8px; cursor: pointer;
+}
+.editor button.del:hover { color: var(--danger); background: var(--danger-soft); }
+.editor .delconfirm {
+  margin: 8px 0 0 30px; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid var(--danger); background: var(--danger-soft); font-size: 13px; color: var(--fg);
+}
+.editor .delconfirm .dq { font-weight: 650; margin-bottom: 4px; }
+.editor .delconfirm ul { margin: 0 0 8px; padding-left: 18px; color: var(--muted); font-size: 12.5px; }
+.editor .delconfirm .drow { display: flex; justify-content: flex-end; gap: 8px; }
+.editor button.send.danger { background: var(--danger); color: #fff; }
 
 /* conflicts tray --------------------------------------------------------- */
 #conflicts {
