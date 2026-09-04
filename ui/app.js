@@ -1093,6 +1093,16 @@ function buildEditor(key, target) {
   bar.className = 'ebar';
   bar.innerHTML = '<span>as <b></b></span><span class="spacer"></span><span><kbd>Ctrl</kbd> <kbd>⏎</kbd></span>';
   $('b', bar).textContent = S.me;
+  // presence is per file, and the author's assumption is not: say at the
+  // point of writing when no agent's monitor covers THIS file, so a comment
+  // is never left for a listener that is not there
+  if (!(S.presence || []).some(p => p.kind === 'agent' && p.online)) {
+    const nw = document.createElement('span');
+    nw.className = 'nowatch';
+    nw.textContent = 'no agent is watching this file';
+    nw.title = 'No monitor with -as covers this file right now; an agent will only see this comment when it starts watching the file';
+    bar.appendChild(nw);
+  }
 
   // opener toggle: a plain reply carries no status; ticking this writes a
   // checkbox item with its own author-owned resolution. New threads default

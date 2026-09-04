@@ -58,6 +58,12 @@ Usage:
                                 <sel> belongs to, at the end of a section,
                                 or at the end of the file. "- [ ]" unless
                                 -plain.
+  remark unseen <files...> -as <name>
+                                every comment by someone else that does not
+                                carry your seen-marker, with its stamp and
+                                thread root — "what did I miss", including
+                                on files no monitor of yours was watching.
+                                Globs accepted, like monitor.
   remark stamp <file...>        replace every "(now)" placeholder in an
                                 author prefix with the real, unique time —
                                 what a remark window on the file also does
@@ -218,6 +224,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "thread" {
 		runThread(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "unseen" {
+		runUnseen(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "recent" {
