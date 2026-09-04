@@ -36,7 +36,8 @@ type monItem struct {
 	SeenBy     []string `json:"seenBy,omitempty"`
 	Section    string   `json:"section,omitempty"`
 	Thread     string   `json:"thread,omitempty"`
-	Root       string   `json:"root,omitempty"` // timestamp of the thread root (its identity)
+	Root       string   `json:"root,omitempty"`   // timestamp of the thread root (its identity)
+	Parent     string   `json:"parent,omitempty"` // timestamp of the comment this one answers ("" for a root)
 	Text       string   `json:"text"`
 	Indent     int      `json:"indent"`
 	Key        string   `json:"key"`
@@ -53,6 +54,32 @@ func (l *monListFlag) Set(v string) error {
 		}
 	}
 	return nil
+}
+
+// monWritesLog is where remark reply/thread record what they wrote
+// ("<abs file>|<stamp>" per line), so a monitor can tell a tool-written
+// comment from a hand edit.
+func monWritesLog() string {
+	d, err := os.UserConfigDir()
+	if err != nil {
+		d = "."
+	}
+	return filepath.Join(d, "remark", "writes.log")
+}
+
+func monWrittenByTool(file, stamp string) bool {
+	b, err := os.ReadFile(monWritesLog())
+	if err != nil {
+		return false
+	}
+	abs, _ := filepath.Abs(file)
+	needle := strings.ToLower(abs) + "|" + stamp
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.TrimSpace(l) == needle {
+			return true
+		}
+	}
+	return false
 }
 
 // monMentions reports whether text tags name as "@name" — literal name,
@@ -323,6 +350,7 @@ func monParse(content string) []*monItem {
 	// resolve thread labels: items inherit their root's title or author,
 	// and carry the root's timestamp as the thread's identity
 	var curLabel, curRoot string
+	var stack []*monItem // ancestors by indent, for the parent stamp
 	for _, it := range items {
 		if it.Indent == 0 {
 			if it.Thread != "" {
@@ -331,9 +359,17 @@ func monParse(content string) []*monItem {
 				curLabel = "thread by " + it.Author
 			}
 			curRoot = it.Time
+			stack = stack[:0]
 		}
 		it.Thread = curLabel
 		it.Root = curRoot
+		for len(stack) > 0 && stack[len(stack)-1].Indent >= it.Indent {
+			stack = stack[:len(stack)-1]
+		}
+		if len(stack) > 0 {
+			it.Parent = stack[len(stack)-1].Time
+		}
+		stack = append(stack, it)
 	}
 	return items
 }
@@ -380,7 +416,8 @@ type monEvent struct {
 	SeenBy  []string `json:"seenBy,omitempty"`
 	Section string   `json:"section,omitempty"`
 	Thread  string   `json:"thread,omitempty"`
-	Root    string   `json:"root,omitempty"` // thread root's timestamp: `remark read <file> <root>`
+	Root    string   `json:"root,omitempty"`   // thread root's timestamp: `remark read <file> <root>`
+	Parent  string   `json:"parent,omitempty"` // the comment this one answers; "" for a root
 	Text    string   `json:"text"`
 }
 
@@ -394,12 +431,17 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 		prev, existed := old[it.Key]
 		if !existed {
 			evs = append(evs, monEvent{Type: "comment", File: file, Author: it.Author,
-				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Text: it.Text})
+				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, Text: it.Text})
 			continue
+		}
+		if prev.Time != it.Time && it.Time != "" && it.Time != "now" {
+			// a "(now)" placeholder got its real stamp (window or remark stamp)
+			evs = append(evs, monEvent{Type: "stamped", File: file, Author: it.Author,
+				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, Text: it.Text})
 		}
 		if it.Resolvable && prev.Checked != it.Checked {
 			evs = append(evs, monEvent{Type: "toggle", File: file, Author: it.Author,
-				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Text: it.Text})
+				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, Text: it.Text})
 		}
 		if !monSameSet(prev.SeenBy, it.SeenBy) {
 			// the ACTOR of a seen-event is whoever was added to the marker,
@@ -414,7 +456,7 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 				if !prevSet[n] {
 					evs = append(evs, monEvent{Type: "seen", File: file, Author: it.Author,
 						Reader: n, Time: it.Time, Checked: it.Checked, SeenBy: it.SeenBy,
-						Section: it.Section, Thread: it.Thread, Root: it.Root, Text: it.Text})
+						Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, Text: it.Text})
 				}
 			}
 		}
@@ -591,6 +633,30 @@ func runMonitor(args []string) {
 					actor = ev.Reader
 				}
 				if ignored[monNormAuthor(actor)] {
+					// the agent's own hand-written comment: hand it back its real
+					// stamp (once a "(now)" got filled) with the parent and root,
+					// and the reply command that would have done it. Comments
+					// written through remark reply/thread are on record and stay
+					// silent, so this only ever fires for hand edits.
+					if *as != "" && actor == *as && (ev.Type == "comment" || ev.Type == "stamped") &&
+						ev.Time != "" && ev.Time != "now" && !monWrittenByTool(f, ev.Time) {
+						target := ev.Parent
+						if target == "" {
+							target = ev.Root
+						}
+						hint := fmt.Sprintf("remark reply %s %s -as %q -text ...", filepath.Base(f), target, *as)
+						if ev.Parent == "" {
+							hint = fmt.Sprintf("remark thread %s -as %q -title ... -section ...", filepath.Base(f), *as)
+						}
+						if *asJSON {
+							j, _ := json.Marshal(map[string]string{"type": "self", "file": ev.File, "time": ev.Time,
+								"root": ev.Root, "parent": ev.Parent, "text": ev.Text, "hint": hint})
+							outCh <- string(j)
+						} else {
+							outCh <- fmt.Sprintf("✍ %s | your hand-written comment is %s (parent %s, root %s) — next time: %s",
+								ev.File, ev.Time, ev.Parent, ev.Root, hint)
+						}
+					}
 					continue
 				}
 				if scoped {
@@ -616,6 +682,8 @@ func runMonitor(args []string) {
 						} else {
 							mark = "☐"
 						}
+					case "stamped":
+						mark = "🕒" // a (now) placeholder received its real stamp
 					case "seen":
 						mark = "👁"
 						// the added name says what HAPPENED; the full set only

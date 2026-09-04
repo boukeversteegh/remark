@@ -110,6 +110,10 @@ Rules an agent must follow when writing:
   * Replies are plain "- " items nested under their parent. No checkbox:
     most conversation carries no status. Only write "- [ ]" on a reply if
     it genuinely asks something that needs resolving.
+  * Keep threads FLAT: answer under the thread's root (the event's "root"),
+    not under the comment that happened to be last, so a linear exchange
+    reads top to bottom. Nest one level deeper only for a genuine side
+    thread that would otherwise be hard to follow.
   * A checkbox is its author's resolution: only the author of "- [ ]"
     decides when it becomes "- [x]". Never tick another author's box.
   * Read state: a hidden <!--seen:Name1,Name2--> marker at the END of a
@@ -152,10 +156,17 @@ Waiting for replies:
   with <mark> being 💬 comment, ☑/☐ resolution toggle, 👁 read marker.
 
   -json emits one NDJSON object per event instead, with fields:
-    type ("comment"|"toggle"|"seen"), file, author, text, time, checked,
-    reader, seenBy, section, thread, root  (omitted when empty).
+    type ("comment"|"toggle"|"seen"|"stamped"|"self"), file, author, text,
+    time, checked, reader, seenBy, section, thread, root, parent  (omitted
+    when empty). "stamped": a "(now)" placeholder received its real time.
+    "self": YOUR OWN hand-written comment was noticed — the object carries
+    its real time, parent, root and a "hint" with the remark reply command
+    that would have written it; comments written through the verbs never
+    trigger it.
   "root" is the thread root's timestamp: remark read <file> <root> prints
-  the whole thread the event belongs to.
+  the whole thread the event belongs to; "parent" is the stamp of the
+  comment this one answers (absent for a root). To answer flat, reply to
+  root; to answer in a side thread, reply to time.
   For seen-events the ACTOR is "reader" — the name just added to the
   marker; "author" stays the comment's author. The -as/-ignore-author
   filter judges the reader on seen-events, so you are never woken by

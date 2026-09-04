@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -232,6 +233,18 @@ func writeInsert(content string, at int, item []string) string {
 	return s
 }
 
+// writeLogNote records a tool-written comment so the writer's own monitor
+// does not mistake it for a hand edit and nudge about it.
+func writeLogNote(file, stamp string) {
+	abs, _ := filepath.Abs(file)
+	p := monWritesLog()
+	os.MkdirAll(filepath.Dir(p), 0o755)
+	if f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
+		fmt.Fprintln(f, strings.ToLower(abs)+"|"+stamp)
+		f.Close()
+	}
+}
+
 // writeWithRetry runs compute on the file's current content and writes the
 // result unless the file changed meanwhile, in which case it recomputes.
 func writeWithRetry(file string, compute func(content string) (string, error)) {
@@ -300,6 +313,7 @@ func runReply(args []string) {
 		line = strings.Count(out[:strings.Index(out, item[0])], "\n") + 1
 		return out, nil
 	})
+	writeLogNote(a.file, stamp)
 	fmt.Printf("replied %s under %s at line %d\n", stamp, a.sel, line)
 }
 
@@ -361,5 +375,6 @@ func runThread(args []string) {
 		line = strings.Count(out[:strings.Index(out, item[0])], "\n") + 1
 		return out, nil
 	})
+	writeLogNote(a.file, stamp)
 	fmt.Printf("opened %s at line %d\n", stamp, line)
 }
