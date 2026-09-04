@@ -923,9 +923,11 @@ function buildItem(item, opts) {
       lastBody = body;
     } else {
       const nxt = item.segments[si + 1];
-      // mid-body (more of the parent's text follows) = an interjection
-      const card = buildItem(seg.item, { interjected: !!nxt });
-      if (nxt) card.classList.add('interjected'); // indented at every level, root included
+      // an interjection sits mid-body: more of the PARENT'S OWN TEXT follows
+      // it somewhere after (a sibling reply following does not count)
+      const textFollows = item.segments.slice(si + 1).some(s => s.type === 'text');
+      const card = buildItem(seg.item, { interjected: textFollows });
+      if (textFollows) card.classList.add('interjected'); // indented at every level, root included
       const tl = trailingList(lastBody);
       const nxtFirst = nxt && nxt.type === 'text'
         ? (nxt.md.split('\n').find(l => l.trim() !== '') || '') : '';
@@ -939,7 +941,7 @@ function buildItem(item, opts) {
         // at the same point, landing after the ones already there. Anchored
         // on the paragraph before them (what the parser positions by);
         // the key is unique per existing card so its editor opens right here
-        if (nxt && lastParaHash && !editing) {
+        if (nxt && nxt.type === 'text' && lastParaHash && !editing) {
           const akey = 'ipara:' + item.key + ':' + lastParaHash + ':after:' + seg.item.key;
           const gap = document.createElement('div');
           gap.className = 'igap iafter';
