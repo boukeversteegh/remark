@@ -1521,7 +1521,7 @@ function buildPresence() {
     const em = dispName.match(/^\p{Extended_Pictographic}️?\s*/u);
     if (em && dispName.length > em[0].length) dispName = dispName.slice(em[0].length);
     nm.textContent = dispName + (r.isMe ? ' (you)' : '');
-    if (r.cwd) nm.title = 'monitor running in ' + r.cwd; // a worktree path tells which checkout
+    if (r.cwd) nm.dataset.tip = 'monitor running in ' + r.cwd; // a worktree path tells which checkout
     row.appendChild(nm);
     const st = document.createElement('span');
     st.className = 'pstat ' + (r.online ? (r.stalled ? 'stall' : 'on') : 'off');
