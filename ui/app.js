@@ -2011,7 +2011,7 @@ window.addEventListener('scroll', () => {
   requestAnimationFrame(spyOutline);
   // remember where the document is, per file, so a restart (an update,
   // a reopen) lands you where you were
-  if (S.path) {
+  if (S.path && S.pendingScroll == null) {
     clearTimeout(window.scrollSaveTimer);
     window.scrollSaveTimer = setTimeout(() => {
       try { localStorage.setItem('remark:scroll:' + S.path, String(Math.round(window.scrollY))); } catch (e) {}
@@ -2445,13 +2445,29 @@ document.addEventListener('click', e => {
 // the splash (index.html) covers load + first paint; drop it once painted
 function dismissSplash() {
   fetch('/api/uiready?t=' + TOKEN).catch(() => {}); // reveal the native window
-  // back to where the document was last time (saved on scroll, per file)
+  // back to where the document was last time (saved on scroll, per file).
+  // The page may still be short at first paint (content, images), so keep
+  // trying until it can hold the position; saving is off meanwhile, or the
+  // clamped scroll would overwrite the saved value with zero
   if (S.path && !S.scrollRestored) {
     S.scrollRestored = true;
-    try {
-      const y = parseInt(localStorage.getItem('remark:scroll:' + S.path) || '', 10);
-      if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
-    } catch (e) {}
+    let y = 0;
+    try { y = parseInt(localStorage.getItem('remark:scroll:' + S.path) || '', 10) || 0; } catch (e) {}
+    if (y > 0) {
+      S.pendingScroll = y;
+      const until = Date.now() + 5000;
+      const attempt = () => {
+        if (S.pendingScroll == null) return;
+        const room = document.documentElement.scrollHeight - window.innerHeight;
+        if (room >= y || Date.now() > until) {
+          window.scrollTo(0, Math.min(y, Math.max(0, room)));
+          S.pendingScroll = null;
+          return;
+        }
+        requestAnimationFrame(attempt);
+      };
+      requestAnimationFrame(attempt);
+    }
   }
   const sp = $('#splash');
   if (!sp) return;
