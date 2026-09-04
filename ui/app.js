@@ -2289,6 +2289,61 @@ function applyChrome() {
   $('#main').className = 'mode-' + S.mode + (S.outline ? ' outline-open' : '');
 }
 
+// ---------------------------------------------------------------------------
+// window chrome: inside the native window the host drops the Windows title
+// bar and #topbar IS the title bar. An invisible native window sits over the
+// toolbar strip and answers Windows' hit test (drag, snap layouts, the
+// caption buttons), with holes punched for our own controls — it needs to
+// know where everything is, in device pixels, every time the bar lays out.
+// __remarkChrome is bound by the host; in a browser it does not exist.
+// ---------------------------------------------------------------------------
+function wireWindowChrome() {
+  if (typeof window.__remarkChrome !== 'function') return;
+  document.body.classList.add('in-window');
+  const bar = $('#topbar');
+  const dev = el => {
+    const r = el.getBoundingClientRect(), s = window.devicePixelRatio || 1;
+    return { l: Math.round(r.left * s), t: Math.round(r.top * s), r: Math.round(r.right * s), b: Math.round(r.bottom * s) };
+  };
+  const report = () => {
+    const controls = [];
+    for (const el of bar.querySelectorAll('button, input, label, a, select, .no-drag')) {
+      if (el.closest('.caption')) continue;
+      if (el.tagName === 'INPUT' && el.closest('label')) continue; // the label's rect covers it
+      if (!el.offsetParent) continue; // display:none
+      controls.push(dev(el));
+    }
+    window.__remarkChrome({
+      h: dev(bar).b,
+      min: dev($('#capMin')), max: dev($('#capMax')), close: dev($('#capClose')),
+      controls,
+    });
+  };
+  let queued = false;
+  const schedule = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; report(); });
+  };
+  new ResizeObserver(schedule).observe(bar);
+  new MutationObserver(schedule).observe(bar, { subtree: true, childList: true, attributes: true, characterData: true });
+  addEventListener('resize', schedule);
+  document.fonts && document.fonts.ready.then(schedule);
+  // the host pushes hover/press of the caption buttons and the maximized
+  // state (which glyph the middle button shows)
+  window.__remarkCaptionHover = (hover, pressed) => {
+    for (const [id, name] of [['#capMin', 'min'], ['#capMax', 'max'], ['#capClose', 'close']]) {
+      $(id).classList.toggle('hover', hover === name);
+      $(id).classList.toggle('pressed', pressed === name);
+    }
+  };
+  window.__remarkCaptionState = maximized => {
+    document.body.classList.toggle('maximized', !!maximized);
+    $('#capMax').title = maximized ? 'Restore' : 'Maximize';
+  };
+  schedule();
+}
+
 function wireTopbar() {
   $('#brandmark').innerHTML = iconHTML('notebook-pen');
   $('#openBtn').innerHTML = iconHTML('folder-open');
@@ -2473,6 +2528,7 @@ async function init() {
   } catch (e) { S.collapsedSaved = {}; }
   loadBookmarks();
   applyZoom();
+  wireWindowChrome(); // the landing page has the toolbar too
   if (!S.path) { showLanding(); dismissSplash(); return; }
   applyChrome();
   const fn = $('#filename');

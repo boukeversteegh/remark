@@ -497,6 +497,7 @@ func runWindow(url, title string) bool {
 		})
 		go trackWindowBounds(hwnd, stop)
 	}()
+	installChrome(w, hwnd)
 	w.Navigate(url)
 	w.Run()
 	return true
@@ -504,4 +505,443 @@ func runWindow(url, title string) bool {
 
 func openBrowser(url string) {
 	exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+}
+
+// ---------------------------------------------------------------------------
+// toolbar in the title bar
+//
+// The native caption goes away (WM_NCCALCSIZE hands its strip to the client
+// area) and the page's #topbar becomes the title bar. The host answers
+// WM_NCHITTEST for the toolbar strip: HTCAPTION for the empty toolbar (drag,
+// double-click, system menu, all DefWindowProc), HTTOP for the thin resize
+// band, HTMINBUTTON / HTMAXBUTTON / HTCLOSE for the three buttons the page
+// draws (that is what makes the Windows 11 snap-layout flyout appear), and
+// HTCLIENT for the page's own controls, which keep working as normal HTML.
+//
+// The catch: WebView2's child window (another process) covers the whole
+// client area, and Windows picks the window that gets the mouse from the
+// window tree before any window procedure of ours runs — input over the
+// toolbar would land on WebView2's thread and this window would never be
+// asked. Windows Terminal has the same problem with its XAML island and the
+// same fix: a child window of ours sits over the toolbar strip so the input
+// lands on our thread. It is a layered window with a per-pixel-alpha surface
+// (UpdateLayeredWindow): alpha 1 everywhere — hit-tested as solid, invisible
+// in practice — and alpha 0 over the page's controls, where the mouse falls
+// through to WebView2. It answers the hit test and hands the non-client mouse
+// messages to the top-level window, which is where DefWindowProc expects
+// them. The page reports the rectangles (device pixels) through a bound
+// function whenever the toolbar lays out, and gets hover / press / maximized
+// state pushed back. (A layered CHILD only creates when the manifest declares
+// Windows 8+: assets/app.manifest.)
+// ---------------------------------------------------------------------------
+
+var (
+	pSetWindowLongPtrW      = user32.NewProc("SetWindowLongPtrW")
+	pCallWindowProcW        = user32.NewProc("CallWindowProcW")
+	pGetDpiForWindow        = user32.NewProc("GetDpiForWindow")
+	pGetSystemMetricsForDpi = user32.NewProc("GetSystemMetricsForDpi")
+	pIsZoomed               = user32.NewProc("IsZoomed")
+	pTrackMouseEvent        = user32.NewProc("TrackMouseEvent")
+	pScreenToClient         = user32.NewProc("ScreenToClient")
+	pPostMessageW           = user32.NewProc("PostMessageW")
+	pGetClassLongPtrW       = user32.NewProc("GetClassLongPtrW")
+	pUpdateLayeredWindow    = user32.NewProc("UpdateLayeredWindow")
+	pCreateDIBSection       = gdi32.NewProc("CreateDIBSection")
+	pCreateCompatibleDC     = gdi32.NewProc("CreateCompatibleDC")
+	pDeleteDC               = gdi32.NewProc("DeleteDC")
+)
+
+const (
+	wmSize            = 0x0005
+	wmMouseActivate   = 0x0021
+	wmNCCalcSize      = 0x0083
+	wmNCHitTest       = 0x0084
+	wmNCMouseMove     = 0x00A0
+	wmNCLButtonDown   = 0x00A1
+	wmNCLButtonUp     = 0x00A2
+	wmNCLButtonDblClk = 0x00A3
+	wmNCRButtonDown   = 0x00A4
+	wmNCRButtonUp     = 0x00A5
+	wmNCMouseLeave    = 0x02A2
+	wmDpiChanged      = 0x02E0
+	wmSysCommand      = 0x0112
+
+	htClient    = 1
+	htCaption   = 2
+	htMinButton = 8
+	htMaxButton = 9
+	htTop       = 12
+	htTopLeft   = 13
+	htTopRight  = 14
+	htClose     = 20
+
+	scMinimize = 0xF020
+	scMaximize = 0xF030
+	scClose    = 0xF060
+	scRestore  = 0xF120
+)
+
+type chromeRect struct {
+	L int32 `json:"l"`
+	T int32 `json:"t"`
+	R int32 `json:"r"`
+	B int32 `json:"b"`
+}
+
+func (r chromeRect) has(x, y int32) bool { return x >= r.L && x < r.R && y >= r.T && y < r.B }
+
+// chromeReport is what the page sends: everything in device pixels relative
+// to the client area's top-left.
+type chromeReport struct {
+	H        int32        `json:"h"` // toolbar strip height
+	Min      chromeRect   `json:"min"`
+	Max      chromeRect   `json:"max"`
+	Close    chromeRect   `json:"close"`
+	Controls []chromeRect `json:"controls"` // the page's own controls: HTCLIENT
+}
+
+type chromeState struct {
+	w        webview2.WebView
+	hwnd     uintptr
+	bar      uintptr // the input-catching child over the toolbar strip
+	origProc uintptr // go-webview2's window procedure
+	rep      chromeReport
+	hover    uintptr // hit code of the caption button under the mouse
+	pressed  uintptr // hit code of the caption button being pressed
+	maxed    bool    // last maximized state pushed to the page
+}
+
+// one window per process (see runWindow)
+var chrome *chromeState
+
+func chromeFrame(hwnd uintptr) int32 {
+	dpi, _, _ := pGetDpiForWindow.Call(hwnd)
+	if dpi == 0 {
+		dpi = 96
+	}
+	// the invisible resize band: SM_CYSIZEFRAME + SM_CXPADDEDBORDER
+	a, _, _ := pGetSystemMetricsForDpi.Call(33, dpi)
+	b, _, _ := pGetSystemMetricsForDpi.Call(92, dpi)
+	return int32(a + b)
+}
+
+func chromeZoomed(hwnd uintptr) bool {
+	z, _, _ := pIsZoomed.Call(hwnd)
+	return z != 0
+}
+
+// eval runs JS in the page; only called on the UI thread.
+func (c *chromeState) eval(js string) { c.w.Eval(js) }
+
+func (c *chromeState) syncHover() {
+	name := func(ht uintptr) string {
+		switch ht {
+		case htMinButton:
+			return "min"
+		case htMaxButton:
+			return "max"
+		case htClose:
+			return "close"
+		}
+		return ""
+	}
+	c.eval(fmt.Sprintf("window.__remarkCaptionHover&&__remarkCaptionHover(%q,%q)",
+		name(c.hover), name(c.pressed)))
+}
+
+func (c *chromeState) syncMaximized(force bool) {
+	z := chromeZoomed(c.hwnd)
+	if z == c.maxed && !force {
+		return
+	}
+	c.maxed = z
+	c.eval(fmt.Sprintf("window.__remarkCaptionState&&__remarkCaptionState(%v)", z))
+}
+
+// stripHeight is the toolbar's height in device pixels: the CSS 45px until
+// the page has reported (it scales with the page zoom, so only the page knows)
+func (c *chromeState) stripHeight() int32 {
+	if c.rep.H > 0 {
+		return c.rep.H
+	}
+	dpi, _, _ := pGetDpiForWindow.Call(c.hwnd)
+	if dpi == 0 {
+		dpi = 96
+	}
+	return int32(45 * dpi / 96)
+}
+
+// hitTest answers WM_NCHITTEST for a point in client coordinates, or 0 when
+// the point is not the toolbar's business.
+func (c *chromeState) hitTest(x, y int32) uintptr {
+	var rc struct{ l, t, r, b int32 }
+	pGetClientRect.Call(c.hwnd, uintptr(unsafe.Pointer(&rc)))
+	if x < 0 || y < 0 || x >= rc.r || y >= rc.b {
+		return 0 // the frame: DefWindowProc's
+	}
+	// the resize band along the top edge now lies inside the client
+	if !chromeZoomed(c.hwnd) {
+		if f := chromeFrame(c.hwnd); y < f {
+			switch {
+			case x < f:
+				return htTopLeft
+			case x >= rc.r-f:
+				return htTopRight
+			}
+			return htTop
+		}
+	}
+	if y >= c.stripHeight() {
+		return htClient
+	}
+	for _, k := range c.rep.Controls {
+		if k.has(x, y) {
+			return htClient
+		}
+	}
+	switch {
+	case c.rep.Min.has(x, y):
+		return htMinButton
+	case c.rep.Max.has(x, y):
+		return htMaxButton
+	case c.rep.Close.has(x, y):
+		return htClose
+	}
+	return htCaption
+}
+
+func isCaptionButton(ht uintptr) bool {
+	return ht == htMinButton || ht == htMaxButton || ht == htClose
+}
+
+// layout sizes the bar to the toolbar strip and gives it its pixels: a
+// per-pixel-alpha surface (UpdateLayeredWindow) that is alpha 1 everywhere —
+// hit-tested as solid, invisible in practice — and alpha 0 over the page's
+// controls, where the mouse then falls through to WebView2.
+func (c *chromeState) layout() {
+	if c.bar == 0 {
+		return
+	}
+	var rc struct{ l, t, r, b int32 }
+	pGetClientRect.Call(c.hwnd, uintptr(unsafe.Pointer(&rc)))
+	w, h := rc.r, c.stripHeight()
+	if w <= 0 || h <= 0 {
+		return
+	}
+	const swpNoActivateShow = 0x10 | 0x40
+	pSetWindowPos.Call(c.bar, 0 /*HWND_TOP*/, 0, 0, uintptr(w), uintptr(h), swpNoActivateShow)
+	// a top-down 32bpp DIB: BITMAPINFOHEADER with negative height
+	bi := struct {
+		size          uint32
+		width, height int32
+		planes, bpp   uint16
+		compression   uint32
+		_             [5]uint32
+	}{size: 40, width: w, height: -h, planes: 1, bpp: 32}
+	var bits unsafe.Pointer
+	dib, _, _ := pCreateDIBSection.Call(0, uintptr(unsafe.Pointer(&bi)), 0 /*DIB_RGB_COLORS*/, uintptr(unsafe.Pointer(&bits)), 0, 0)
+	if dib == 0 || bits == nil {
+		return
+	}
+	px := unsafe.Slice((*uint32)(bits), int(w)*int(h))
+	for i := range px {
+		px[i] = 0x01000000 // premultiplied BGRA: black at alpha 1
+	}
+	for _, k := range c.rep.Controls {
+		for y := max(k.T, 0); y < min(k.B, h); y++ {
+			for x := max(k.L, 0); x < min(k.R, w); x++ {
+				px[int(y)*int(w)+int(x)] = 0
+			}
+		}
+	}
+	hdc, _, _ := pCreateCompatibleDC.Call(0)
+	old, _, _ := pSelectObject.Call(hdc, dib)
+	size := struct{ cx, cy int32 }{w, h}
+	src := struct{ x, y int32 }{0, 0}
+	blend := struct{ op, flags, alpha, format byte }{0 /*AC_SRC_OVER*/, 0, 255, 1 /*AC_SRC_ALPHA*/}
+	pUpdateLayeredWindow.Call(c.bar, 0, 0, uintptr(unsafe.Pointer(&size)), hdc,
+		uintptr(unsafe.Pointer(&src)), 0, uintptr(unsafe.Pointer(&blend)), 2 /*ULW_ALPHA*/)
+	pSelectObject.Call(hdc, old)
+	pDeleteDC.Call(hdc)
+	pDeleteObject.Call(dib)
+}
+
+// chromeBarProc: the input-catching child. It answers the hit test like the
+// top-level window would (it sits at the client origin, so the coordinates
+// are the same) and forwards the non-client mouse messages there.
+var chromeBarProc = syscall.NewCallback(func(hwnd, msg, wp, lp uintptr) uintptr {
+	c := chrome
+	if c == nil || c.bar != hwnd {
+		r, _, _ := pDefWindowProcW.Call(hwnd, msg, wp, lp)
+		return r
+	}
+	switch msg {
+	case wmNCHitTest:
+		pt := struct{ x, y int32 }{int32(int16(lp & 0xFFFF)), int32(int16(lp >> 16 & 0xFFFF))}
+		pScreenToClient.Call(c.hwnd, uintptr(unsafe.Pointer(&pt)))
+		if ht := c.hitTest(pt.x, pt.y); ht != 0 {
+			return ht
+		}
+		return htCaption
+	case wmNCMouseMove, wmNCMouseLeave, wmNCLButtonDown, wmNCLButtonUp, wmNCLButtonDblClk,
+		wmNCRButtonDown, wmNCRButtonUp:
+		if msg == wmNCMouseMove {
+			// the leave must be tracked on the window the mouse is in
+			tme := struct {
+				size, flags uint32
+				hwnd        uintptr
+				hover       uint32
+			}{flags: 0x2 | 0x10 /*TME_LEAVE|TME_NONCLIENT*/, hwnd: hwnd}
+			tme.size = uint32(unsafe.Sizeof(tme))
+			pTrackMouseEvent.Call(uintptr(unsafe.Pointer(&tme)))
+		}
+		r, _, _ := pSendMessageW.Call(c.hwnd, msg, wp, lp)
+		return r
+	case wmMouseActivate:
+		return 3 // MA_NOACTIVATE: activation is the top-level window's
+	}
+	r, _, _ := pDefWindowProcW.Call(hwnd, msg, wp, lp)
+	return r
+})
+
+// chromeWndProc subclasses the window: it removes the caption from the
+// frame, answers the hit test for the toolbar strip and runs the caption
+// buttons itself (DefWindowProc would track them against the caption
+// rectangle that no longer exists).
+var chromeWndProc = syscall.NewCallback(func(hwnd, msg, wp, lp uintptr) uintptr {
+	c := chrome
+	if c == nil || c.hwnd != hwnd {
+		r, _, _ := pDefWindowProcW.Call(hwnd, msg, wp, lp)
+		return r
+	}
+	orig := func() uintptr {
+		r, _, _ := pCallWindowProcW.Call(c.origProc, hwnd, msg, wp, lp)
+		return r
+	}
+	switch msg {
+	case wmNCCalcSize:
+		if wp == 0 {
+			break
+		}
+		// NCCALCSIZE_PARAMS starts with rgrc[0], the proposed window rect;
+		// let DefWindowProc carve the frame, then give the caption's strip
+		// back to the client. Maximized, the frame hangs off the monitor,
+		// so keep that much at the top or the toolbar would be cut off.
+		rc := (*struct{ l, t, r, b int32 })(unsafe.Pointer(lp))
+		top := rc.t
+		if r := orig(); r != 0 {
+			return r
+		}
+		rc.t = top
+		if chromeZoomed(hwnd) {
+			rc.t += chromeFrame(hwnd)
+		}
+		return 0
+	case wmNCHitTest:
+		pt := struct{ x, y int32 }{int32(int16(lp & 0xFFFF)), int32(int16(lp >> 16 & 0xFFFF))}
+		pScreenToClient.Call(hwnd, uintptr(unsafe.Pointer(&pt)))
+		if ht := c.hitTest(pt.x, pt.y); ht != 0 {
+			return ht
+		}
+	case wmNCMouseMove:
+		hover := uintptr(0)
+		if isCaptionButton(wp) {
+			hover = wp
+		}
+		if hover != c.hover {
+			c.hover = hover
+			c.syncHover()
+		}
+	case wmNCMouseLeave:
+		if c.hover != 0 || c.pressed != 0 {
+			c.hover, c.pressed = 0, 0
+			c.syncHover()
+		}
+	case wmNCLButtonDown:
+		if isCaptionButton(wp) {
+			c.pressed = wp
+			c.syncHover()
+			return 0
+		}
+	case wmNCLButtonUp:
+		if isCaptionButton(wp) {
+			was := c.pressed
+			c.pressed = 0
+			c.syncHover()
+			if was == wp {
+				cmd := uintptr(scClose)
+				switch wp {
+				case htMinButton:
+					cmd = scMinimize
+				case htMaxButton:
+					cmd = scMaximize
+					if chromeZoomed(hwnd) {
+						cmd = scRestore
+					}
+				}
+				pPostMessageW.Call(hwnd, wmSysCommand, cmd, 0)
+			}
+			return 0
+		}
+		c.pressed = 0
+	case wmNCLButtonDblClk:
+		if isCaptionButton(wp) {
+			return 0
+		}
+	case wmSize:
+		r := orig()
+		c.layout()
+		c.syncMaximized(false)
+		return r
+	case wmDpiChanged:
+		// Per-Monitor-V2: adopt the suggested rect; the page re-reports at
+		// the new devicePixelRatio
+		rc := (*struct{ l, t, r, b int32 })(unsafe.Pointer(lp))
+		pSetWindowPos.Call(hwnd, 0, uintptr(rc.l), uintptr(rc.t), uintptr(rc.r-rc.l), uintptr(rc.b-rc.t), 0x4|0x10)
+		return 0
+	}
+	return orig()
+})
+
+func installChrome(w webview2.WebView, hwnd uintptr) {
+	c := &chromeState{w: w, hwnd: hwnd}
+	chrome = c
+	inst, _, _ := pGetModuleHandleW.Call(0)
+	cls, _ := syscall.UTF16PtrFromString("remarkChrome")
+	arrow, _, _ := pLoadImageW.Call(0, 32512 /*IDC_ARROW*/, 2 /*IMAGE_CURSOR*/, 0, 0, 0x8000 /*LR_SHARED*/)
+	wc := wndClassExW{
+		style:     0x8, // CS_DBLCLKS: double-click on the caption maximizes
+		wndProc:   chromeBarProc,
+		instance:  inst,
+		cursor:    arrow, // never leave the page's I-beam behind on the toolbar
+		className: cls,
+	}
+	wc.size = uint32(unsafe.Sizeof(wc))
+	pRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc)))
+	const exLayered, wsChild, wsVisible = 0x80000, 0x40000000, 0x10000000
+	c.bar, _, _ = pCreateWindowExW.Call(exLayered, uintptr(unsafe.Pointer(cls)), 0,
+		wsChild|wsVisible, 0, 0, 0, 0, hwnd, 0, inst, 0)
+	if c.bar == 0 {
+		// a layered child needs the Windows 8+ manifest; without it, keep
+		// the native title bar rather than a toolbar nobody can drag
+		chrome = nil
+		return
+	}
+	// the page reports the toolbar geometry whenever it lays out
+	w.Bind("__remarkChrome", func(r chromeReport) {
+		c.rep = r
+		c.layout()
+		c.syncMaximized(true)
+	})
+	// double-click on the caption maximizes only if the class says CS_DBLCLKS
+	const gclStyle = ^uintptr(25) // -26
+	style, _, _ := pGetClassLongPtrW.Call(hwnd, gclStyle)
+	pSetClassLongPtrW.Call(hwnd, gclStyle, style|0x8)
+	const gwlpWndProc = ^uintptr(3) // -4
+	c.origProc, _, _ = pSetWindowLongPtrW.Call(hwnd, gwlpWndProc, chromeWndProc)
+	// the frame must be recalculated for the caption to go: a no-op move
+	// with SWP_FRAMECHANGED does it
+	const swpFrameChanged = 0x1 | 0x2 | 0x4 | 0x10 | 0x20
+	pSetWindowPos.Call(hwnd, 0, 0, 0, 0, 0, swpFrameChanged)
+	c.layout()
 }
