@@ -2008,6 +2008,14 @@ window.addEventListener('scroll', () => {
   if (spyPending) return;
   spyPending = true;
   requestAnimationFrame(spyOutline);
+  // remember where the document is, per file, so a restart (an update,
+  // a reopen) lands you where you were
+  if (S.path) {
+    clearTimeout(window.scrollSaveTimer);
+    window.scrollSaveTimer = setTimeout(() => {
+      try { localStorage.setItem('remark:scroll:' + S.path, String(Math.round(window.scrollY))); } catch (e) {}
+    }, 150);
+  }
 }, { passive: true });
 
 // ---------------------------------------------------------------------------
@@ -2436,6 +2444,14 @@ document.addEventListener('click', e => {
 // the splash (index.html) covers load + first paint; drop it once painted
 function dismissSplash() {
   fetch('/api/uiready?t=' + TOKEN).catch(() => {}); // reveal the native window
+  // back to where the document was last time (saved on scroll, per file)
+  if (S.path && !S.scrollRestored) {
+    S.scrollRestored = true;
+    try {
+      const y = parseInt(localStorage.getItem('remark:scroll:' + S.path) || '', 10);
+      if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
+    } catch (e) {}
+  }
   const sp = $('#splash');
   if (!sp) return;
   requestAnimationFrame(() => {
