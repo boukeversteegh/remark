@@ -434,8 +434,10 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, Text: it.Text})
 			continue
 		}
-		if prev.Time != it.Time && it.Time != "" && it.Time != "now" {
-			// a "(now)" placeholder got its real stamp (window or remark stamp)
+		if prev.Time == "now" && it.Time != "" && it.Time != "now" {
+			// a "(now)" placeholder got its real stamp (window or remark stamp);
+			// keyed on author+text, so only a placeholder-to-stamp change
+			// counts — two comments sharing a key must not look like one
 			evs = append(evs, monEvent{Type: "stamped", File: file, Author: it.Author,
 				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, Text: it.Text})
 		}
