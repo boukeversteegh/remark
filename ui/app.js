@@ -1533,8 +1533,8 @@ function buildPresence() {
     if (r.online && !r.stalled && r.acted) {
       const ms = Date.now() - new Date(r.acted.replace(' ', 'T')).getTime();
       const m = Math.max(0, Math.round(ms / 60000));
-      const ago = m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
-      st.textContent = 'active ' + ago;
+      const ago = m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
+      st.textContent = m < 1 ? 'active' : 'active ' + ago;
       let waiting = 0;
       for (const it of S.parsed.items) {
         if (!it.time || !it.author || normName(it.author) === k) continue;
