@@ -1732,16 +1732,15 @@ async function fetchPresence() {
   if (!S.path) return;
   try {
     // a newer remark binary landed at this process's path (remark install):
-    // one keyed notice with a Restart button, never nagging twice
-    if (!S.updateNoticed) {
-      fetch('/api/update?t=' + TOKEN).then(x => x.json()).then(u => {
-        if (u && u.updated && !S.updateNoticed) {
-          S.updateNoticed = true;
-          toast('ok', '<b>remark was updated</b> — this window still runs the old build. ' +
-            '<button class="tbtn" onclick="restartRemark()">Restart</button>', 'update');
-        }
-      }).catch(() => {});
-    }
+    // one keyed notice with a Restart button per distinct build — dismissing
+    // it covers that build only, the next install notifies again
+    fetch('/api/update?t=' + TOKEN).then(x => x.json()).then(u => {
+      if (u && u.updated && u.stamp && u.stamp !== S.updateStamp) {
+        S.updateStamp = u.stamp;
+        toast('ok', '<b>remark was updated</b> — this window still runs the old build. ' +
+          '<button class="tbtn" onclick="restartRemark()">Restart</button>', 'update');
+      }
+    }).catch(() => {});
     const r = await fetch('/api/presence?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN);
     if (!r.ok) return;
     const list = await r.json();

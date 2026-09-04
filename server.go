@@ -269,19 +269,23 @@ var selfStamp = func() string {
 	return fmt.Sprintf("%d|%d", st.Size(), st.ModTime().UnixNano())
 }()
 
-func selfUpdated() bool {
-	if selfStamp == "" {
-		return false
-	}
+// selfCurrentStamp is the size|mtime of whatever binary sits at this
+// process's path right now ("" when unknown).
+func selfCurrentStamp() string {
 	exe, err := os.Executable()
 	if err != nil {
-		return false
+		return ""
 	}
 	st, err := os.Stat(exe)
 	if err != nil {
-		return false
+		return ""
 	}
-	return fmt.Sprintf("%d|%d", st.Size(), st.ModTime().UnixNano()) != selfStamp
+	return fmt.Sprintf("%d|%d", st.Size(), st.ModTime().UnixNano())
+}
+
+func selfUpdated() bool {
+	cur := selfCurrentStamp()
+	return selfStamp != "" && cur != "" && cur != selfStamp
 }
 
 func prefsPath() string {
@@ -402,7 +406,9 @@ func newMux() *http.ServeMux {
 	// and puts the new one at the same path, so a running instance can tell
 	// a newer build arrived by watching its own path; the UI offers a restart
 	mux.HandleFunc("GET /api/update", authed(func(w http.ResponseWriter, r *http.Request) {
-		jsonOut(w, http.StatusOK, map[string]bool{"updated": selfUpdated()})
+		// "stamp" identifies the build now at the path, so the UI can notify
+		// once per distinct update — a dismissal covers that build only
+		jsonOut(w, http.StatusOK, map[string]any{"updated": selfUpdated(), "stamp": selfCurrentStamp()})
 	}))
 	mux.HandleFunc("POST /api/restart", authed(func(w http.ResponseWriter, r *http.Request) {
 		exe, err := os.Executable()
