@@ -116,10 +116,11 @@ Rules an agent must follow when writing:
   * Replies are plain "- " items nested under their parent. No checkbox:
     most conversation carries no status. Only write "- [ ]" on a reply if
     it genuinely asks something that needs resolving.
-  * Keep threads FLAT: answer under the thread's root (the event's "root"),
-    not under the comment that happened to be last, so a linear exchange
-    reads top to bottom. Nest one level deeper only for a genuine side
-    thread that would otherwise be hard to follow.
+  * Keep threads FLAT, at the level you were addressed: answer a comment
+    under its parent (as its sibling, the event's "parent") or under the
+    comment itself (its "time") — never skip levels up to the root when
+    someone wrote to you inside a side thread, or the exchange loses its
+    coherence. A root-level comment is answered under the root.
   * A checkbox is its author's resolution: only the author of "- [ ]"
     decides when it becomes "- [x]". Never tick another author's box.
   * Read state: a hidden <!--seen:Name1,Name2--> marker at the END of a
