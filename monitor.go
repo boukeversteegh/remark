@@ -635,6 +635,11 @@ func runMonitor(args []string) {
 					actor = ev.Reader
 				}
 				if ignored[monNormAuthor(actor)] {
+					// any own act (comment, seen-marker, toggle) is a sign of life
+					// for the presence record: "active 2m ago" in the window
+					if *as != "" && actor == *as {
+						presenceSetActed(f)
+					}
 					// the agent's own hand-written comment: hand it back its real
 					// stamp (once a "(now)" got filled) with the parent and root,
 					// and the reply command that would have done it. Comments

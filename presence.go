@@ -33,6 +33,11 @@ type presenceInfo struct {
 	// an event for it — the honest "reached the agent's monitor" stamp
 	// (design thread: it claims the line left the monitor, nothing more)
 	Delivered map[string]string `json:"delivered,omitempty"`
+	// Acted records, per normalized file, when this agent last showed a sign
+	// of life there — its own comment or seen-marker landing in the file, as
+	// noticed by its own monitor. A healthy pipe with no acts is how a
+	// blocked agent (a permission prompt, say) gives itself away.
+	Acted map[string]string `json:"acted,omitempty"`
 	// Stalled: the process is alive but its stdout writes have been blocked
 	// for a while — the reader (the agent's harness) isn't draining the pipe
 	Stalled bool `json:"stalled,omitempty"`
@@ -99,6 +104,13 @@ func presenceAnnounce(name, kind string, patterns, files []string, stop <-chan s
 			write()
 		}
 	}
+	presenceActedSetter = func(file string) {
+		if info.Acted == nil {
+			info.Acted = map[string]string{}
+		}
+		info.Acted[presenceNormPath(file)] = time.Now().Format("2006-01-02 15:04:05")
+		write()
+	}
 	go func() {
 		<-stop
 		os.Remove(pf)
@@ -122,6 +134,16 @@ func presenceSetStalled(v bool) {
 	}
 }
 
+// presenceSetActed marks that this agent just acted in file (its own
+// comment or seen-marker landed), as noticed by its monitor.
+var presenceActedSetter func(file string)
+
+func presenceSetActed(file string) {
+	if presenceActedSetter != nil {
+		presenceActedSetter(file)
+	}
+}
+
 type presenceEntry struct {
 	Name      string `json:"name"`
 	Kind      string `json:"kind"`
@@ -129,6 +151,7 @@ type presenceEntry struct {
 	Stalled   bool   `json:"stalled,omitempty"` // alive but its output isn't being read
 	LastSeen  string `json:"lastSeen"`
 	Delivered string `json:"delivered,omitempty"` // last event emitted for THIS file
+	Acted     string `json:"acted,omitempty"`     // last own comment/seen-marker in THIS file
 }
 
 // presenceList returns everyone whose scope covers the given document,
@@ -165,7 +188,7 @@ func presenceList(file string) []presenceEntry {
 		key := strings.TrimSpace(info.Name) // literal identity — no folding
 		entry := presenceEntry{Name: info.Name, Kind: info.Kind,
 			Online: alive, LastSeen: info.Started,
-			Delivered: info.Delivered[target]}
+			Delivered: info.Delivered[target], Acted: info.Acted[target]}
 		if prev, ok := best[key]; !ok {
 			best[key] = entry
 			order = append(order, key)
@@ -180,6 +203,9 @@ func presenceList(file string) []presenceEntry {
 			}
 			if entry.Delivered > merged.Delivered {
 				merged.Delivered = entry.Delivered
+			}
+			if entry.Acted > merged.Acted {
+				merged.Acted = entry.Acted
 			}
 			best[key] = merged
 		}

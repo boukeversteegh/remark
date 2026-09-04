@@ -1501,7 +1501,8 @@ function buildPresence() {
     const k = claim(p.name);
     if (!k) continue;
     const r = rows.get(k) || {};
-    rows.set(k, { ...r, online: r.online || p.online, stalled: p.stalled, lastSeen: p.lastSeen });
+    rows.set(k, { ...r, online: r.online || p.online, stalled: p.stalled, lastSeen: p.lastSeen,
+      acted: (r.acted && (!p.acted || r.acted > p.acted)) ? r.acted : p.acted });
   }
   const sorted = [...rows.entries()].sort((a, b) =>
     (b[1].isMe ? 1 : 0) - (a[1].isMe ? 1 : 0) ||
@@ -1525,6 +1526,25 @@ function buildPresence() {
     st.textContent = r.online ? (r.stalled ? 'stalled' : 'online') : 'offline';
     if (r.stalled) st.dataset.tip = "monitor running, but its output isn't being read";
     else if (!r.online && r.lastSeen) st.title = 'last seen ' + r.lastSeen;
+    // an agent's last sign of life in THIS file (its own comment or
+    // seen-marker, stamped by its monitor), and what arrived since without
+    // its seen-marker — a healthy pipe with a growing "waiting" is how a
+    // blocked agent shows
+    if (r.online && !r.stalled && r.acted) {
+      const ms = Date.now() - new Date(r.acted.replace(' ', 'T')).getTime();
+      const m = Math.max(0, Math.round(ms / 60000));
+      const ago = m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
+      st.textContent = 'active ' + ago;
+      let waiting = 0;
+      for (const it of S.parsed.items) {
+        if (!it.time || !it.author || normName(it.author) === k) continue;
+        if (it.time.replace(' ', 'T') <= r.acted.replace(' ', 'T')) continue;
+        if ((it.seenBy || []).some(n => normName(n) === k)) continue;
+        waiting++;
+      }
+      st.dataset.tip = 'last acted ' + r.acted + ' · ' +
+        (waiting ? waiting + ' comment' + (waiting === 1 ? '' : 's') + ' by others since, without its read mark' : 'nothing waiting since');
+    }
     row.appendChild(st);
     // "Also known as…" on the main name: pick another row and it folds in
     // under this one. Same gesture for everyone — you are a row too, so
