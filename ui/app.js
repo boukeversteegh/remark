@@ -245,9 +245,35 @@ function annotate(parsed) {
 // Identity is the LITERAL author string (owner's decree in the Delivery
 // receipts thread): no case folding, no emoji stripping, no magic. The only
 // hygiene is whitespace trimming, which comes from parsing, not matching.
-// "🤖 Claude" and "claude" are two different participants.
+// "🤖 Claude" and "claude" are two different participants — unless YOU
+// said so: aliases (prefs, this computer only) map a name onto another
+// author, and every same-author check goes through that map. Files are
+// never rewritten; "Me" stays "Me" on disk and counts as Bouke here.
+//   PREFS.aliases = { "Bouke": ["Me"], "🤖 Claude": ["Claude"] }
+function aliasTarget(name) {
+  const al = PREFS.aliases || {};
+  for (const canon in al) {
+    if ((al[canon] || []).some(a => a.trim() === name)) return canon.trim();
+  }
+  return name;
+}
 function normName(s) {
-  return (s || '').trim();
+  return aliasTarget((s || '').trim());
+}
+// re-point a name: it (and anything aliased to it) becomes an alias of
+// target; target === null ungroups it. Persisted, then everything re-renders
+function setAlias(name, target) {
+  const al = {};
+  for (const c in PREFS.aliases || {}) al[c] = (PREFS.aliases[c] || []).filter(a => a !== name);
+  const carried = al[name] || [];
+  delete al[name];
+  if (target) {
+    target = aliasTarget(target); // an alias of an alias collapses onto the root
+    if (target !== name) al[target] = [...new Set([...(al[target] || []), name, ...carried])];
+  }
+  for (const c in al) if (!al[c].length) delete al[c];
+  setPref('aliases', al);
+  render();
 }
 function isMe(author) {
   return normName(author) === normName(S.me);
@@ -1323,31 +1349,43 @@ function buildPresence() {
   head.appendChild(document.createTextNode('Authors'));
   wrap.appendChild(head);
 
-  // display names: prefer the document's rendition (emoji, casing) and the
-  // longest variant seen
+  // one row per identity (aliases fold into their target); the literal
+  // names that fold into a row are listed under it. Display name: the
+  // alias target when the row is one, else the document's longest rendition
   const display = new Map();
+  const literals = new Map(); // key -> Set of literal names seen for it
   const claim = n => {
+    n = (n || '').trim();
     const k = normName(n);
-    if (k && (!display.has(k) || n.length > display.get(k).length)) display.set(k, n);
+    if (!k) return k;
+    if (!literals.has(k)) literals.set(k, new Set());
+    literals.get(k).add(n);
+    if (k === n || (PREFS.aliases || {})[k]) display.set(k, k);
+    else if (!display.has(k) || n.length > display.get(k).length) display.set(k, n);
     return k;
   };
   const rows = new Map();
   if (S.me) rows.set(claim(S.me), { online: false, isMe: true });
-  for (const it of S.parsed.items) {
-    if (!it.author) continue;
-    const k = claim(it.author);
-    if (k && !rows.has(k)) rows.set(k, { online: false });
-  }
+  (function walk(items) {
+    for (const it of items || []) {
+      if (it.author) {
+        const k = claim(it.author);
+        if (k && !rows.has(k)) rows.set(k, { online: false });
+      }
+      walk(it.children);
+    }
+  })(S.parsed.items);
   for (const p of S.presence || []) {
     const k = claim(p.name);
     if (!k) continue;
     const r = rows.get(k) || {};
-    rows.set(k, { ...r, online: p.online, stalled: p.stalled, lastSeen: p.lastSeen });
+    rows.set(k, { ...r, online: r.online || p.online, stalled: p.stalled, lastSeen: p.lastSeen });
   }
   const sorted = [...rows.entries()].sort((a, b) =>
     (b[1].isMe ? 1 : 0) - (a[1].isMe ? 1 : 0) ||
     (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0) ||
     display.get(a[0]).localeCompare(display.get(b[0])));
+  const closeMenus = () => wrap.querySelectorAll('.pmenu').forEach(m => m.remove());
   for (const [k, r] of sorted) {
     const row = document.createElement('div');
     row.className = 'prow' + (freshRows.has(k) ? ' fresh' : '');
@@ -1366,7 +1404,60 @@ function buildPresence() {
     if (r.stalled) st.dataset.tip = "monitor running, but its output isn't being read";
     else if (!r.online && r.lastSeen) st.title = 'last seen ' + r.lastSeen;
     row.appendChild(st);
+    // "Also known as…" on the main name: pick another row and it folds in
+    // under this one. Same gesture for everyone — you are a row too, so
+    // "Bouke, also known as Me" is just that
+    const others = sorted.filter(([o]) => o !== k);
+    if (others.length) {
+      const more = document.createElement('button');
+      more.className = 'pmore';
+      more.title = 'Also known as…';
+      more.textContent = '⋯';
+      more.addEventListener('click', e => {
+        e.stopPropagation();
+        const open = row.querySelector('.pmenu');
+        closeMenus();
+        if (open) return;
+        const menu = document.createElement('div');
+        menu.className = 'pmenu';
+        const h = document.createElement('div');
+        h.className = 'pmhead';
+        h.textContent = 'Also known as…';
+        menu.appendChild(h);
+        for (const [o] of others) {
+          const opt = document.createElement('div');
+          opt.className = 'pmopt';
+          opt.appendChild(avatarEl(display.get(o)));
+          opt.appendChild(document.createTextNode(display.get(o)));
+          opt.addEventListener('click', ev => { ev.stopPropagation(); setAlias(o, k); });
+          menu.appendChild(opt);
+        }
+        row.appendChild(menu);
+        setTimeout(() => document.addEventListener('click', closeMenus, { once: true }), 0);
+      });
+      row.appendChild(more);
+    }
     wrap.appendChild(row);
+    // the literal names folded into this row, each with an Ungroup
+    for (const lit of [...literals.get(k) || []].filter(n => n !== display.get(k)).sort()) {
+      const ar = document.createElement('div');
+      ar.className = 'prow alias';
+      const an = document.createElement('span');
+      an.className = 'pname';
+      an.textContent = '↳ ' + lit;
+      ar.appendChild(an);
+      const tag = document.createElement('span');
+      tag.className = 'ptag';
+      tag.textContent = 'aka';
+      ar.appendChild(tag);
+      const un = document.createElement('button');
+      un.className = 'pmore punalias';
+      un.title = 'Ungroup: ' + lit + ' becomes its own author again';
+      un.textContent = '×';
+      un.addEventListener('click', e => { e.stopPropagation(); setAlias(lit, null); });
+      ar.appendChild(un);
+      wrap.appendChild(ar);
+    }
   }
   return wrap;
 }
