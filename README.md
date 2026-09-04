@@ -145,6 +145,17 @@ in that thread under `-mine`. Every `-json` event carries `root`, the
 thread root's timestamp, so `remark read <file> <root>` prints the thread
 the event belongs to.
 
+**Writing** — agents should not typeset comments by hand (every structural
+fault so far was a wrong indent or a misplaced line). `remark reply <file>
+<selector> -as <name> [-text t | -file p | stdin]` places a reply after the
+parent's whole subtree at the right indent, re-indents every body line
+(fences and tables included), stamps it with a real unique time and adds
+the agent's name to the parent's seen-marker; `remark thread <file> -as
+<name> [-title t] [-plain] (-after <selector> | -section <heading> | -end)`
+opens a new root. Both re-read the file right before writing and retry if
+it changed underneath, and print the new comment's timestamp. `remark stamp
+<file>` fills in `(now)` placeholders left by hand edits.
+
 A headless watcher built for AI agents (a Claude hook, a `Monitor` command, a
 script): it emits one line per **new comment** and per **read-checkbox
 toggle** — with author, timestamp, section, thread and the comment text — and

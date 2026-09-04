@@ -42,6 +42,22 @@ Usage:
                                 comment owning file line 1310).
                                 -depth N limits the subtree (0 = node alone),
                                 -parents prints full ancestor bodies
+  remark reply <file> <sel> -as <name> [-text t | -file p | stdin]
+                                WRITE a reply under the comment <sel>
+                                selects (same selectors as read): placed
+                                after the parent's whole subtree at the
+                                right indent, every body line re-indented
+                                (fences and tables included), stamped with
+                                a real unique time, and your name added to
+                                the parent's seen-marker. Prints the new
+                                comment's timestamp. Use this instead of
+                                editing the file by hand.
+  remark thread <file> -as <name> [-title t] [-plain]
+                (-after <sel> | -section <heading> | -end) [-text|-file|stdin]
+                                WRITE a new thread root: after the thread
+                                <sel> belongs to, at the end of a section,
+                                or at the end of the file. "- [ ]" unless
+                                -plain.
   remark stamp <file...>        replace every "(now)" placeholder in an
                                 author prefix with the real, unique time —
                                 what a remark window on the file also does
@@ -68,6 +84,10 @@ The markdown convention — a complete exchange looks like this:
       - Bouke (2026-09-03 14:09): good, add it <!--seen:agent-->
 
 Rules an agent must follow when writing:
+  * Prefer the write verbs: "remark reply <file> <sel> -as <you> -text ..."
+    and "remark thread ...". They place, indent, stamp and mark for you;
+    every structural fault seen so far came from a hand-typed edit. The
+    rules below are for when you must edit by hand anyway.
   * Sign every comment: "Name (YYYY-MM-DD HH:mm:ss): ". Unsigned items are
     presumed to be the local human. Identity is the LITERAL string: names
     match byte for byte (no case folding, no emoji stripping), so pick ONE
@@ -179,6 +199,14 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "stamp" {
 		runStamp(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "reply" {
+		runReply(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "thread" {
+		runThread(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "recent" {
