@@ -925,6 +925,7 @@ function buildItem(item, opts) {
       const nxt = item.segments[si + 1];
       // mid-body (more of the parent's text follows) = an interjection
       const card = buildItem(seg.item, { interjected: !!nxt });
+      if (nxt) card.classList.add('interjected'); // indented at every level, root included
       const tl = trailingList(lastBody);
       const nxtFirst = nxt && nxt.type === 'text'
         ? (nxt.md.split('\n').find(l => l.trim() !== '') || '') : '';
@@ -941,7 +942,7 @@ function buildItem(item, opts) {
         if (nxt && lastParaHash && !editing) {
           const akey = 'ipara:' + item.key + ':' + lastParaHash + ':after:' + seg.item.key;
           const gap = document.createElement('div');
-          gap.className = 'igap';
+          gap.className = 'igap iafter';
           gap.title = 'Insert another comment here';
           gap.innerHTML = '<span class="iglabel">— insert comment —</span>';
           gap.addEventListener('click', () => toggleEditor(akey));
