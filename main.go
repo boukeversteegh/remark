@@ -42,6 +42,10 @@ Usage:
                                 comment owning file line 1310).
                                 -depth N limits the subtree (0 = node alone),
                                 -parents prints full ancestor bodies
+  remark stamp <file...>        replace every "(now)" placeholder in an
+                                author prefix with the real, unique time —
+                                what a remark window on the file also does
+                                by itself once the file settles
   remark install                copy the binary to a per-user location and
                                 add it to your PATH
 
@@ -75,6 +79,11 @@ Rules an agent must follow when writing:
     give two comments in one file the same timestamp — if the second you
     are writing in is taken, bump forward one second. remark read
     addresses comments by these timestamps.
+  * Don't know the time, or don't want to get it wrong? Write "(now)" in
+    the timestamp slot — "- Name (now): text". That line is a comment at
+    once (unlike a bare "- Name: text", which stays body content), and a
+    remark window on the file, or "remark stamp <file>", replaces "(now)"
+    with the real unique stamp. Never invent a stamp.
   * New thread roots are top-level list items attached under the paragraph
     they discuss, marked with an invisible <!--thread--> comment, and
     usually opened as "- [ ]" (an open checkbox = this needs an answer).
@@ -166,6 +175,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "read" {
 		runRead(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "stamp" {
+		runStamp(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "recent" {

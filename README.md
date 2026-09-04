@@ -75,7 +75,10 @@ Some paragraph of the document being discussed.
   noticing a message is not "done".
 - The author prefix may carry a plain-text timestamp — `Author (YYYY-MM-DD
   HH:mm):` — which remark writes on every comment it creates and renders as a
-  dim time next to the author. Comments without one are fine too.
+  dim time next to the author. Comments without one are fine too. A writer
+  that doesn't know the time writes `Author (now):` — the line is a comment
+  at once, and a remark window on the file (or `remark stamp <file>`) swaps
+  `(now)` for the real, unique stamp.
 - A thread gets a **title** when the root comment's body starts with a line
   that is entirely bold: `- [ ] Alice: **Batch size rationale**` followed by
   the comment text on the next line. The title is shown in the card header

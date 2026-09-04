@@ -86,8 +86,10 @@
   }
 
   // Optional timestamp suffix in the author prefix, embedded as plain text:
-  // "Alice (2026-09-02 14:32): ..."
-  var TIME_RE = /\s*\((\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?)\)$/;
+  // "Alice (2026-09-02 14:32): ...". "(now)" is the placeholder a writer
+  // leaves when it does not want to invent a stamp: it makes the line a
+  // comment right away, and the auto-stamper replaces it with the real time
+  var TIME_RE = /\s*\((\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?|now)\)$/;
 
   // "Author: rest" on the first line of an item body. Lenient — used for
   // display on items already inside a thread.
@@ -240,7 +242,8 @@
         if (item.author) {
           var tm = item.author.match(TIME_RE);
           if (tm) {
-            item.time = tm[1];
+            // "(now)": a comment, but still unstamped — the stamper fills it
+            item.time = tm[1] === 'now' ? null : tm[1];
             item.author = item.author.slice(0, tm.index).trim();
           }
         }
@@ -503,7 +506,9 @@
         } else {
           var am = srest.match(/^(.{1,48}?):\s*/);
           if (!am) { r.reason = 'no author prefix to stamp'; results.push(r); continue; }
-          newRest = am[1] + ' (' + op.time + '): ' + srest.slice(am[0].length);
+          // a "(now)" placeholder gives way to the real stamp
+          var sname = am[1].replace(/\s*\(now\)$/, '');
+          newRest = sname + ' (' + op.time + '): ' + srest.slice(am[0].length);
         }
         lines[sit.startLine] = slm[1] + newRest;
         text = lines.join('\n');

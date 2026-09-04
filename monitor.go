@@ -89,10 +89,13 @@ var (
 	monSeenRe        = regexp.MustCompile(`<!--\s*seen:([^>]*?)\s*-->`)
 	monAuthorRe      = regexp.MustCompile(`^(.{1,48}?):\s+(.*)$`)
 	monAuthorEmptyRe = regexp.MustCompile(`^(.{1,48}?):\s*$`)
-	monTimeRe        = regexp.MustCompile(`\s*\((\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?)\)$`)
-	monTitleRe       = regexp.MustCompile(`^\*\*([^*].*?)\*\*\s*$`)
-	monSpaceRe       = regexp.MustCompile(`\s+`)
-	monSymbolRe      = regexp.MustCompile(`^[A-Za-z0-9]`)
+	// "(now)" is the placeholder a writer leaves when it does not want to
+	// invent a stamp: recognised as a comment at once, replaced by a window
+	// on the file or by `remark stamp`
+	monTimeRe   = regexp.MustCompile(`\s*\((\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?|now)\)$`)
+	monTitleRe  = regexp.MustCompile(`^\*\*([^*].*?)\*\*\s*$`)
+	monSpaceRe  = regexp.MustCompile(`\s+`)
+	monSymbolRe = regexp.MustCompile(`^[A-Za-z0-9]`)
 )
 
 func monNormalize(s string) string {
