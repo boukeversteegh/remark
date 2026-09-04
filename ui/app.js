@@ -614,6 +614,22 @@ function persistCollapse(key, val) {
   } catch (e) { /* storage full/blocked: state stays session-only */ }
 }
 
+// bookmarks: private to this computer and file, keyed by comment timestamp
+// (the comment's identity, edit-stable). Never written to the file.
+function loadBookmarks() {
+  S.bookmarks = new Set();
+  try {
+    const arr = JSON.parse(localStorage.getItem('remark:bookmarks:' + S.path) || '[]');
+    if (Array.isArray(arr)) S.bookmarks = new Set(arr);
+  } catch (e) { /* blocked storage: bookmarks stay session-only */ }
+}
+function toggleBookmark(time) {
+  if (!time) return;
+  if (S.bookmarks.has(time)) S.bookmarks.delete(time); else S.bookmarks.add(time);
+  try { localStorage.setItem('remark:bookmarks:' + S.path, JSON.stringify([...S.bookmarks])); } catch (e) {}
+  render();
+}
+
 function isCollapsed(item) {
   if (hasOpenEditor(item)) {
     S.collapsed.set(item.key, false);
@@ -704,6 +720,20 @@ function buildItem(item) {
         () => toast('warn', 'Could not access the clipboard'));
     });
     head.appendChild(cp);
+
+    // bookmark: a private, per-file, per-window mark (local storage keyed
+    // by the comment's timestamp — never written to the file); bookmarked
+    // comments are listed under their thread in the outline
+    const bm = document.createElement('button');
+    const marked = S.bookmarks.has(item.time);
+    bm.className = 'bmbtn' + (marked ? ' on' : '');
+    bm.innerHTML = iconHTML('bookmark');
+    bm.title = marked ? 'Remove bookmark' : 'Bookmark — listed in the outline, on this computer only';
+    bm.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleBookmark(item.time);
+    });
+    head.appendChild(bm);
   }
 
   if (item.title) {
@@ -1661,6 +1691,60 @@ function buildOutline() {
   head.appendChild(filterBtn);
   nav.appendChild(head);
 
+  // bookmarks (this computer only): every thread holding one, with the
+  // bookmarked comments nested under it, each jumping to its comment
+  {
+    const marked = [];
+    for (const b of S.parsed.blocks) {
+      if (b.type !== 'thread') continue;
+      const hits = [];
+      (function walk(it) {
+        if (it.time && S.bookmarks.has(it.time)) hits.push(it);
+        it.children.forEach(walk);
+      })(b.thread);
+      if (hits.length) marked.push({ thread: b.thread, hits });
+    }
+    if (marked.length) {
+      const bh = document.createElement('div');
+      bh.className = 'ohead obhead';
+      bh.innerHTML = iconHTML('bookmark');
+      bh.appendChild(document.createTextNode('Bookmarks'));
+      nav.appendChild(bh);
+      for (const { thread: th, hits } of marked) {
+        const trow = document.createElement('div');
+        trow.className = 'otrow obthread';
+        const ic = document.createElement('span');
+        ic.className = 'obicon';
+        ic.innerHTML = iconHTML('bookmark');
+        trow.appendChild(ic);
+        const txt = document.createElement('span');
+        txt.className = 'otxt';
+        txt.textContent = th.title ||
+          ((th.author ? th.author + ': ' : '') + th.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 46));
+        txt.title = txt.textContent;
+        trow.appendChild(txt);
+        trow.addEventListener('click', () => revealItem(th));
+        nav.appendChild(trow);
+        for (const it of hits) {
+          const brow = document.createElement('div');
+          brow.className = 'obrow';
+          const who = document.createElement('span');
+          who.className = 'obwho';
+          who.textContent = it.author || '';
+          brow.appendChild(who);
+          const ex = document.createElement('span');
+          ex.className = 'otxt';
+          ex.textContent = (it === th && it.title ? it.title + ' — ' : '') +
+            it.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 60);
+          ex.title = it.time + ' · ' + ex.textContent;
+          brow.appendChild(ex);
+          brow.addEventListener('click', () => revealItem(it));
+          nav.appendChild(brow);
+        }
+      }
+    }
+  }
+
   let current = null;
   const sections = [];
   for (const b of S.parsed.blocks) {
@@ -2206,6 +2290,7 @@ async function init() {
   try {
     S.collapsedSaved = JSON.parse(localStorage.getItem('remark:collapsed:' + S.path) || '{}');
   } catch (e) { S.collapsedSaved = {}; }
+  loadBookmarks();
   applyZoom();
   if (!S.path) { showLanding(); dismissSplash(); return; }
   applyChrome();

@@ -764,6 +764,27 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 }
 .chead:hover .crefbtn { opacity: .8; }
 .chead .crefbtn:hover { opacity: 1; color: var(--accent); background: var(--border-soft); }
+/* bookmark: quiet like the copy button until set, then always visible and filled */
+.chead .bmbtn {
+  border: 0; background: none; color: var(--faint); cursor: pointer;
+  display: inline-flex; align-items: center; padding: 2px 4px;
+  border-radius: 6px; opacity: 0; transition: opacity .12s, color .12s;
+}
+.chead:hover .bmbtn { opacity: .8; }
+.chead .bmbtn:hover { opacity: 1; color: var(--accent); background: var(--border-soft); }
+.chead .bmbtn.on { opacity: 1; color: var(--accent); }
+.chead .bmbtn.on svg { fill: currentColor; }
+/* outline: bookmarks block — threads with a bookmark icon, comments nested */
+.obhead { margin-top: 4px; }
+.obthread .obicon { display: inline-flex; color: var(--accent); flex: none; }
+.obthread .obicon svg { width: 12px; height: 12px; fill: currentColor; }
+.obrow {
+  display: flex; align-items: baseline; gap: 6px; padding: 2px 6px 2px 30px;
+  font-size: 12px; color: var(--muted); cursor: pointer; border-radius: 6px;
+}
+.obrow:hover { background: var(--surface); color: var(--fg); }
+.obrow .obwho { flex: none; font-weight: 600; font-size: 11px; color: var(--fg); }
+.obrow .otxt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cfoot .replyseed:hover { border-color: var(--border); background: var(--surface); }
 .replybtn {
   display: inline-flex; align-items: center; gap: 5px;
