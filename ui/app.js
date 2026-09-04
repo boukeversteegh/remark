@@ -1935,14 +1935,32 @@ function buildOutline() {
         trow.appendChild(ic);
       }
       trow.addEventListener('click', () => {
-        // a bookmark is the reason you come back: land on it, else on
-        // the first unread, else on the root
-        if (marks.length) { revealItem(marks[0]); return; }
         const unreadHere = [];
         collectUnread(th, unreadHere);
         revealItem(unreadHere[0] || th);
       });
       nav.appendChild(trow);
+      // one line per bookmarked comment, nested under its thread
+      for (const it of marks) {
+        const brow = document.createElement('div');
+        brow.className = 'obrow';
+        const ic = document.createElement('span');
+        ic.className = 'obicon';
+        ic.innerHTML = iconHTML('bookmark');
+        brow.appendChild(ic);
+        const who = document.createElement('span');
+        who.className = 'obwho';
+        who.textContent = it.author || '';
+        brow.appendChild(who);
+        const ex = document.createElement('span');
+        ex.className = 'otxt';
+        ex.textContent = (it === th && it.title ? it.title + ' — ' : '') +
+          it.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 60);
+        ex.title = it.time + ' · ' + ex.textContent;
+        brow.appendChild(ex);
+        brow.addEventListener('click', () => revealItem(it));
+        nav.appendChild(brow);
+      }
     }
   }
 }

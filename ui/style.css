@@ -797,7 +797,16 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .chead .bmbtn.on svg { fill: currentColor; }
 /* outline: a thread holding a bookmark is listed in place with the icon */
 .otrow .obicon { display: inline-flex; color: var(--accent); flex: none; margin-left: 4px; }
-.otrow .obicon svg { width: 12px; height: 12px; fill: currentColor; }
+.otrow .obicon svg, .obrow .obicon svg { width: 12px; height: 12px; fill: currentColor; }
+/* one line per bookmarked comment, nested under its thread row */
+.obrow {
+  display: flex; align-items: center; gap: 6px; padding: 2px 6px 2px 34px;
+  font-size: 12px; color: var(--muted); cursor: pointer; border-radius: 6px;
+}
+.obrow:hover { background: var(--surface); color: var(--fg); }
+.obrow .obicon { display: inline-flex; color: var(--accent); flex: none; }
+.obrow .obwho { flex: none; font-weight: 600; font-size: 11px; color: var(--fg); }
+.obrow .otxt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cfoot .replyseed:hover { border-color: var(--border); background: var(--surface); }
 .replybtn {
   display: inline-flex; align-items: center; gap: 5px;
