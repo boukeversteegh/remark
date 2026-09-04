@@ -274,6 +274,10 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
   font-size: 16px; cursor: pointer; padding: 2px 6px;
 }
 .ndismiss:hover { color: var(--fg); }
+.notice .tbtn {
+  margin-left: 8px; padding: 3px 10px; border-radius: 7px; border: 1px solid var(--accent-border);
+  background: var(--accent); color: var(--accent-fg); font: 600 12px var(--font-display); cursor: pointer;
+}
 /* a just-arrived agent's row glows green; fades after ~8 focused seconds */
 .prow.fresh { background: var(--ok-soft); border-radius: 8px; transition: background .6s; }
 
@@ -791,17 +795,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .chead .bmbtn:hover { opacity: 1; color: var(--accent); background: var(--border-soft); }
 .chead .bmbtn.on { opacity: 1; color: var(--accent); }
 .chead .bmbtn.on svg { fill: currentColor; }
-/* outline: bookmarks block — threads with a bookmark icon, comments nested */
-.obhead { margin-top: 4px; }
-.obthread .obicon { display: inline-flex; color: var(--accent); flex: none; }
-.obthread .obicon svg { width: 12px; height: 12px; fill: currentColor; }
-.obrow {
-  display: flex; align-items: baseline; gap: 6px; padding: 2px 6px 2px 30px;
-  font-size: 12px; color: var(--muted); cursor: pointer; border-radius: 6px;
-}
-.obrow:hover { background: var(--surface); color: var(--fg); }
-.obrow .obwho { flex: none; font-weight: 600; font-size: 11px; color: var(--fg); }
-.obrow .otxt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* outline: a thread holding a bookmark is listed in place with the icon */
+.otrow .obicon { display: inline-flex; color: var(--accent); flex: none; margin-left: 4px; }
+.otrow .obicon svg { width: 12px; height: 12px; fill: currentColor; }
 .cfoot .replyseed:hover { border-color: var(--border); background: var(--surface); }
 .replybtn {
   display: inline-flex; align-items: center; gap: 5px;

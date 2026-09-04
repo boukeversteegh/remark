@@ -255,6 +255,35 @@ var uiReadyOnce sync.Once
 // a null value deletes a key.
 var prefsMu sync.Mutex
 
+// selfStamp is the size and mtime of this process's binary as it was at
+// start; selfUpdated compares the file now at that path against it
+var selfStamp = func() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	st, err := os.Stat(exe)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%d|%d", st.Size(), st.ModTime().UnixNano())
+}()
+
+func selfUpdated() bool {
+	if selfStamp == "" {
+		return false
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	st, err := os.Stat(exe)
+	if err != nil {
+		return false
+	}
+	return fmt.Sprintf("%d|%d", st.Size(), st.ModTime().UnixNano()) != selfStamp
+}
+
 func prefsPath() string {
 	d, err := os.UserConfigDir()
 	if err != nil {
@@ -368,6 +397,29 @@ func newMux() *http.ServeMux {
 	}))
 	mux.HandleFunc("GET /api/presence", authed(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, presenceList(r.URL.Query().Get("path")))
+	}))
+	// self-update awareness: `remark install` moves the running binary aside
+	// and puts the new one at the same path, so a running instance can tell
+	// a newer build arrived by watching its own path; the UI offers a restart
+	mux.HandleFunc("GET /api/update", authed(func(w http.ResponseWriter, r *http.Request) {
+		jsonOut(w, http.StatusOK, map[string]bool{"updated": selfUpdated()})
+	}))
+	mux.HandleFunc("POST /api/restart", authed(func(w http.ResponseWriter, r *http.Request) {
+		exe, err := os.Executable()
+		if err != nil {
+			jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		args := []string{}
+		if p := r.URL.Query().Get("path"); p != "" {
+			args = append(args, p)
+		}
+		if err := exec.Command(exe, args...).Start(); err != nil {
+			jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
+		go func() { time.Sleep(400 * time.Millisecond); os.Exit(0) }()
 	}))
 	// pasted images: bytes in, a filename next to the document out. The name
 	// comes from the clipboard when it has a real one, else <mdname>-<stamp>;

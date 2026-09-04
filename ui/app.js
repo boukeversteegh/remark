@@ -1666,6 +1666,15 @@ function mountMentionPicker(ta) {
   ta.addEventListener('blur', () => setTimeout(close, 150));
 }
 
+// restart into the newer binary on the same document: the server spawns
+// it and exits; this window closes with the process
+function restartRemark() {
+  fetch('/api/restart?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN, { method: 'POST' })
+    .then(r => r.json()).then(j => {
+      if (j.error) toast('warn', 'Restart failed: ' + String(j.error).replace(/[<>&]/g, ''));
+    }).catch(() => {});
+}
+
 // toasts: noticeable but never in the way of writing — a fixed stack in the
 // corner; every notice is dismiss-only (the back-online one by spec, the
 // offline one because "the agent can't hear you" shouldn't quietly vanish).
@@ -1700,6 +1709,17 @@ function toast(kind, html, key) {
 async function fetchPresence() {
   if (!S.path) return;
   try {
+    // a newer remark binary landed at this process's path (remark install):
+    // one keyed notice with a Restart button, never nagging twice
+    if (!S.updateNoticed) {
+      fetch('/api/update?t=' + TOKEN).then(x => x.json()).then(u => {
+        if (u && u.updated && !S.updateNoticed) {
+          S.updateNoticed = true;
+          toast('ok', '<b>remark was updated</b> — this window still runs the old build. ' +
+            '<button class="tbtn" onclick="restartRemark()">Restart</button>', 'update');
+        }
+      }).catch(() => {});
+    }
     const r = await fetch('/api/presence?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN);
     if (!r.ok) return;
     const list = await r.json();
@@ -1781,59 +1801,16 @@ function buildOutline() {
   head.appendChild(filterBtn);
   nav.appendChild(head);
 
-  // bookmarks (this computer only): every thread holding one, with the
-  // bookmarked comments nested under it, each jumping to its comment
-  {
-    const marked = [];
-    for (const b of S.parsed.blocks) {
-      if (b.type !== 'thread') continue;
-      const hits = [];
-      (function walk(it) {
-        if (it.time && S.bookmarks.has(it.time)) hits.push(it);
-        it.children.forEach(walk);
-      })(b.thread);
-      if (hits.length) marked.push({ thread: b.thread, hits });
-    }
-    if (marked.length) {
-      const bh = document.createElement('div');
-      bh.className = 'ohead obhead';
-      bh.innerHTML = iconHTML('bookmark');
-      bh.appendChild(document.createTextNode('Bookmarks'));
-      nav.appendChild(bh);
-      for (const { thread: th, hits } of marked) {
-        const trow = document.createElement('div');
-        trow.className = 'otrow obthread';
-        const ic = document.createElement('span');
-        ic.className = 'obicon';
-        ic.innerHTML = iconHTML('bookmark');
-        trow.appendChild(ic);
-        const txt = document.createElement('span');
-        txt.className = 'otxt';
-        txt.textContent = th.title ||
-          ((th.author ? th.author + ': ' : '') + th.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 46));
-        txt.title = txt.textContent;
-        trow.appendChild(txt);
-        trow.addEventListener('click', () => revealItem(th));
-        nav.appendChild(trow);
-        for (const it of hits) {
-          const brow = document.createElement('div');
-          brow.className = 'obrow';
-          const who = document.createElement('span');
-          who.className = 'obwho';
-          who.textContent = it.author || '';
-          brow.appendChild(who);
-          const ex = document.createElement('span');
-          ex.className = 'otxt';
-          ex.textContent = (it === th && it.title ? it.title + ' — ' : '') +
-            it.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 60);
-          ex.title = it.time + ' · ' + ex.textContent;
-          brow.appendChild(ex);
-          brow.addEventListener('click', () => revealItem(it));
-          nav.appendChild(brow);
-        }
-      }
-    }
-  }
+  // bookmarked comments (this computer only): collected per thread so the
+  // section list below can surface their thread in place
+  const bookmarkedIn = th => {
+    const hits = [];
+    (function walk(it) {
+      if (it.time && S.bookmarks.has(it.time)) hits.push(it);
+      it.children.forEach(walk);
+    })(th);
+    return hits;
+  };
 
   let current = null;
   const sections = [];
@@ -1912,9 +1889,11 @@ function buildOutline() {
     for (const th of sec.threads) {
       const stats = threadStats(th);
       const open = threadOpen(th);
-      if (!S.outlineAll && !open) continue;
+      const marks = bookmarkedIn(th);
+      // a bookmarked thread is always listed, whatever the filter says
+      if (!S.outlineAll && !open && !marks.length) continue;
       const trow = document.createElement('div');
-      trow.className = 'otrow';
+      trow.className = 'otrow' + (marks.length ? ' bookmarked' : '');
       const dot = document.createElement('span');
       dot.className = 'ostat ' + (stats.unread ? 'unread' : open ? 'open' : 'done');
       dot.title = stats.unread ? stats.unread + ' unread' : open ? 'awaiting a reply or tick' : 'all processed';
@@ -1925,7 +1904,18 @@ function buildOutline() {
         ((th.author ? th.author + ': ' : '') + th.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 46));
       txt.title = txt.textContent;
       trow.appendChild(txt);
+      if (marks.length) {
+        const ic = document.createElement('span');
+        ic.className = 'obicon';
+        ic.innerHTML = iconHTML('bookmark');
+        ic.title = marks.length === 1 ? 'bookmarked: ' + (marks[0].author || '') + ' ' + marks[0].time
+          : marks.length + ' bookmarked comments';
+        trow.appendChild(ic);
+      }
       trow.addEventListener('click', () => {
+        // a bookmark is the reason you come back: land on it, else on
+        // the first unread, else on the root
+        if (marks.length) { revealItem(marks[0]); return; }
         const unreadHere = [];
         collectUnread(th, unreadHere);
         revealItem(unreadHere[0] || th);
