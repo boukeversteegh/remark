@@ -1502,7 +1502,8 @@ function buildPresence() {
     if (!k) continue;
     const r = rows.get(k) || {};
     rows.set(k, { ...r, online: r.online || p.online, stalled: p.stalled, lastSeen: p.lastSeen,
-      acted: (r.acted && (!p.acted || r.acted > p.acted)) ? r.acted : p.acted });
+      acted: (r.acted && (!p.acted || r.acted > p.acted)) ? r.acted : p.acted,
+      cwd: p.online ? (p.cwd || r.cwd) : (r.cwd || p.cwd) });
   }
   const sorted = [...rows.entries()].sort((a, b) =>
     (b[1].isMe ? 1 : 0) - (a[1].isMe ? 1 : 0) ||
@@ -1520,6 +1521,7 @@ function buildPresence() {
     const em = dispName.match(/^\p{Extended_Pictographic}️?\s*/u);
     if (em && dispName.length > em[0].length) dispName = dispName.slice(em[0].length);
     nm.textContent = dispName + (r.isMe ? ' (you)' : '');
+    if (r.cwd) nm.title = 'monitor running in ' + r.cwd; // a worktree path tells which checkout
     row.appendChild(nm);
     const st = document.createElement('span');
     st.className = 'pstat ' + (r.online ? (r.stalled ? 'stall' : 'on') : 'off');

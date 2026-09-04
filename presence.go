@@ -38,6 +38,9 @@ type presenceInfo struct {
 	// noticed by its own monitor. A healthy pipe with no acts is how a
 	// blocked agent (a permission prompt, say) gives itself away.
 	Acted map[string]string `json:"acted,omitempty"`
+	// Cwd: where the monitor runs — a worktree path tells the human which
+	// checkout an agent is working in
+	Cwd string `json:"cwd,omitempty"`
 	// Stalled: the process is alive but its stdout writes have been blocked
 	// for a while — the reader (the agent's harness) isn't draining the pipe
 	Stalled bool `json:"stalled,omitempty"`
@@ -84,6 +87,7 @@ func presenceAnnounce(name, kind string, patterns, files []string, stop <-chan s
 	}
 	info := presenceInfo{Name: name, Kind: kind, PID: os.Getpid(),
 		Started: time.Now().Format("2006-01-02 15:04")}
+	info.Cwd, _ = os.Getwd()
 	for _, p := range patterns {
 		info.Scope = append(info.Scope, presenceNormPath(p))
 	}
@@ -152,6 +156,7 @@ type presenceEntry struct {
 	LastSeen  string `json:"lastSeen"`
 	Delivered string `json:"delivered,omitempty"` // last event emitted for THIS file
 	Acted     string `json:"acted,omitempty"`     // last own comment/seen-marker in THIS file
+	Cwd       string `json:"cwd,omitempty"`       // where the monitor runs
 }
 
 // presenceList returns everyone whose scope covers the given document,
@@ -188,7 +193,7 @@ func presenceList(file string) []presenceEntry {
 		key := strings.TrimSpace(info.Name) // literal identity — no folding
 		entry := presenceEntry{Name: info.Name, Kind: info.Kind,
 			Online: alive, LastSeen: info.Started,
-			Delivered: info.Delivered[target], Acted: info.Acted[target]}
+			Delivered: info.Delivered[target], Acted: info.Acted[target], Cwd: info.Cwd}
 		if prev, ok := best[key]; !ok {
 			best[key] = entry
 			order = append(order, key)

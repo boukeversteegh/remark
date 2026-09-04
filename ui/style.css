@@ -608,8 +608,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 /* an interjection is a discussion of its own: its direct replies render
    flat under it, like replies under a root, and its reply seed sits flush;
    only a reply to one of those replies indents */
-.citem.interjected > .citem { margin-left: -11px; margin-right: -14px; border-left: 0; border-radius: 0; }
-.citem.interjected > .cfoot, .citem.interjected > .editor {
+.citem > .citem.interjected > .citem { margin-left: -11px; margin-right: -14px; border-left: 0; border-radius: 0; }
+/* (one selector deeper than the nested-slot rule further down, so the
+   interjection's own box sits flush at its edge while a subthread's box
+   under it keeps the 22px indent and its border — the two never line up) */
+.citem > .citem.interjected > .cfoot, .citem > .citem.interjected > .editor {
   margin-left: -11px; margin-right: -14px; border-left: 0;
   padding-left: 11px; padding-right: 11px;
 }
