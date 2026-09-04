@@ -1822,6 +1822,7 @@ function buildOutline() {
   });
   head.appendChild(filterBtn);
   nav.appendChild(head);
+  requestAnimationFrame(spyOutline); // highlight where the document is, once the rows exist
 
   // bookmarked comments (this computer only): collected per thread so the
   // section list below can surface their thread in place
@@ -1849,6 +1850,7 @@ function buildOutline() {
   for (const sec of sections) {
     const row = document.createElement('div');
     row.className = 'orow l' + sec.block.level;
+    row.dataset.spy = sec.block.key; // scroll spy: the heading block this row stands for
     // fixed-width slot BEFORE the title keeps titles aligned whether or
     // not a section has unread counts
     const slot = document.createElement('span');
@@ -1916,6 +1918,7 @@ function buildOutline() {
       if (!S.outlineAll && !open && !marks.length) continue;
       const trow = document.createElement('div');
       trow.className = 'otrow' + (marks.length ? ' bookmarked' : '');
+      if (th.time) trow.dataset.spyTime = th.time.replace(/\D/g, ''); // scroll spy: the root's anchor
       const dot = document.createElement('span');
       dot.className = 'ostat ' + (stats.unread ? 'unread' : open ? 'open' : 'done');
       dot.title = stats.unread ? stats.unread + ' unread' : open ? 'awaiting a reply or tick' : 'all processed';
@@ -1964,6 +1967,48 @@ function buildOutline() {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// scroll spy: the outline follows the document — the section you are in
+// and the thread nearest the top of the view are highlighted, and the
+// outline scrolls so the highlighted row stays in sight
+// ---------------------------------------------------------------------------
+let spyPending = false;
+function spyOutline() {
+  spyPending = false;
+  const nav = $('#outline');
+  if (!nav || !S.path) return;
+  const line = 45 + 24; // just under the fixed topbar
+  let sec = null, thr = null;
+  for (const row of nav.querySelectorAll('.orow[data-spy]')) {
+    const el = $('.block[data-key="' + CSS.escape(row.dataset.spy) + '"]');
+    if (el && el.getBoundingClientRect().top <= line) sec = row;
+  }
+  for (const row of nav.querySelectorAll('.otrow[data-spy-time]')) {
+    const el = document.getElementById('r' + row.dataset.spyTime);
+    if (!el) continue;
+    const card = el.closest('.block') || el;
+    const r = card.getBoundingClientRect();
+    if (r.top <= line && r.bottom > line) thr = row; // the thread under the line
+    else if (r.top > line && !thr && r.top < window.innerHeight * 0.4) thr = row; // or the first one just below it
+  }
+  let changed = false;
+  for (const row of nav.querySelectorAll('.orow.active, .otrow.active')) {
+    if (row !== sec && row !== thr) { row.classList.remove('active'); changed = true; }
+  }
+  for (const row of [sec, thr]) {
+    if (row && !row.classList.contains('active')) { row.classList.add('active'); changed = true; }
+  }
+  if (changed) {
+    const keep = thr || sec;
+    if (keep) keep.scrollIntoView({ block: 'nearest' });
+  }
+}
+window.addEventListener('scroll', () => {
+  if (spyPending) return;
+  spyPending = true;
+  requestAnimationFrame(spyOutline);
+}, { passive: true });
 
 // ---------------------------------------------------------------------------
 // margin layout

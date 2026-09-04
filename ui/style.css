@@ -380,6 +380,9 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 .orow .onew:hover { opacity: 1; }
 .orow .otitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .orow.l1 { font-weight: 650; color: var(--fg); font-size: 13px; }
+/* scroll spy: where the document currently is */
+.orow.active, .otrow.active { background: var(--accent-soft); color: var(--fg); }
+.orow.active .otitle, .otrow.active .otxt { color: var(--accent); }
 .orow.l2 { padding-left: 8px; }
 .orow.l3 { padding-left: 22px; }
 .orow.l4 { padding-left: 36px; }
