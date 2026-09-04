@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // monNormAuthor: identity is the LITERAL author string (owner's decree) —
@@ -34,9 +36,48 @@ type monItem struct {
 	SeenBy     []string `json:"seenBy,omitempty"`
 	Section    string   `json:"section,omitempty"`
 	Thread     string   `json:"thread,omitempty"`
+	Root       string   `json:"root,omitempty"` // timestamp of the thread root (its identity)
 	Text       string   `json:"text"`
 	Indent     int      `json:"indent"`
 	Key        string   `json:"key"`
+}
+
+// monListFlag collects a repeatable, comma-separable string flag.
+type monListFlag []string
+
+func (l *monListFlag) String() string { return strings.Join(*l, ",") }
+func (l *monListFlag) Set(v string) error {
+	for _, s := range strings.Split(v, ",") {
+		if s = strings.TrimSpace(s); s != "" {
+			*l = append(*l, s)
+		}
+	}
+	return nil
+}
+
+// monMentions reports whether text tags name as "@name" — literal name,
+// and the tag must end where the name ends, so "@Worker-3" does not fire
+// for Worker-30. Names may contain spaces or emoji, hence no word regex.
+func monMentions(text, name string) bool {
+	if name == "" {
+		return false
+	}
+	tag := "@" + name
+	for i := 0; ; {
+		j := strings.Index(text[i:], tag)
+		if j < 0 {
+			return false
+		}
+		end := i + j + len(tag)
+		if end == len(text) {
+			return true
+		}
+		r, _ := utf8.DecodeRuneInString(text[end:])
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+			return true
+		}
+		i = end
+	}
 }
 
 var (
@@ -276,8 +317,9 @@ func monParse(content string) []*monItem {
 			flushThread()
 		}
 	}
-	// resolve thread labels: items inherit their root's title or author
-	var curLabel string
+	// resolve thread labels: items inherit their root's title or author,
+	// and carry the root's timestamp as the thread's identity
+	var curLabel, curRoot string
 	for _, it := range items {
 		if it.Indent == 0 {
 			if it.Thread != "" {
@@ -285,10 +327,44 @@ func monParse(content string) []*monItem {
 			} else {
 				curLabel = "thread by " + it.Author
 			}
+			curRoot = it.Time
 		}
 		it.Thread = curLabel
+		it.Root = curRoot
 	}
 	return items
+}
+
+// monThreadScope decides which threads a scoped monitor reports: those
+// whose root matches a -thread selector (timestamp, or the title verbatim)
+// and, with -mine, those the agent took part in — a comment signed by it
+// or one that tags it. Keyed by root timestamp; roots without one are keyed
+// by their label so old files still scope.
+func monThreadScope(items []*monItem, sels []string, mine bool, as string) map[string]bool {
+	in := map[string]bool{}
+	key := func(it *monItem) string {
+		if it.Root != "" {
+			return it.Root
+		}
+		return it.Thread
+	}
+	for _, it := range items {
+		k := key(it)
+		if in[k] {
+			continue
+		}
+		if it.Indent == 0 {
+			for _, sel := range sels {
+				if readMatch(it.Time, sel) || strings.EqualFold(it.Thread, sel) {
+					in[k] = true
+				}
+			}
+		}
+		if mine && as != "" && (it.Author == as || monMentions(it.Text, as) || (it.Indent == 0 && monMentions(it.Thread, as))) {
+			in[k] = true
+		}
+	}
+	return in
 }
 
 type monEvent struct {
@@ -301,6 +377,7 @@ type monEvent struct {
 	SeenBy  []string `json:"seenBy,omitempty"`
 	Section string   `json:"section,omitempty"`
 	Thread  string   `json:"thread,omitempty"`
+	Root    string   `json:"root,omitempty"` // thread root's timestamp: `remark read <file> <root>`
 	Text    string   `json:"text"`
 }
 
@@ -314,12 +391,12 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 		prev, existed := old[it.Key]
 		if !existed {
 			evs = append(evs, monEvent{Type: "comment", File: file, Author: it.Author,
-				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Text: it.Text})
+				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Text: it.Text})
 			continue
 		}
 		if it.Resolvable && prev.Checked != it.Checked {
 			evs = append(evs, monEvent{Type: "toggle", File: file, Author: it.Author,
-				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Text: it.Text})
+				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Text: it.Text})
 		}
 		if !monSameSet(prev.SeenBy, it.SeenBy) {
 			// the ACTOR of a seen-event is whoever was added to the marker,
@@ -334,7 +411,7 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 				if !prevSet[n] {
 					evs = append(evs, monEvent{Type: "seen", File: file, Author: it.Author,
 						Reader: n, Time: it.Time, Checked: it.Checked, SeenBy: it.SeenBy,
-						Section: it.Section, Thread: it.Thread, Text: it.Text})
+						Section: it.Section, Thread: it.Thread, Root: it.Root, Text: it.Text})
 				}
 			}
 		}
@@ -348,6 +425,9 @@ func runMonitor(args []string) {
 	ignore := fs.String("ignore-author", "", "comma-separated authors whose changes are not reported (deprecated alias: prefer -as)")
 	asJSON := fs.Bool("json", false, "emit NDJSON instead of human-readable lines")
 	interval := fs.Duration("interval", 300*time.Millisecond, "poll interval")
+	var threadSels monListFlag
+	fs.Var(&threadSels, "thread", "only report threads whose root matches this selector (timestamp or exact title); repeatable or comma-separated")
+	mine := fs.Bool("mine", false, "only report threads the -as agent took part in or was tagged in (@name)")
 
 	// accept flags before or after the file arguments
 	var flagArgs, fileArgs []string
@@ -357,7 +437,7 @@ func runMonitor(args []string) {
 			flagArgs = append(flagArgs, a)
 			needsValue := !strings.Contains(a, "=") &&
 				(strings.Contains(a, "ignore-author") || strings.Contains(a, "interval") ||
-					strings.TrimLeft(a, "-") == "as")
+					strings.TrimLeft(a, "-") == "as" || strings.TrimLeft(a, "-") == "thread")
 			if needsValue && i+1 < len(args) {
 				i++
 				flagArgs = append(flagArgs, args[i])
@@ -494,6 +574,14 @@ func runMonitor(args []string) {
 				}
 			}
 			emitted := false
+			// thread scope: with -thread/-mine only events inside the selected
+			// threads pass, except a comment that tags the agent — a tag always
+			// reaches its target, whatever the scope
+			scoped := len(threadSels) > 0 || *mine
+			var inScope map[string]bool
+			if scoped {
+				inScope = monThreadScope(items, threadSels, *mine, *as)
+			}
 			for _, ev := range monDiff(filepath.Base(f), st.items, items) {
 				actor := ev.Author
 				if ev.Type == "seen" && ev.Reader != "" {
@@ -501,6 +589,15 @@ func runMonitor(args []string) {
 				}
 				if ignored[monNormAuthor(actor)] {
 					continue
+				}
+				if scoped {
+					k := ev.Root
+					if k == "" {
+						k = ev.Thread
+					}
+					if !inScope[k] && !(ev.Type == "comment" && monMentions(ev.Text, *as)) {
+						continue
+					}
 				}
 				emitted = true
 				if *asJSON {

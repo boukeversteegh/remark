@@ -805,6 +805,14 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 }
 .editor .ebar { display: flex; gap: 10px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .editor .ebar .spacer { flex: 1; }
+/* @ picker: a quiet list right under the textarea, same left edge */
+.editor .mentions {
+  margin: 4px 0 0 30px; width: calc(100% - 30px); max-height: 180px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--card);
+  box-shadow: var(--shadow-card); font-size: 13px;
+}
+.editor .mentions .mention { padding: 5px 10px; cursor: pointer; color: var(--fg); }
+.editor .mentions .mention.sel, .editor .mentions .mention:hover { background: var(--border-soft); }
 .editor .ebar kbd {
   font-family: var(--font-ui); font-size: 10.5px; color: var(--faint);
   border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px;

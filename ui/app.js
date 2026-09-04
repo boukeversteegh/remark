@@ -772,19 +772,23 @@ function buildItem(item) {
     sb.dataset.tip = 'Seen by ' + item.seenBy.map(prettyName).join(', ');
     head.appendChild(sb);
   }
-  // the delivery ladder's first rung: a single check per agent whose
+  // the delivery ladder's first rung: ONE check for every agent whose
   // monitor emitted events for this file after the comment was written —
-  // "reached X's monitor", nothing more. Upgrades to the ✓✓ above once
-  // that agent writes its seen-marker.
+  // "reached X's monitor", nothing more; the tooltip names them. Upgrades
+  // to the ✓✓ above once an agent writes its seen-marker.
   if (isMe(item.author) && item.time) {
     const seenNorm = new Set((item.seenBy || []).map(normName));
+    const reached = [];
     for (const pr of S.presence || []) {
       if (pr.kind !== 'agent' || !pr.delivered || pr.delivered < item.time) continue;
       if (seenNorm.has(normName(pr.name))) continue;
+      reached.push(prettyName(pr.name) + ' at ' + pr.delivered.slice(11));
+    }
+    if (reached.length) {
       const dv = document.createElement('span');
       dv.className = 'dcheck';
       dv.innerHTML = iconHTML('check');
-      dv.dataset.tip = 'Reached ' + prettyName(pr.name) + "'s monitor at " + pr.delivered.slice(11);
+      dv.dataset.tip = (reached.length === 1 ? 'Reached the monitor of ' : 'Reached the monitors of ') + reached.join(', ');
       head.appendChild(dv);
     }
   }
@@ -996,6 +1000,11 @@ function buildEditor(key, target) {
     if (e.key === 'Escape') close(isEdit); // Esc on an edit restores the original
   });
   wrap.appendChild(ta);
+  // @-mentions: typing "@" opens a picker with every author in the document
+  // and everyone online; picking inserts the name exactly as it is signed
+  // (names may hold spaces or emoji) — the literal form a scoped monitor
+  // listens for
+  mountMentionPicker(ta);
 
   const preview = document.createElement('div');
   preview.className = 'epreview cbody';
@@ -1366,6 +1375,85 @@ let lastPresenceJson = '';
 let prevAgents = null;               // normName -> {name, online} from the last poll
 const offlineNotified = new Set();   // agents whose outage the user was warned about
 const freshRows = new Map();         // normName -> focused-milliseconds accumulated
+
+// everyone you could tag: the document's authors (longest rendition wins,
+// same rule as the Authors panel) plus whoever is online, minus yourself
+function mentionCandidates() {
+  const display = new Map();
+  const claim = n => {
+    const k = normName(n);
+    if (k && (!display.has(k) || n.length > display.get(k).length)) display.set(k, n);
+  };
+  const walk = items => {
+    for (const it of items || []) {
+      if (it.author) claim(it.author);
+      if (it.children) walk(it.children);
+    }
+  };
+  walk(S.parsed && S.parsed.items);
+  for (const p of S.presence || []) claim(p.name);
+  if (S.me) display.delete(normName(S.me));
+  return [...display.values()].sort((a, b) => a.localeCompare(b));
+}
+
+// the @ picker under a composer textarea: opens on "@" at a word start,
+// narrows as you type, ↑/↓ + Enter/Tab pick, Esc closes (without closing
+// the editor). Inserted as "@Name " — a name can contain spaces, so the
+// trailing space is what ends it for the reader; the monitor matches the
+// literal name and stops where it stops.
+function mountMentionPicker(ta) {
+  let box = null, start = -1, sel = 0, list = [];
+  const close = () => { if (box) box.remove(); box = null; start = -1; sel = 0; };
+  const query = () => {
+    const head = ta.value.slice(0, ta.selectionStart);
+    const at = head.lastIndexOf('@');
+    if (at < 0) return null;
+    if (at > 0 && /[\w@.]/.test(head[at - 1])) return null; // e-mail addresses, mid-word
+    const q = head.slice(at + 1);
+    if (q.includes('\n') || q.length > 40) return null;
+    return { at, q };
+  };
+  const pick = name => {
+    const pos = ta.selectionStart;
+    ta.value = ta.value.slice(0, start) + '@' + name + ' ' + ta.value.slice(pos);
+    ta.selectionStart = ta.selectionEnd = start + name.length + 2;
+    close();
+    ta.dispatchEvent(new Event('input'));
+    ta.focus();
+  };
+  const show = () => {
+    const m = query();
+    if (!m) return close();
+    const q = m.q.toLowerCase();
+    list = mentionCandidates().filter(n => n.toLowerCase().includes(q));
+    if (!list.length) return close();
+    start = m.at;
+    sel = Math.min(sel, list.length - 1);
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'mentions';
+      ta.insertAdjacentElement('afterend', box);
+    }
+    box.innerHTML = '';
+    list.forEach((n, i) => {
+      const it = document.createElement('div');
+      it.className = 'mention' + (i === sel ? ' sel' : '');
+      it.textContent = '@' + n;
+      it.addEventListener('mousedown', e => { e.preventDefault(); pick(n); });
+      box.appendChild(it);
+    });
+  };
+  ta.addEventListener('input', show);
+  ta.addEventListener('click', show);
+  ta.addEventListener('keydown', e => {
+    if (!box) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); sel = (sel + 1) % list.length; show(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); sel = (sel - 1 + list.length) % list.length; show(); }
+    else if ((e.key === 'Enter' || e.key === 'Tab') && !e.ctrlKey && !e.metaKey) { e.preventDefault(); pick(list[sel]); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+  });
+  ta.addEventListener('blur', () => setTimeout(close, 150));
+}
 
 // toasts: noticeable but never in the way of writing — a fixed stack in the
 // corner; every notice is dismiss-only (the back-online one by spec, the

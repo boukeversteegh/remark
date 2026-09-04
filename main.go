@@ -123,12 +123,27 @@ Waiting for replies:
   with <mark> being 💬 comment, ☑/☐ resolution toggle, 👁 read marker.
 
   -json emits one NDJSON object per event instead, with fields:
-    type ("comment"|"toggle"|"seen"), file, author, text,
-    time, checked, reader, seenBy, section, thread  (omitted when empty).
+    type ("comment"|"toggle"|"seen"), file, author, text, time, checked,
+    reader, seenBy, section, thread, root  (omitted when empty).
+  "root" is the thread root's timestamp: remark read <file> <root> prints
+  the whole thread the event belongs to.
   For seen-events the ACTOR is "reader" — the name just added to the
   marker; "author" stays the comment's author. The -as/-ignore-author
   filter judges the reader on seen-events, so you are never woken by
   your own read-markers and always learn when someone reads yours.
+
+  Scoping to threads (many agents on one file, e.g. an orchestrator's
+  TODO.md where each worker owns a thread):
+    -thread <selector>   only threads whose root matches — a timestamp
+                         selector as for remark read, or the title verbatim;
+                         repeatable or comma-separated
+    -mine                only threads you took part in: a comment signed
+                         with your -as name, or one that tags you (@name)
+  Both combine. A comment that tags you ("@<yourname>", the literal name,
+  ending where the name ends) ALWAYS reaches you, whatever the scope, and
+  being tagged in a thread enrolls you in it under -mine. A scoped agent
+  writes seen-markers only on comments it was woken for, so the other
+  threads stay free of its receipts.
 
   -as also announces your presence: remark windows on a file in your scope
   show you as online in the "Who's here" panel while the monitor runs, so

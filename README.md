@@ -119,6 +119,7 @@ the format" is enough for it to participate correctly.
 
 ```
 remark monitor <files-or-globs...> [-as name] [-json] [-interval 300ms]
+                                   [-thread sel[,sel...]] [-mine]
 ```
 
 `-as` is the agent's own author name: its writes are excluded from the
@@ -128,6 +129,18 @@ remark window on a file in its scope shows the agent as **online** in the
 author in the document). Liveness is the pid itself — no heartbeat, no
 server needed, and a crashed agent reads as offline immediately.
 (`-ignore-author name,name` still works as a filter-only flag.)
+
+**Thread scope** — for many agents on one file, say an orchestrator's
+`TODO.md` where each worker owns a thread: `-thread <selector>` limits the
+stream to threads whose root matches a `remark read` selector (a timestamp,
+or the title verbatim; repeatable or comma-separated), and `-mine` limits
+it to threads the agent took part in — a comment signed with its name, or
+one that **tags** it. Tagging is `@Name` in the comment text (the composer
+pops up a picker of authors on `@`, inserting the name exactly as signed);
+a tag always reaches its target whatever the scope, and enrolls the agent
+in that thread under `-mine`. Every `-json` event carries `root`, the
+thread root's timestamp, so `remark read <file> <root>` prints the thread
+the event belongs to.
 
 A headless watcher built for AI agents (a Claude hook, a `Monitor` command, a
 script): it emits one line per **new comment** and per **read-checkbox
