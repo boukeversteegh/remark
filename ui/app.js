@@ -1469,6 +1469,12 @@ function buildPresence() {
   head.className = 'ohead';
   head.innerHTML = iconHTML('users');
   head.appendChild(document.createTextNode('Authors'));
+  head.title = 'Click to fold or unfold';
+  head.addEventListener('click', () => {
+    S.authorsCollapsed = !S.authorsCollapsed;
+    wrap.classList.toggle('collapsed', !!S.authorsCollapsed);
+  });
+  wrap.classList.toggle('collapsed', !!S.authorsCollapsed);
   wrap.appendChild(head);
 
   // one row per identity (aliases fold into their target); the literal
@@ -1798,14 +1804,109 @@ setInterval(() => {
   if (changed) buildOutline();
 }, 1000);
 
+// notifications: every comment you have not marked read, one row each,
+// in the order you choose (latest, oldest, thread size) — a queue to work a
+// backlog from, independent of where things sit in the document
+function buildNotifications() {
+  const wrap = document.createElement('div');
+  wrap.className = 'notifs' + (S.notifsCollapsed ? ' collapsed' : '');
+  const head = document.createElement('div');
+  head.className = 'ohead';
+  head.innerHTML = iconHTML('bell-dot');
+  head.appendChild(document.createTextNode('Notifications'));
+  head.title = 'Click to fold or unfold';
+  head.addEventListener('click', e => {
+    if (e.target.closest('select')) return;
+    S.notifsCollapsed = !S.notifsCollapsed;
+    wrap.classList.toggle('collapsed', !!S.notifsCollapsed);
+  });
+  const sp = document.createElement('span');
+  sp.className = 'spacer';
+  sp.style.flex = '1';
+  head.appendChild(sp);
+  const count = document.createElement('span');
+  count.className = 'ncount';
+  head.appendChild(count);
+  const sort = document.createElement('select');
+  sort.className = 'nsort';
+  sort.title = 'Order';
+  for (const [v, l] of [['latest', 'latest'], ['oldest', 'oldest'], ['size', 'thread size']]) {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = l;
+    sort.appendChild(o);
+  }
+  sort.value = S.notifSort || 'latest';
+  sort.addEventListener('click', e => e.stopPropagation());
+  sort.addEventListener('change', () => { S.notifSort = sort.value; buildOutline(); });
+  head.appendChild(sort);
+  wrap.appendChild(head);
+
+  const rows = [];
+  for (const b of S.parsed.blocks) {
+    if (b.type !== 'thread') continue;
+    const unread = [];
+    collectUnread(b.thread, unread);
+    const size = threadStats(b.thread).count;
+    for (const it of unread) rows.push({ it, root: b.thread, size });
+  }
+  const t = r => (r.it.time || '').replace(' ', 'T');
+  if ((S.notifSort || 'latest') === 'oldest') rows.sort((a, b) => t(a) < t(b) ? -1 : t(a) > t(b) ? 1 : 0);
+  else if (S.notifSort === 'size') rows.sort((a, b) => b.size - a.size || (t(a) < t(b) ? 1 : -1));
+  else rows.sort((a, b) => t(a) < t(b) ? 1 : t(a) > t(b) ? -1 : 0);
+  count.textContent = rows.length ? String(rows.length) : '';
+  if (!rows.length) {
+    const none = document.createElement('div');
+    none.className = 'nnone';
+    none.textContent = 'nothing unread';
+    wrap.appendChild(none);
+    return wrap;
+  }
+  for (const { it, root, size } of rows) {
+    const row = document.createElement('div');
+    row.className = 'nrow';
+    const top = document.createElement('div');
+    top.className = 'ntop';
+    const who = document.createElement('span');
+    who.className = 'nwho';
+    who.textContent = it.author || '';
+    top.appendChild(who);
+    const when = document.createElement('span');
+    when.className = 'nwhen';
+    when.textContent = it.time || '';
+    top.appendChild(when);
+    row.appendChild(top);
+    const thr = document.createElement('div');
+    thr.className = 'nthread';
+    thr.textContent = (root.title || ((root.author ? root.author + ': ' : '') + root.bodyMd.split('\n')[0]))
+      .replace(/[#*_`>\[\]]/g, '').slice(0, 60) + ' · ' + size;
+    row.appendChild(thr);
+    const ex = document.createElement('div');
+    ex.className = 'nex';
+    ex.textContent = it.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 90);
+    row.appendChild(ex);
+    row.addEventListener('click', () => revealItem(it));
+    wrap.appendChild(row);
+  }
+  return wrap;
+}
+
 function buildOutline() {
   const nav = $('#outline');
   nav.innerHTML = '';
   nav.appendChild(buildPresence());
+  nav.appendChild(buildNotifications());
   const head = document.createElement('div');
   head.className = 'ohead';
   head.innerHTML = iconHTML('table-of-contents');
   head.appendChild(document.createTextNode('Outline'));
+  // every sidebar panel folds on its header (session-only state)
+  head.title = 'Click to fold or unfold';
+  head.addEventListener('click', e => {
+    if (e.target.closest('button')) return;
+    S.outlineCollapsed = !S.outlineCollapsed;
+    nav.classList.toggle('outline-collapsed', !!S.outlineCollapsed);
+  });
+  nav.classList.toggle('outline-collapsed', !!S.outlineCollapsed);
   const sp = document.createElement('span');
   sp.className = 'spacer';
   sp.style.flex = '1';

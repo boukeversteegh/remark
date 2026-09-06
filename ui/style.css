@@ -307,6 +307,31 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 #recent a:hover .rremove { opacity: .7; }
 .rremove:hover { opacity: 1 !important; color: var(--danger); }
 
+/* sidebar panels fold on their header (session-only) ---------------------- */
+.ohead { cursor: pointer; user-select: none; }
+.presence.collapsed > :not(.ohead), .notifs.collapsed > :not(.ohead) { display: none; }
+#outline.outline-collapsed .orow, #outline.outline-collapsed .otrow, #outline.outline-collapsed .obrow { display: none; }
+
+/* notifications: the unread queue ----------------------------------------- */
+.notifs { margin-bottom: 18px; }
+.notifs .ncount {
+  font-size: 11px; font-weight: 600; padding: 0 7px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-fg); margin-right: 6px;
+}
+.notifs .nsort {
+  font: 600 10.5px var(--font-display); letter-spacing: .03em; text-transform: uppercase;
+  color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 1px 6px; cursor: pointer;
+}
+.notifs .nnone { padding: 2px 6px 4px; font-size: 12px; color: var(--faint); }
+.nrow { padding: 5px 6px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+.nrow:hover { background: var(--surface); }
+.nrow .ntop { display: flex; gap: 8px; align-items: baseline; }
+.nrow .nwho { font-weight: 650; color: var(--fg); }
+.nrow .nwhen { color: var(--faint); font-size: 10.5px; margin-left: auto; white-space: nowrap; }
+.nrow .nthread { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nrow .nex { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* who's here (presence) -------------------------------------------------- */
 .presence { margin-bottom: 18px; }
 .prow {
