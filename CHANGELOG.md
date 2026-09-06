@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Toolbar: icon only, and the phone gets its tools
+The "remark" wordmark leaves the toolbar on every screen; the icon stays. On the phone the toolbar now holds hide-resolved, collapse all and expand all, with an icon-only status chip; the name field and Gateway button are desktop-only.
+
 ### Phone cards flush with the screen edge
 The document wrapper's side padding is gone on the phone, so thread cards touch both edges.
 

@@ -364,8 +364,14 @@ body.mobile #tabs button {
 body.mobile #tabs button .i { font-size: 18px; }
 body.mobile #tabs button.on { color: var(--accent); }
 /* the top bar keeps the essentials */
-body.mobile #filename, body.mobile #modeSeg, body.mobile .tools, body.mobile #outlineBtn, body.mobile #openBtn { display: none !important; }
-body.mobile #topbar { gap: 8px; padding: 0 12px; }
+body.mobile #filename, body.mobile #modeSeg, body.mobile #outlineBtn, body.mobile #openBtn,
+body.mobile .me, body.mobile #gatewayBtn { display: none !important; }
+body.mobile #topbar { gap: 6px; padding: 0 8px; }
+body.mobile .tools { gap: 2px; }
+/* status chip: icon only unless something is wrong */
+body.mobile .statuschip { padding: 3px 6px; font-size: 0; gap: 0; }
+body.mobile .statuschip .ic { font-size: 14px; }
+body.mobile .statuschip.status-warn { font-size: 12px; gap: 5px; padding: 3px 10px; }
 /* the document page fills the width and leaves room for the tab bar */
 body.mobile #main, body.mobile #main.outline-open { padding-left: 0 !important; bottom: 52px !important; }
 body.mobile #doc { padding: 8px 0 24px !important; max-width: none !important; }
