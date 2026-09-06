@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### The toolbar is the title bar
+The native caption is gone: one row, dragged by the toolbar, double-click to maximise, resize borders, and our own minimise, maximise and close buttons that Windows treats as the real ones (snap-layout flyout on hover, host-driven hover and press feedback).
+
 ### Notifications panel has a fixed height
 The unread queue scrolls inside a capped box, so a big backlog never pushes the outline off the screen.
 
