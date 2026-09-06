@@ -658,6 +658,7 @@
         }
         if (insertLine < 0) { r.reason = 'the paragraph this comment was attached to is gone from the file'; results.push(r); continue; }
         var nl = [''].concat(commentLines(0, false, op.author, op.text, op.time, true, op.opener !== false));
+        if (op.extra) nl[1] += ' ' + op.extra; // e.g. a DM's <!--to:sid--> address, first line only
         Array.prototype.splice.apply(lines, [insertLine, 0].concat(nl));
         text = lines.join('\n');
         r.ok = true;

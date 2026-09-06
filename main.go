@@ -279,6 +279,7 @@ func main() {
 	browser := flag.Bool("browser", false, "open in the default browser instead of an app window")
 	noOpen := flag.Bool("serve", false, "only run the server, do not open anything")
 	fixedToken := flag.String("token", "", "use a fixed auth token instead of a random one (testing)")
+	dmTo := flag.String("to", "", "DM channels: address messages written in this window to one running instance (its session id)")
 	flag.Usage = func() { fmt.Fprint(os.Stderr, agentHelp) }
 	flag.Parse()
 
@@ -324,6 +325,9 @@ func main() {
 	}
 
 	u := fmt.Sprintf("http://127.0.0.1:%d/?t=%s", p, token)
+	if *dmTo != "" {
+		u += "&to=" + *dmTo // the page stamps its messages with <!--to:sid-->
+	}
 	title := "remark"
 	first := ""
 	if len(docs) > 0 {

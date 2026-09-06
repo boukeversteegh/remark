@@ -307,6 +307,28 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 #recent a:hover .rremove { opacity: .7; }
 .rremove:hover { opacity: 1 !important; color: var(--danger); }
 
+/* chat mode: a DM channel is a linear list with a pinned message box — no
+   resolution, no seams, no nesting affordances; reply-to quotes instead */
+body.chat .cfoot, body.chat .igap, body.chat .tgap, body.chat .addbtn, body.chat .newthreadbtn,
+body.chat .rbtn, body.chat .openertoggle, body.chat .notifs, body.chat #outline .ohead:not(:first-child),
+body.chat .orow, body.chat .otrow, body.chat .obrow, body.chat .replybtn, body.chat .thread-res { display: none !important; }
+body.chat #main { padding-bottom: 150px; }
+#chatbox {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  padding: 10px 16px 12px; background: var(--bg2); border-top: 1px solid var(--border-soft);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+#chatbox .cbwrap { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; }
+#chatbox textarea {
+  width: 100%; min-height: 56px; max-height: 240px; resize: vertical; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px;
+  background: var(--bg); color: var(--fg); font: 14px/1.55 var(--font-ui);
+}
+#chatbox textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+#chatbox .cbbar { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+#chatbox .cbbar .spacer { flex: 1; }
+#chatbox .cbto { color: #b58407; font-size: 11.5px; }
+
 /* sidebar panels fold on their header (session-only) ---------------------- */
 .ohead { cursor: pointer; user-select: none; }
 .presence.collapsed > :not(.ohead), .notifs.collapsed > :not(.ohead) { display: none; }

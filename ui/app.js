@@ -317,6 +317,10 @@ function render() {
   const parsed = RvParser.parse(normEol(S.doc.content));
   annotate(parsed);
   S.parsed = parsed;
+  // a DM channel (chat marker on its first line) renders as a linear chat
+  S.chat = /^\s*<!--\s*remark:chat\s*-->/.test(S.doc.content);
+  document.body.classList.toggle('chat', !!S.chat);
+  if (S.chat) mountChatBox();
 
   // clean confirmed optimistic state
   for (const it of parsed.items) {
@@ -631,6 +635,7 @@ function toggleBookmark(time) {
 }
 
 function isCollapsed(item) {
+  if (S.chat) return false; // a chat never folds its messages
   if (hasOpenEditor(item)) {
     S.collapsed.set(item.key, false);
     return false;
@@ -990,7 +995,86 @@ function buildItem(item, opts) {
 // ---------------------------------------------------------------------------
 // editors
 // ---------------------------------------------------------------------------
+// chat mode: one pinned message box at the bottom. Every message is a new
+// root at the end of the file (no nesting, no resolution); a message sent
+// from a window opened for one instance carries <!--to:sid-->. Reply-to is
+// flat: the quoted first line plus a #r link goes into the box.
+function mountChatBox() {
+  if ($('#chatbox')) { chatStick(); return; }
+  const box = document.createElement('div');
+  box.id = 'chatbox';
+  const wrap = document.createElement('div');
+  wrap.className = 'cbwrap';
+  const ta = document.createElement('textarea');
+  ta.placeholder = 'Message… (Ctrl+Enter to send)';
+  ta.value = S.drafts['chat:' + S.path] || '';
+  ta.addEventListener('input', () => { S.drafts['chat:' + S.path] = ta.value; persistDrafts(); });
+  mountMentionPicker(ta);
+  wrap.appendChild(ta);
+  const bar = document.createElement('div');
+  bar.className = 'cbbar';
+  bar.innerHTML = '<span>as <b></b></span>';
+  $('b', bar).textContent = S.me;
+  const to = qs.get('to') || '';
+  if (to) {
+    const t = document.createElement('span');
+    t.className = 'cbto';
+    t.textContent = 'to instance ' + to;
+    t.title = 'Only the monitor with this session id is woken by your messages; other instances of the name can still read the channel';
+    bar.appendChild(t);
+  }
+  const sp = document.createElement('span');
+  sp.className = 'spacer';
+  bar.appendChild(sp);
+  const send = document.createElement('button');
+  send.className = 'send';
+  send.innerHTML = iconHTML('send-horizontal');
+  send.appendChild(document.createTextNode('Send'));
+  const doSend = () => {
+    const text = ta.value.trim();
+    if (!text) return;
+    ta.value = '';
+    delete S.drafts['chat:' + S.path]; persistDrafts();
+    S.chatFollow = true;
+    submitOps([{ type: 'add', blockHash: null, occ: 0, sectionHash: null, author: S.me, text,
+      time: uniqueStamp(), atEnd: true, opener: false, extra: to ? '<!--to:' + to + '-->' : '' }]);
+  };
+  send.addEventListener('click', doSend);
+  ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doSend(); } });
+  bar.appendChild(send);
+  wrap.appendChild(bar);
+  box.appendChild(wrap);
+  document.body.appendChild(box);
+  S.chatFollow = true;
+  window.addEventListener('scroll', () => {
+    const room = document.documentElement.scrollHeight - window.innerHeight;
+    S.chatFollow = room - window.scrollY < 200; // near the bottom: keep following
+  }, { passive: true });
+  chatStick();
+}
+function chatStick() {
+  if (S.chatFollow !== false) requestAnimationFrame(() => window.scrollTo(0, document.documentElement.scrollHeight));
+}
+function chatQuote(item) {
+  const ta = $('#chatbox textarea');
+  if (!ta) return;
+  const first = (item.bodyMd || '').split('\n').find(l => l.trim()) || '';
+  const ref = item.time ? ' #r' + item.time.replace(/\D/g, '') : '';
+  const q = '> ' + (item.author ? item.author + ': ' : '') + first.slice(0, 120) + ref + '\n\n';
+  ta.value = q + ta.value;
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = ta.value.length;
+  ta.dispatchEvent(new Event('input'));
+}
+
 function toggleEditor(key) {
+  if (S.chat && (key.startsWith('reply:') || key.startsWith('ipara:') || key.startsWith('new:'))) {
+    // flat chat: replying quotes into the pinned box instead of nesting
+    const k = key.replace(/^reply:/, '');
+    const it = (S.parsed.items || []).find(i => i.key === k);
+    if (it) chatQuote(it); else { const ta = $('#chatbox textarea'); if (ta) ta.focus(); }
+    return;
+  }
   if (S.editorsOpen.has(key) && !S.drafts[key]) {
     S.editorsOpen.delete(key);
   } else {
@@ -1585,6 +1669,21 @@ function buildPresence() {
         (waiting ? waiting + ' comment' + (waiting === 1 ? '' : 's') + ' by others since, without its read mark' : 'nothing waiting since');
     }
     row.appendChild(st);
+    // Message: open this instance's channel in its own window, addressed to
+    // it (only that monitor is woken; the channel file is shared history)
+    if (r.online && r.sid && !r.isMe && !S.chat) {
+      const msg = document.createElement('button');
+      msg.className = 'pmore pmsg';
+      msg.title = 'Message this instance directly';
+      msg.textContent = '✉';
+      msg.addEventListener('click', e => {
+        e.stopPropagation();
+        fetch('/api/dm?name=' + encodeURIComponent(display.get(nk)) + '&to=' + encodeURIComponent(r.sid) + '&t=' + TOKEN, { method: 'POST' })
+          .then(x => x.json()).then(j => { if (j.error) toast('warn', 'Could not open the channel: ' + String(j.error).replace(/[<>&]/g, '')); })
+          .catch(() => {});
+      });
+      row.appendChild(msg);
+    }
     // "Also known as…" on the main name: pick another row and it folds in
     // under this one. Same gesture for everyone — you are a row too, so
     // "Bouke, also known as Me" is just that

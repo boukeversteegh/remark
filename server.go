@@ -402,6 +402,32 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("GET /api/presence", authed(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, presenceList(r.URL.Query().Get("path")))
 	}))
+	// direct messages: open <name>'s channel in its own window, addressed to
+	// one running instance (sid) — that window stamps what it sends with
+	// <!--to:sid--> so only that monitor's feed gets it
+	mux.HandleFunc("POST /api/dm", authed(func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimSpace(r.URL.Query().Get("name"))
+		if name == "" {
+			jsonOut(w, http.StatusBadRequest, map[string]string{"error": "missing name"})
+			return
+		}
+		channel := dmEnsure(name)
+		exe, err := os.Executable()
+		if err != nil {
+			jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		args := []string{}
+		if to := strings.TrimSpace(r.URL.Query().Get("to")); to != "" {
+			args = append(args, "-to", to)
+		}
+		args = append(args, channel)
+		if err := exec.Command(exe, args...).Start(); err != nil {
+			jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		jsonOut(w, http.StatusOK, map[string]any{"ok": true, "path": channel})
+	}))
 	// self-update awareness: `remark install` moves the running binary aside
 	// and puts the new one at the same path, so a running instance can tell
 	// a newer build arrived by watching its own path; the UI offers a restart
