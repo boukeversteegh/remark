@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Phone drafts stay on the phone
+Behind the gateway, unsent comment drafts are kept on the device instead of in the PC's preferences.
+
 ### Recent files show the document title; the phone keeps its own layout
 Each entry on the landing page shows the document's first heading, with the filename and folder under it; on the phone the badges take their own line so the name is never clipped. Behind the gateway the layout preferences (mode, outline, show-all, hide-resolved, split) live on the device: the phone no longer inherits or rewrites the PC's. Name and aliases stay shared.
 

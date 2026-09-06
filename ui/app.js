@@ -154,7 +154,8 @@ let PREFS = {};
 // behind the gateway the phone shares the PC's identity (name, aliases)
 // but not its screen: the layout keys live on the device, and the PC's
 // values for them are ignored, so neither side rearranges the other
-const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct'];
+const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct']; // plus drafts:<file>
+const isDevicePref = k => DEVICE_PREFS.includes(k) || k.startsWith('drafts:');
 function devicePrefs() {
   try { return JSON.parse(localStorage.getItem('remark:prefs:phone') || '{}'); } catch (e) { return {}; }
 }
@@ -163,13 +164,14 @@ async function loadPrefs() {
   PREFS = r.json || {};
   if (PREFS.gateway) {
     const d = devicePrefs();
-    for (const k of DEVICE_PREFS) { delete PREFS[k]; if (d[k] !== undefined) PREFS[k] = d[k]; }
+    for (const k of Object.keys(PREFS)) if (isDevicePref(k)) delete PREFS[k];
+    for (const k of Object.keys(d)) if (isDevicePref(k)) PREFS[k] = d[k];
   }
 }
 function setPref(k, v) {
   if (v === undefined) v = null;
   PREFS[k] = v;
-  if (PREFS.gateway && DEVICE_PREFS.includes(k)) {
+  if (PREFS.gateway && isDevicePref(k)) {
     const d = devicePrefs();
     d[k] = v;
     try { localStorage.setItem('remark:prefs:phone', JSON.stringify(d)); } catch (e) {}
