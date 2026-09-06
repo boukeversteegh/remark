@@ -313,6 +313,50 @@ html, body { height: 100%; overflow: hidden; }
   margin-left: 8px; padding: 3px 10px; border-radius: 7px; border: 1px solid var(--accent-border);
   background: var(--accent); color: var(--accent-fg); font: 600 12px var(--font-display); cursor: pointer;
 }
+/* focus: one thread alone, with a way back to the whole document */
+.focusback {
+  display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 14px;
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px;
+  background: var(--surface); color: var(--fg); font: 600 12.5px var(--font-display); cursor: pointer;
+}
+.focusback:hover { border-color: var(--accent); }
+
+/* mobile: every panel is a page, a tab bar at the bottom switches --------- */
+#tabs { display: none; }
+body.mobile #tabs {
+  display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 55; height: 52px;
+  background: var(--bg2); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border-soft);
+}
+body.mobile #tabs button {
+  flex: 1; border: 0; background: none; color: var(--muted); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font: 600 10.5px var(--font-display);
+}
+body.mobile #tabs button .i { font-size: 18px; }
+body.mobile #tabs button.on { color: var(--accent); }
+/* the top bar keeps the essentials */
+body.mobile #filename, body.mobile #modeSeg, body.mobile .tools, body.mobile #outlineBtn, body.mobile #openBtn { display: none !important; }
+body.mobile #topbar { gap: 8px; padding: 0 12px; }
+/* the document page fills the width and leaves room for the tab bar */
+body.mobile #main, body.mobile #main.outline-open { padding-left: 0 !important; bottom: 52px !important; }
+body.mobile #doc { padding: 12px 12px 24px !important; max-width: none !important; }
+body.mobile:not(.tab-doc) #docwrap { display: none !important; }
+/* the sidebar becomes the Notifications / Outline / Authors pages */
+body.mobile #outline { display: none !important; left: 0; right: 0; width: auto; top: 45px; bottom: 52px; padding: 12px 12px 24px; border-right: 0; }
+body.mobile.tab-notifs #outline, body.mobile.tab-outline #outline, body.mobile.tab-authors #outline { display: block !important; }
+body.mobile:not(.tab-authors) #outline .presence { display: none; }
+body.mobile:not(.tab-notifs) #outline .notifs { display: none; }
+body.mobile:not(.tab-outline) #outline > .ohead, body.mobile:not(.tab-outline) #outline .orow, body.mobile:not(.tab-outline) #outline .otrow, body.mobile:not(.tab-outline) #outline .obrow { display: none; }
+body.mobile .notifs .nlist { max-height: none; }
+body.mobile .nrow { padding: 8px 6px; font-size: 14px; }
+body.mobile .nrow .nex { font-size: 14px; }
+body.mobile .otrow, body.mobile .orow { font-size: 14px; padding-top: 6px; padding-bottom: 6px; }
+body.mobile .prow { font-size: 14px; padding: 6px; }
+body.mobile #chatbox { bottom: 0; }
+body.mobile.chat #tabs { display: none; }
+body.mobile #whatsnew, body.mobile #gwpanel { right: 8px; left: 8px; width: auto; }
+
 /* gateway panel: the phone's way in — status, share toggle, pairing QR */
 #gwpanel {
   position: fixed; right: 16px; top: 56px; z-index: 60; width: min(380px, calc(100vw - 32px));

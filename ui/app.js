@@ -391,7 +391,32 @@ function render() {
     }
   };
 
+  // focus: one thread alone (the phone opens a thread from Notifications
+  // this way) — its section heading, the thread, and a bar back to the
+  // whole document
+  let focusKeep = null;
+  if (S.focusThread) {
+    focusKeep = new Set();
+    let lastHeading = null;
+    for (const b of parsed.blocks) {
+      if (b.type === 'heading') lastHeading = b;
+      if (b.type === 'thread' && b.thread.time === S.focusThread) {
+        if (lastHeading) focusKeep.add(lastHeading);
+        focusKeep.add(b);
+      }
+    }
+    if (!focusKeep.size) { S.focusThread = null; focusKeep = null; } // the thread is gone
+    else {
+      const back = document.createElement('button');
+      back.className = 'focusback';
+      back.innerHTML = iconHTML('corner-down-right');
+      back.appendChild(document.createTextNode('Whole document'));
+      back.addEventListener('click', () => { S.focusThread = null; render(); });
+      doc.appendChild(back);
+    }
+  }
   for (const block of parsed.blocks) {
+    if (focusKeep && !focusKeep.has(block)) continue;
     if (block.type === 'thread') {
       // toolbar filter: resolved threads drop out of view entirely — but
       // never ones with unread comments, or the unread navigation would
@@ -1602,7 +1627,9 @@ function buildPresence() {
   for (const p of S.presence || []) {
     const k = claim(p.name);
     if (!k) continue;
-    if (p.online) {
+    // only AGENTS split into instances (two monitors under one name are
+    // two things to tell apart); a human's devices fold into one row
+    if (p.online && p.kind === 'agent') {
       const n = (liveCount.get(k) || 0) + 1;
       liveCount.set(k, n);
       if (n > 1) {
@@ -2165,7 +2192,7 @@ function buildNotifications() {
     ex.className = 'nex';
     ex.textContent = it.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 90);
     row.appendChild(ex);
-    row.addEventListener('click', () => revealItem(it));
+    row.addEventListener('click', () => openFromPanel(it, root));
     list.appendChild(row);
   }
   return wrap;
@@ -2256,11 +2283,14 @@ function buildOutline() {
     title.title = title.textContent;
     row.appendChild(title);
     row.addEventListener('click', () => {
-      const el = $('.block[data-key="' + CSS.escape(sec.block.key) + '"]');
-      if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      el.classList.add('anchor-hl');
-      setTimeout(() => el.classList.remove('anchor-hl'), 1200);
+      const go = () => {
+        const el = $('.block[data-key="' + CSS.escape(sec.block.key) + '"]');
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.classList.add('anchor-hl');
+        setTimeout(() => el.classList.remove('anchor-hl'), 1200);
+      };
+      if (S.mobile) { S.focusThread = null; setTab('doc'); render(); requestAnimationFrame(go); } else go();
     });
     // per-section new-thread: same composer the cluster-end button opens,
     // anchored to the section's last commentable block (or the heading
@@ -2323,7 +2353,7 @@ function buildOutline() {
       trow.addEventListener('click', () => {
         const unreadHere = [];
         collectUnread(th, unreadHere);
-        revealItem(unreadHere[0] || th);
+        openFromPanel(unreadHere[0] || th, th);
       });
       nav.appendChild(trow);
       // one line per bookmarked comment, nested under its thread
@@ -2344,7 +2374,7 @@ function buildOutline() {
           it.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 60);
         ex.title = it.time + ' · ' + ex.textContent;
         brow.appendChild(ex);
-        brow.addEventListener('click', () => revealItem(it));
+        brow.addEventListener('click', () => openFromPanel(it, th));
         nav.appendChild(brow);
       }
     }
@@ -2671,6 +2701,49 @@ async function pickAndOpen() {
 
 function applyChrome() {
   $('#main').className = 'mode-' + S.mode + (S.outline ? ' outline-open' : '');
+  applyMobile();
+}
+
+// mobile: on a narrow screen (the phone through the gateway) every panel
+// is a page — Document, Notifications, Outline, Authors — switched by a
+// tab bar at the bottom; a notification opens its thread alone
+const mobileQuery = window.matchMedia('(max-width: 720px)');
+function applyMobile() {
+  S.mobile = mobileQuery.matches && !!S.path;
+  document.body.classList.toggle('mobile', S.mobile);
+  if (!S.mobile) { document.body.className = document.body.className.replace(/\btab-\w+/g, '').trim(); return; }
+  setTab(S.tab || 'doc');
+  if (!$('#tabs')) {
+    const bar = document.createElement('nav');
+    bar.id = 'tabs';
+    for (const [id, icon, label] of [['doc', 'file-text', 'Document'], ['notifs', 'bell-dot', 'Notifications'], ['outline', 'table-of-contents', 'Outline'], ['authors', 'users', 'Authors']]) {
+      const b = document.createElement('button');
+      b.dataset.tab = id;
+      b.innerHTML = iconHTML(icon) + '<span>' + label + '</span>';
+      b.addEventListener('click', () => setTab(id));
+      bar.appendChild(b);
+    }
+    document.body.appendChild(bar);
+  }
+}
+function setTab(id) {
+  S.tab = id;
+  document.body.className = document.body.className.replace(/\btab-\w+/g, '').trim() + ' tab-' + id;
+  const tabs = $('#tabs');
+  if (tabs) for (const b of tabs.querySelectorAll('button')) b.classList.toggle('on', b.dataset.tab === id);
+}
+mobileQuery.addEventListener('change', () => { applyMobile(); if (S.parsed) render(); });
+// open a comment from a panel: on the phone that means its thread alone on
+// the Document page; on the desktop just scroll to it
+function openFromPanel(it, root) {
+  if (S.mobile) {
+    S.focusThread = root && root.time ? root.time : null;
+    setTab('doc');
+    render();
+    requestAnimationFrame(() => revealItem(it));
+  } else {
+    revealItem(it);
+  }
 }
 
 // ---------------------------------------------------------------------------

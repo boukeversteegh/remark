@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Mobile: every panel is a page
+On a narrow screen (the phone through the gateway) the sidebar is gone and a tab bar at the bottom switches between Document, Notifications, Outline and Authors, each filling the screen. Tapping a notification opens that thread alone on the Document page, under its section heading, with a "Whole document" button to go back; the top bar keeps only the essentials. Your own devices fold into your one Authors row: only agents get per-instance rows.
+
 ### Gateway: your documents on your phone
 `remark gateway` is a separate process that serves the same UI to a paired phone over your network or VPN, restricted to the documents you put on it. The Gateway button in the toolbar starts or stops it, shares this document, shows the pairing QR (address plus a pre-shared code), and issues a new code.
 
