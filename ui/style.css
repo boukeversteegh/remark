@@ -149,8 +149,8 @@ body.in-window .caption { display: flex; }
   font: 10px "Segoe Fluent Icons", "Segoe MDL2 Assets", sans-serif;
   transition: background .08s;
 }
-.capbtn.hover { background: rgba(0, 0, 0, .06); }
-.capbtn.pressed { background: rgba(0, 0, 0, .1); }
+.capbtn.hover { background: rgba(0, 0, 0, .08); }
+.capbtn.pressed { background: rgba(0, 0, 0, .14); }
 #capClose.hover { background: #c42b1c; color: #fff; }
 #capClose.pressed { background: #b52a1a; color: #fff; }
 #capMin::before { content: "\E921"; }
@@ -158,8 +158,8 @@ body.in-window .caption { display: flex; }
 body.maximized #capMax::before { content: "\E923"; }
 #capClose::before { content: "\E8BB"; }
 @media (prefers-color-scheme: dark) {
-  .capbtn.hover { background: rgba(255, 255, 255, .08); }
-  .capbtn.pressed { background: rgba(255, 255, 255, .05); }
+  .capbtn.hover { background: rgba(255, 255, 255, .1); }
+  .capbtn.pressed { background: rgba(255, 255, 255, .06); }
 }
 
 .pill {

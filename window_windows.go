@@ -852,11 +852,17 @@ var chromeWndProc = syscall.NewCallback(func(hwnd, msg, wp, lp uintptr) uintptr 
 			c.hover = hover
 			c.syncHover()
 		}
+		// not DefWindowProc's: it would start its own non-client leave
+		// tracking, and since the cursor is really over the bar (a child)
+		// that fires WM_NCMOUSELEAVE at once and the hover is gone again.
+		// The bar tracks the leave and forwards it.
+		return 0
 	case wmNCMouseLeave:
 		if c.hover != 0 || c.pressed != 0 {
 			c.hover, c.pressed = 0, 0
 			c.syncHover()
 		}
+		return 0
 	case wmNCLButtonDown:
 		if isCaptionButton(wp) {
 			c.pressed = wp
@@ -929,9 +935,10 @@ func installChrome(w webview2.WebView, hwnd uintptr) {
 	}
 	// the page reports the toolbar geometry whenever it lays out
 	w.Bind("__remarkChrome", func(r chromeReport) {
+		first := c.rep.H == 0
 		c.rep = r
 		c.layout()
-		c.syncMaximized(true)
+		c.syncMaximized(first) // a fresh page has no state yet; later only on change
 	})
 	// double-click on the caption maximizes only if the class says CS_DBLCLKS
 	const gclStyle = ^uintptr(25) // -26
