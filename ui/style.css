@@ -329,6 +329,7 @@ body.chat .cfoot, body.chat .igap, body.chat .tgap, body.chat .addbtn, body.chat
 body.chat .rbtn, body.chat .openertoggle, body.chat .notifs, body.chat #outline .ohead:not(:first-child),
 body.chat .orow, body.chat .otrow, body.chat .obrow, body.chat .replybtn, body.chat .thread-res { display: none !important; }
 body.chat #main { padding-bottom: 150px; }
+#main.outline-open ~ #chatbox { left: 268px; } /* the Authors sidebar keeps its column */
 #chatbox {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   padding: 10px 16px 12px; background: var(--bg2); border-top: 1px solid var(--border-soft);

@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Chat box keeps the sidebar's column
+In chat mode the pinned message box starts where the Authors sidebar ends instead of running underneath it.
+
 ### What's new after an update
 The update notice offers What's new: the entries the newer binary knows and this window does not, straight from the binaries' embedded changelogs. `remark changelog` prints a build's list.
 
