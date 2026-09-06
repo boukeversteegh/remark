@@ -154,8 +154,8 @@ let PREFS = {};
 // behind the gateway the phone shares the PC's identity (name, aliases)
 // but not its screen: the layout keys live on the device, and the PC's
 // values for them are ignored, so neither side rearranges the other
-const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct']; // plus drafts:<file>
-const isDevicePref = k => DEVICE_PREFS.includes(k) || k.startsWith('drafts:');
+const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct'];
+const isDevicePref = k => DEVICE_PREFS.includes(k);
 function devicePrefs() {
   try { return JSON.parse(localStorage.getItem('remark:prefs:phone') || '{}'); } catch (e) { return {}; }
 }
