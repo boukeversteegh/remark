@@ -274,7 +274,15 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 }
 
 /* document --------------------------------------------------------------- */
-#main { display: flex; align-items: flex-start; }
+/* #main is THE scroller: pinned under the toolbar, its scrollbar starts
+   there instead of running the full window height over the title-bar strip.
+   The window itself never scrolls. */
+html, body { height: 100%; overflow: hidden; }
+#main {
+  display: flex; align-items: flex-start;
+  position: fixed; top: 45px; left: 0; right: 0; bottom: 0;
+  overflow-y: auto; overflow-x: hidden; outline: none;
+}
 #docwrap { display: flex; justify-content: center; padding: 30px 20px 40vh; flex: 1; min-width: 0; }
 #doc { max-width: 760px; min-width: 0; flex: 1; }
 #rail { display: none; }
