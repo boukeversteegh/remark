@@ -78,6 +78,9 @@ Usage:
                                 author prefix with the real, unique time —
                                 what a remark window on the file also does
                                 by itself once the file settles
+  remark changelog              print the changelog embedded in this build
+                                (the window's "What's new" diffs a newer
+                                binary's list against the running one's)
   remark install                copy the binary to a per-user location and
                                 add it to your PATH
 
@@ -243,6 +246,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "dm" {
 		runDm(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "changelog" {
+		runChangelog()
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "recent" {

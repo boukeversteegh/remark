@@ -1826,6 +1826,61 @@ function mountMentionPicker(ta) {
   ta.addEventListener('blur', () => setTimeout(close, 150));
 }
 
+// "What's new": the entries the newer binary at this path knows and this
+// process does not (the server asks that binary for its changelog and
+// subtracts its own, keyed on titles). Shown in a small panel with Restart.
+function showWhatsNew() {
+  const old = $('#whatsnew');
+  if (old) old.remove();
+  const panel = document.createElement('div');
+  panel.id = 'whatsnew';
+  panel.innerHTML = '<div class="wnhead"><b>What\'s new</b><span class="spacer"></span>' +
+    '<button class="tbtn" onclick="restartRemark()">Restart</button>' +
+    '<button class="wnclose" title="Close">×</button></div><div class="wnbody">loading…</div>';
+  panel.querySelector('.wnclose').addEventListener('click', () => panel.remove());
+  document.body.appendChild(panel);
+  fetch('/api/whatsnew?t=' + TOKEN).then(r => r.json()).then(j => {
+    const body = panel.querySelector('.wnbody');
+    body.innerHTML = '';
+    if (j.ok === false) {
+      const n = document.createElement('div');
+      n.className = 'wnnote';
+      n.textContent = 'Could not ask the newer build for its changelog; this is everything the running build knows.';
+      body.appendChild(n);
+    }
+    if (!j.entries || !j.entries.length) {
+      const n = document.createElement('div');
+      n.className = 'wnnote';
+      n.textContent = 'Nothing new in the changelog — a rebuild of the same changes.';
+      body.appendChild(n);
+      return;
+    }
+    let lastDate = null;
+    for (const e of j.entries) {
+      if (e.date && e.date !== lastDate) {
+        lastDate = e.date;
+        const d = document.createElement('div');
+        d.className = 'wndate';
+        d.textContent = e.date;
+        body.appendChild(d);
+      }
+      const it = document.createElement('div');
+      it.className = 'wnentry';
+      const t = document.createElement('div');
+      t.className = 'wntitle';
+      t.textContent = e.title;
+      it.appendChild(t);
+      if (e.body) {
+        const b = document.createElement('div');
+        b.className = 'wntext';
+        b.innerHTML = mdInline(e.body);
+        it.appendChild(b);
+      }
+      body.appendChild(it);
+    }
+  }).catch(() => { panel.querySelector('.wnbody').textContent = 'Could not load the changelog.'; });
+}
+
 // restart into the newer binary on the same document: the server spawns
 // it and exits; this window closes with the process
 function restartRemark() {
@@ -1876,6 +1931,7 @@ async function fetchPresence() {
       if (u && u.updated && u.stamp && u.stamp !== S.updateStamp) {
         S.updateStamp = u.stamp;
         toast('ok', '<b>remark was updated</b> — this window still runs the old build. ' +
+          '<button class="tbtn" onclick="showWhatsNew()">What\'s new</button>' +
           '<button class="tbtn" onclick="restartRemark()">Restart</button>', 'update');
       }
     }).catch(() => {});

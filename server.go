@@ -436,6 +436,16 @@ func newMux() *http.ServeMux {
 		// once per distinct update — a dismissal covers that build only
 		jsonOut(w, http.StatusOK, map[string]any{"updated": selfUpdated(), "stamp": selfCurrentStamp()})
 	}))
+	// what the newer binary at this path knows that this process does not
+	// (entries keyed on title); ok=false means it could not be asked and the
+	// list is this build's whole changelog instead
+	mux.HandleFunc("GET /api/whatsnew", authed(func(w http.ResponseWriter, r *http.Request) {
+		entries, ok := whatsNew()
+		if !ok {
+			entries = changelogEntries(changelogText)
+		}
+		jsonOut(w, http.StatusOK, map[string]any{"ok": ok, "entries": entries})
+	}))
 	mux.HandleFunc("POST /api/restart", authed(func(w http.ResponseWriter, r *http.Request) {
 		exe, err := os.Executable()
 		if err != nil {
