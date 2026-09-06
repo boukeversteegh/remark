@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Phone comments: full-width text, own zoom
+On a narrow screen the comment text gets the width: no side gutters, no avatar column under the header row, a thin rule and a six-pixel step per nesting level instead of the desktop indent, and a slightly smaller font. The phone keeps its own zoom level on the device instead of inheriting the PC's, which had been scaling the whole page up. Toasts sit above the tab bar.
+
 ### Landing page scrolls, and is a document picker on the phone
 The landing page is its own scroller, so a long list of files is reachable on a small screen. Behind the gateway it drops the browse button and path box (the phone can only open what the PC shared) and lists the shared documents full width, folder under the name, with the unread and open badges.
 

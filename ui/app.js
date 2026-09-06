@@ -2676,9 +2676,15 @@ function applyZoom() {
   if (window.__remarkChromeRelayout) __remarkChromeRelayout();
 }
 let zoomStatusTimer = null;
+// the phone keeps its own zoom, on the device: the PC's preference is
+// sized for a monitor and would scale the whole phone page with it
+function phoneZoom() {
+  try { return parseFloat(localStorage.getItem('remark:zoom:phone')) || 1; } catch (e) { return 1; }
+}
 function setZoom(z) {
   S.zoom = Math.min(2.5, Math.max(0.5, Math.round(z * 10) / 10));
-  setPref('zoom', S.zoom);
+  if (mobileQuery.matches) { try { localStorage.setItem('remark:zoom:phone', String(S.zoom)); } catch (e) {} }
+  else setPref('zoom', S.zoom);
   applyZoom();
   setStatus('ok', Math.round(S.zoom * 100) + '%');
   clearTimeout(zoomStatusTimer);
@@ -3038,7 +3044,7 @@ async function init() {
   S.outline = PREFS.outline !== undefined ? PREFS.outline : true;
   S.outlineAll = !!PREFS.outlineAll;
   S.hideResolved = !!PREFS.hideResolved;
-  S.zoom = PREFS.zoom || 1;
+  S.zoom = mobileQuery.matches ? phoneZoom() : (PREFS.zoom || 1);
   try {
     S.collapsedSaved = JSON.parse(localStorage.getItem('remark:collapsed:' + S.path) || '{}');
   } catch (e) { S.collapsedSaved = {}; }

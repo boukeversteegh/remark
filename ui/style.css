@@ -367,7 +367,34 @@ body.mobile #filename, body.mobile #modeSeg, body.mobile .tools, body.mobile #ou
 body.mobile #topbar { gap: 8px; padding: 0 12px; }
 /* the document page fills the width and leaves room for the tab bar */
 body.mobile #main, body.mobile #main.outline-open { padding-left: 0 !important; bottom: 52px !important; }
-body.mobile #doc { padding: 12px 12px 24px !important; max-width: none !important; }
+body.mobile #doc { padding: 12px 10px 24px !important; max-width: none !important; }
+/* phone typography: a notch smaller and tighter than the desktop */
+body.mobile { font-size: 14px; line-height: 1.5; }
+body.mobile .cbody { font-size: 13.5px; line-height: 1.5; }
+body.mobile .chead { font-size: 12.5px; }
+/* phone comments: the text gets the width. No side gutters (the 💬 and
+   jump buttons are hover affordances), no avatar column under the head
+   row, a thin rule and a small step per level instead of the desktop
+   indent, and the cards' inner inset shrinks to match */
+body.mobile .block { padding-right: 0; }
+body.mobile #doc .twrap { margin-right: 0; }
+body.mobile .tsticky, body.mobile .addbtn { display: none !important; }
+body.mobile .citem { padding: 8px 10px 8px 10px; }
+body.mobile .citem > .citem { margin-left: -10px; margin-right: -10px; }
+body.mobile .citem .citem .citem { margin-left: 6px; border-left-width: 2px; }
+body.mobile .cbody { padding-left: 0; }
+body.mobile .citem > .citem.interjected { margin-left: 10px; }
+body.mobile .citem > .igap.iafter { margin-left: 10px; }
+body.mobile .citem > .citem.interjected > .citem { margin-left: -10px; margin-right: -10px; }
+body.mobile .citem > .citem.interjected > .cfoot, body.mobile .citem > .citem.interjected > .editor { margin-left: -10px; margin-right: -10px; padding-left: 10px; padding-right: 10px; }
+body.mobile .citem .citem > .cfoot, body.mobile .citem .citem > .editor { margin-left: 6px; padding-left: 8px; }
+body.mobile .citem > .editor { margin: 0 -10px; padding-left: 10px; padding-right: 10px; }
+body.mobile .citem > .editor textarea, body.mobile .citem > .editor .etitle,
+body.mobile .citem > .editor .epreview, body.mobile .citem > .editor .ebar { margin-left: 0; width: 100%; }
+body.mobile .cfoot .replyseed { margin-left: 0; width: 100%; font-size: 13px; }
+body.mobile .citem .citem > .cfoot:last-child, body.mobile .citem .citem > .editor:last-child { margin-bottom: -8px; padding-bottom: 8px; }
+body.mobile .thread { border-radius: 10px; }
+body.mobile .ctitlebar { font-size: 15px; }
 body.mobile:not(.tab-doc) #docwrap { display: none !important; }
 /* the sidebar becomes the Notifications / Outline / Authors pages */
 body.mobile #outline { display: none !important; left: 0; right: 0; width: auto; top: 45px; bottom: 52px; padding: 12px 12px 24px; border-right: 0; }
@@ -383,6 +410,8 @@ body.mobile .prow { font-size: 14px; padding: 6px; }
 body.mobile #chatbox { bottom: 0; }
 body.mobile.chat #tabs { display: none; }
 body.mobile #whatsnew, body.mobile #gwpanel { right: 8px; left: 8px; width: auto; }
+/* toasts sit above the tab bar, never on it */
+body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 
 /* gateway panel: the phone's way in — status, share toggle, pairing QR */
 #gwpanel {
