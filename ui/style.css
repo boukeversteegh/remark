@@ -273,10 +273,11 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 }
 #recent a:hover { background: var(--surface); border-color: var(--border); }
 #recent a .ic { color: var(--muted); font-size: 15px; }
-#recent a .rname { font-weight: 600; }
-#recent a .rdir {
+#recent a .rmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+#recent a .rname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#recent a .rfile {
   color: var(--faint); font-size: 12px; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; direction: rtl; flex: 1; text-align: right;
+  white-space: nowrap;
 }
 
 .rempty { color: var(--muted); font-size: 13.5px; margin: 8px 4px; line-height: 1.5; }
@@ -294,9 +295,9 @@ body.gateway .tagline { margin-bottom: 18px; }
   #openForm { flex-direction: column; }
   #recent { max-width: none; }
   #recent a { flex-wrap: wrap; padding: 11px 12px; border-color: var(--border-soft); margin-bottom: 6px; font-size: 15px; gap: 8px 10px; }
-  #recent a .rname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #recent a .rdir { flex: none; width: 100%; order: 3; text-align: left; direction: ltr; padding-left: 25px; }
-  #recent a .rstatus { margin-left: 0; }
+  /* badges on their own line: the name keeps the full width */
+  #recent a .rstatus { width: 100%; order: 3; margin-left: 0; padding-left: 25px; box-sizing: border-box; }
+  #recent a .rstatus:empty { display: none; }
   .rremove { opacity: .7; }
 }
 
@@ -367,7 +368,13 @@ body.mobile #filename, body.mobile #modeSeg, body.mobile .tools, body.mobile #ou
 body.mobile #topbar { gap: 8px; padding: 0 12px; }
 /* the document page fills the width and leaves room for the tab bar */
 body.mobile #main, body.mobile #main.outline-open { padding-left: 0 !important; bottom: 52px !important; }
-body.mobile #doc { padding: 12px 10px 24px !important; max-width: none !important; }
+body.mobile #doc { padding: 8px 0 24px !important; max-width: none !important; }
+/* edge to edge: cards lose their side borders and rounding, prose keeps a
+   small inset */
+body.mobile .thread { border-left: 0; border-right: 0; border-radius: 0; }
+body.mobile #doc .twrap { margin-left: 0; }
+body.mobile .block { padding-left: 8px; }
+body.mobile .focusback { margin-left: 8px; }
 /* phone typography: a notch smaller and tighter than the desktop */
 body.mobile { font-size: 14px; line-height: 1.5; }
 body.mobile .cbody { font-size: 13.5px; line-height: 1.5; }
@@ -393,7 +400,6 @@ body.mobile .citem > .editor textarea, body.mobile .citem > .editor .etitle,
 body.mobile .citem > .editor .epreview, body.mobile .citem > .editor .ebar { margin-left: 0; width: 100%; }
 body.mobile .cfoot .replyseed { margin-left: 0; width: 100%; font-size: 13px; }
 body.mobile .citem .citem > .cfoot:last-child, body.mobile .citem .citem > .editor:last-child { margin-bottom: -8px; padding-bottom: 8px; }
-body.mobile .thread { border-radius: 10px; }
 body.mobile .ctitlebar { font-size: 15px; }
 body.mobile:not(.tab-doc) #docwrap { display: none !important; }
 /* the sidebar becomes the Notifications / Outline / Authors pages */

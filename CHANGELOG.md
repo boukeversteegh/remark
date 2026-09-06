@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Recent files show the document title; the phone keeps its own layout
+Each entry on the landing page shows the document's first heading, with the filename and folder under it; on the phone the badges take their own line so the name is never clipped. Behind the gateway the layout preferences (mode, outline, show-all, hide-resolved, split) live on the device: the phone no longer inherits or rewrites the PC's. Name and aliases stay shared.
+
 ### Phone comments: full-width text, own zoom
 On a narrow screen the comment text gets the width: no side gutters, no avatar column under the header row, a thin rule and a six-pixel step per nesting level instead of the desktop indent, and a slightly smaller font. The phone keeps its own zoom level on the device instead of inheriting the PC's, which had been scaling the whole page up. Toasts sit above the tab bar.
 

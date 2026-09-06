@@ -151,13 +151,30 @@ async function api(method, path, body) {
 // (one process per file) shares author name, mode, recents and drafts.
 // ---------------------------------------------------------------------------
 let PREFS = {};
+// behind the gateway the phone shares the PC's identity (name, aliases)
+// but not its screen: the layout keys live on the device, and the PC's
+// values for them are ignored, so neither side rearranges the other
+const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct'];
+function devicePrefs() {
+  try { return JSON.parse(localStorage.getItem('remark:prefs:phone') || '{}'); } catch (e) { return {}; }
+}
 async function loadPrefs() {
   const r = await api('GET', '/api/prefs');
   PREFS = r.json || {};
+  if (PREFS.gateway) {
+    const d = devicePrefs();
+    for (const k of DEVICE_PREFS) { delete PREFS[k]; if (d[k] !== undefined) PREFS[k] = d[k]; }
+  }
 }
 function setPref(k, v) {
   if (v === undefined) v = null;
   PREFS[k] = v;
+  if (PREFS.gateway && DEVICE_PREFS.includes(k)) {
+    const d = devicePrefs();
+    d[k] = v;
+    try { localStorage.setItem('remark:prefs:phone', JSON.stringify(d)); } catch (e) {}
+    return;
+  }
   api('POST', '/api/prefs', { [k]: v });
 }
 
@@ -2592,14 +2609,19 @@ function showLanding() {
       a.href = '/?t=' + TOKEN + '&f=' + encodeURIComponent(p);
       const { dir, base } = splitPath(p);
       a.innerHTML = iconHTML('file-text');
+      // title first (the document's first heading, filled in when the
+      // status load below has the content), filename and folder under it
+      const main = document.createElement('span');
+      main.className = 'rmain';
       const name = document.createElement('span');
       name.className = 'rname';
       name.textContent = base;
       const dd = document.createElement('span');
-      dd.className = 'rdir';
+      dd.className = 'rfile';
       dd.textContent = dir.replace(/[\\/]+$/, '');
-      a.appendChild(name);
-      a.appendChild(dd);
+      main.appendChild(name);
+      main.appendChild(dd);
+      a.appendChild(main);
       const stat = document.createElement('span');
       stat.className = 'rstatus';
       a.appendChild(stat);
@@ -2623,6 +2645,11 @@ function showLanding() {
         .then(r => r.ok ? r.json() : null)
         .then(st => {
           if (!st) return;
+          const h1 = /^#\s+(.+?)\s*$/m.exec(st.content);
+          if (h1 && h1[1].trim() && h1[1].trim() !== base) {
+            name.textContent = h1[1].trim();
+            dd.textContent = base + ' \u00b7 ' + dir.replace(/[\\/]+$/, '');
+          }
           const doc2 = RvParser.parse(st.content.replace(/\r\n/g, '\n'));
           const me = PREFS.me || 'Me';
           let unread = 0, open = 0;
