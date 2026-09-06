@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Gateway: your documents on your phone
+`remark gateway` is a separate process that serves the same UI to a paired phone over your network or VPN, restricted to the documents you put on it. The Gateway button in the toolbar starts or stops it, shares this document, shows the pairing QR (address plus a pre-shared code), and issues a new code.
+
 ### The document scrolls under the title bar
 The page area is the scroller, so its scrollbar starts below the toolbar and the caption buttons own the full width; the close button's hover fill reaches the window edge.
 

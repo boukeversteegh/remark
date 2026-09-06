@@ -1897,6 +1897,75 @@ function showWhatsNew(mode) {
   }).catch(() => { panel.querySelector('.wnbody').textContent = 'Could not load the changelog.'; });
 }
 
+// the Gateway panel: the phone's way in. The gateway is a separate process
+// this window can start, stop and inspect; "on the phone" registers this
+// document with it; the QR carries address + pairing code (a pre-shared
+// key), "New code" rotates it and every paired phone must scan again.
+function showGateway() {
+  const old = $('#gwpanel');
+  if (old) { old.remove(); return; }
+  const panel = document.createElement('div');
+  panel.id = 'gwpanel';
+  panel.innerHTML = '<div class="gwhead"><b>Gateway</b><span class="spacer"></span><button class="wnclose" title="Close">×</button></div><div class="gwbody">loading…</div>';
+  panel.querySelector('.wnclose').addEventListener('click', () => panel.remove());
+  document.body.appendChild(panel);
+  const q = '?path=' + encodeURIComponent(S.path || '') + '&t=' + TOKEN;
+  const call = (ep, extra) => fetch('/api/gateway' + ep + q + (extra || ''), { method: ep ? 'POST' : 'GET' })
+    .then(r => r.json()).then(render).catch(() => { panel.querySelector('.gwbody').textContent = 'Could not reach the server.'; });
+  function render(st) {
+    const body = panel.querySelector('.gwbody');
+    body.innerHTML = '';
+    const row = (label, ctrl) => {
+      const d = document.createElement('div'); d.className = 'gwrow';
+      const l = document.createElement('span'); l.textContent = label; d.appendChild(l);
+      if (ctrl) d.appendChild(ctrl);
+      body.appendChild(d);
+    };
+    const btn = (text, cls, fn) => { const b = document.createElement('button'); b.className = 'tbtn ' + (cls || ''); b.textContent = text; b.addEventListener('click', fn); return b; };
+    if (st.error) { body.textContent = st.error; return; }
+    if (st.running) {
+      row('Running on port ' + st.port + ' since ' + st.since, btn('Stop', 'quiet', () => call('/stop')));
+      const shared = !!st.shared;
+      if (S.path) row(shared ? 'This document is on the phone' : 'This document is not on the phone',
+        btn(shared ? 'Take off' : 'Put on the phone', shared ? 'quiet' : '', () => call('/share', '&on=' + (shared ? '0' : '1'))));
+      const img = document.createElement('img');
+      img.className = 'gwqr';
+      img.src = '/api/gateway/qr.png?t=' + TOKEN + '&r=' + Date.now();
+      img.alt = 'pairing QR';
+      body.appendChild(img);
+      const url = document.createElement('div'); url.className = 'gwurl'; url.textContent = st.url || ''; body.appendChild(url);
+      if (st.addrs && st.addrs.length > 1) {
+        const a = document.createElement('div'); a.className = 'gwnote';
+        a.textContent = 'Also reachable on: ' + st.addrs.slice(1).join(', ');
+        body.appendChild(a);
+      }
+      row('Scan with the phone once; the code is the pairing key.', btn('New code', 'quiet', () => {
+        if (confirm('Issue a new pairing code? Every paired phone must scan again.')) call('/rotate');
+      }));
+    } else {
+      row('Not running', btn('Start', '', () => call('/start')));
+      const n = document.createElement('div'); n.className = 'gwnote';
+      n.textContent = 'The gateway is a separate process (remark gateway) that serves your shared documents to a paired phone over your network or VPN.';
+      body.appendChild(n);
+    }
+    const docs = st.docs || [];
+    if (docs.length) {
+      const h = document.createElement('div'); h.className = 'gwnote'; h.textContent = 'On the phone:'; body.appendChild(h);
+      for (const d of docs) {
+        const r = document.createElement('div'); r.className = 'gwdoc';
+        r.textContent = d.split(/[\\/]/).pop();
+        r.title = d;
+        body.appendChild(r);
+      }
+    }
+  }
+  call('');
+}
+window.addEventListener('DOMContentLoaded', () => {
+  const b = $('#gatewayBtn');
+  if (b) { b.innerHTML = iconHTML('smartphone'); b.addEventListener('click', showGateway); }
+});
+
 // restart into the newer binary on the same document: the server spawns
 // it and exits; this window closes with the process
 function restartRemark() {
@@ -1946,9 +2015,14 @@ async function fetchPresence() {
     fetch('/api/update?t=' + TOKEN).then(x => x.json()).then(u => {
       if (u && u.updated && u.stamp && u.stamp !== S.updateStamp) {
         S.updateStamp = u.stamp;
-        toast('ok', '<b>remark was updated</b> — this window still runs the old build. ' +
-          '<button class="tbtn" onclick="showWhatsNew()">What\'s new</button>' +
-          '<button class="tbtn" onclick="restartRemark()">Restart</button>', 'update');
+        // through the gateway (the phone) there is no Restart: the gateway
+        // refuses process control from the network; restart it from a window
+        toast('ok', u.gateway
+          ? '<b>remark was updated</b> — the gateway still runs the old build; stop and start it from a window on the PC. ' +
+            '<button class="tbtn" onclick="showWhatsNew()">What\'s new</button>'
+          : '<b>remark was updated</b> — this window still runs the old build. ' +
+            '<button class="tbtn" onclick="showWhatsNew()">What\'s new</button>' +
+            '<button class="tbtn" onclick="restartRemark()">Restart</button>', 'update');
       }
     }).catch(() => {});
     const r = await fetch('/api/presence?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN);

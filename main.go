@@ -78,6 +78,14 @@ Usage:
                                 author prefix with the real, unique time —
                                 what a remark window on the file also does
                                 by itself once the file settles
+  remark gateway                run the phone gateway: serves the UI over
+                                the network for the documents shared with
+                                it, guarded by a pairing code; a separate
+                                process any window can start, stop and
+                                inspect from its Gateway button.
+                                Subcommands: status, stop, add <file>,
+                                remove <file>, qr (pairing URL), rotate
+                                (new code; paired phones scan again)
   remark changelog              print the changelog embedded in this build
                                 (the window's "What's new" diffs a newer
                                 binary's list against the running one's)
@@ -250,6 +258,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "changelog" {
 		runChangelog()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "gateway" {
+		runGateway(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "recent" {

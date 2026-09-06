@@ -337,6 +337,19 @@ func handleGetPrefs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		b = []byte("{}")
 	}
+	if gatewayMode {
+		// the phone's landing page lists the shared documents, not the PC's
+		// recents; the profile (name, aliases) is inherited as is
+		cur := map[string]json.RawMessage{}
+		json.Unmarshal(b, &cur)
+		docs := gatewayDocs()
+		if docs == nil {
+			docs = []string{}
+		}
+		raw, _ := json.Marshal(docs)
+		cur["recents"] = raw
+		b, _ = json.Marshal(cur)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(b)
 }
@@ -402,6 +415,67 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("GET /api/presence", authed(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, presenceList(r.URL.Query().Get("path")))
 	}))
+	// the gateway (the phone's way in) is a separate process; any window
+	// controls it from here: status, start, stop, share this document,
+	// rotate the pairing code, and the QR the phone scans
+	mux.HandleFunc("GET /api/gateway", authed(func(w http.ResponseWriter, r *http.Request) {
+		jsonOut(w, http.StatusOK, gatewayStatusJSON(r.URL.Query().Get("path")))
+	}))
+	mux.HandleFunc("POST /api/gateway/start", authed(func(w http.ResponseWriter, r *http.Request) {
+		if _, alive := gatewayReadRecord(); !alive {
+			if err := gatewayStartDetached(); err != nil {
+				jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			for i := 0; i < 30; i++ { // give it a moment to write its record
+				time.Sleep(100 * time.Millisecond)
+				if _, alive := gatewayReadRecord(); alive {
+					break
+				}
+			}
+		}
+		jsonOut(w, http.StatusOK, gatewayStatusJSON(r.URL.Query().Get("path")))
+	}))
+	mux.HandleFunc("POST /api/gateway/stop", authed(func(w http.ResponseWriter, r *http.Request) {
+		if rec, alive := gatewayReadRecord(); alive {
+			if p, err := os.FindProcess(rec.PID); err == nil {
+				p.Kill()
+			}
+			os.Remove(gatewayRecordPath())
+		}
+		jsonOut(w, http.StatusOK, gatewayStatusJSON(r.URL.Query().Get("path")))
+	}))
+	mux.HandleFunc("POST /api/gateway/share", authed(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Query().Get("path")
+		if p == "" {
+			jsonOut(w, http.StatusBadRequest, map[string]string{"error": "missing path"})
+			return
+		}
+		gatewayToggle(p, r.URL.Query().Get("on") != "0")
+		jsonOut(w, http.StatusOK, gatewayStatusJSON(p))
+	}))
+	mux.HandleFunc("POST /api/gateway/rotate", authed(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := gatewayRotate(); err != nil {
+			jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		jsonOut(w, http.StatusOK, gatewayStatusJSON(r.URL.Query().Get("path")))
+	}))
+	mux.HandleFunc("GET /api/gateway/qr.png", authed(func(w http.ResponseWriter, r *http.Request) {
+		rec, alive := gatewayReadRecord()
+		if !alive {
+			http.Error(w, "gateway not running", http.StatusNotFound)
+			return
+		}
+		png, err := gatewayQRPNG(rec)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(png)
+	}))
 	// direct messages: open <name>'s channel in its own window, addressed to
 	// one running instance (sid) — that window stamps what it sends with
 	// <!--to:sid--> so only that monitor's feed gets it
@@ -434,7 +508,7 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("GET /api/update", authed(func(w http.ResponseWriter, r *http.Request) {
 		// "stamp" identifies the build now at the path, so the UI can notify
 		// once per distinct update — a dismissal covers that build only
-		jsonOut(w, http.StatusOK, map[string]any{"updated": selfUpdated(), "stamp": selfCurrentStamp()})
+		jsonOut(w, http.StatusOK, map[string]any{"updated": selfUpdated(), "stamp": selfCurrentStamp(), "gateway": gatewayMode})
 	}))
 	// what the newer binary at this path knows that this process does not
 	// (entries keyed on title); ok=false means it could not be asked and the
