@@ -506,9 +506,12 @@ body.chat #main { padding-bottom: 150px; }
 .ofilter:hover { border-color: var(--accent); color: var(--accent); }
 .otrow {
   display: flex; align-items: center; gap: 7px;
-  padding: 2px 8px 2px 24px; border-radius: 7px; cursor: pointer;
+  /* the dot sits in the section title's text column (8px pad + 20px slot
+     + 7px gap); a hairline gap keeps adjacent highlight bands apart */
+  padding: 2px 8px 2px 35px; margin: 2px 0; border-radius: 7px; cursor: pointer;
   color: var(--muted); font-size: 12px; line-height: 1.5;
 }
+.orow { margin: 2px 0; }
 .otrow:hover { background: var(--accent-soft); color: var(--fg); }
 .otrow .ostat { flex: none; width: 8px; height: 8px; border-radius: 50%; }
 .ostat.unread { background: var(--unread); }
