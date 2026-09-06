@@ -385,7 +385,11 @@ body.mobile .focusback { margin-left: 8px; }
 /* phone typography: a notch smaller and tighter than the desktop */
 body.mobile { font-size: 14px; line-height: 1.5; }
 body.mobile .cbody { font-size: 13.5px; line-height: 1.5; }
-body.mobile .chead { font-size: 12.5px; }
+body.mobile .chead { font-size: 12.5px; min-width: 0; }
+/* the header row must never overflow the card: the name yields, the read
+   dot and the pill keep their size and stay on screen */
+body.mobile .chead .author { flex: 0 1 auto; min-width: 2em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.mobile .chead .rstat { padding: 1px 7px; }
 /* phone comments: the text gets the width. No side gutters (the 💬 and
    jump buttons are hover affordances), no avatar column under the head
    row, a thin rule and a small step per level instead of the desktop
