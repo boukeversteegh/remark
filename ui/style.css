@@ -112,6 +112,8 @@ button { font-family: var(--font-ui); }
   /* fixed, not sticky: sticky rides in the document flow, so overscroll
      past the page edge drags it away — same disease the sidebar had */
   position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  /* inside the native window the script sets an explicit width: the full
+     viewport, scrollbar column included, like a title bar */
   height: 45px; box-sizing: border-box;
   display: flex; align-items: center; gap: 12px;
   padding: 0 16px;
