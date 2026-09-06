@@ -352,6 +352,9 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 .prow:hover .pmore { opacity: .8; }
 .prow .pmore:hover { opacity: 1; color: var(--fg); background: var(--border-soft); }
 .prow.alias { padding-left: 36px; color: var(--muted); font-size: 11.5px; }
+/* a second live instance of a name: its own row, tucked under the name */
+.prow.inst { padding-left: 24px; }
+.prow .pdup { flex: none; font-size: 10.5px; color: #b58407; background: rgba(210, 153, 34, .16); padding: 0 6px; border-radius: 999px; }
 .prow.alias .ptag { flex: none; color: var(--faint); font-size: 10.5px; letter-spacing: .04em; }
 .pmenu {
   position: absolute; right: 4px; top: 100%; z-index: 30; min-width: 170px;

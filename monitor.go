@@ -535,6 +535,22 @@ func runMonitor(args []string) {
 		stop := make(chan struct{})
 		defer close(stop)
 		stampDelivered = presenceAnnounce(*as, "agent", fileArgs, files, stop)
+		// a name is identity for comments; an instance is a process. Two
+		// live monitors with one name on one file are allowed (a restart
+		// overlaps its predecessor for a moment) but never silent: say so
+		// on the feed, the window shows the duplicate too
+		if dups := presenceDuplicates(*as, files); len(dups) > 0 {
+			for _, d := range dups {
+				msg := fmt.Sprintf("another %q is already watching this scope (pid %d, since %s, in %s) — two agents with one name cannot be told apart in the file; pick a distinct -as unless this is a restart", *as, d.PID, d.Started, d.Cwd)
+				fmt.Fprintln(os.Stderr, "remark monitor: "+msg)
+				if *asJSON {
+					j, _ := json.Marshal(map[string]any{"type": "warning", "text": msg, "pid": d.PID, "sid": d.Sid, "cwd": d.Cwd})
+					fmt.Println(string(j))
+				} else {
+					fmt.Println("⚠ " + msg)
+				}
+			}
+		}
 	}
 
 	// event lines go through a writer goroutine so a reader that stops

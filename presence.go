@@ -26,6 +26,7 @@ type presenceInfo struct {
 	Name    string   `json:"name"`
 	Kind    string   `json:"kind"` // "human" | "agent"
 	PID     int      `json:"pid"`
+	Sid     string   `json:"sid,omitempty"` // this process's session id: an INSTANCE, as opposed to the name
 	Started string   `json:"started"`
 	Scope   []string `json:"scope,omitempty"` // glob patterns, normalized
 	Files   []string `json:"files,omitempty"` // expanded at announce time, normalized
@@ -88,6 +89,8 @@ func presenceAnnounce(name, kind string, patterns, files []string, stop <-chan s
 	info := presenceInfo{Name: name, Kind: kind, PID: os.Getpid(),
 		Started: time.Now().Format("2006-01-02 15:04")}
 	info.Cwd, _ = os.Getwd()
+	info.Sid = presenceNewSid()
+	presenceOwnSid = info.Sid
 	for _, p := range patterns {
 		info.Scope = append(info.Scope, presenceNormPath(p))
 	}
@@ -128,6 +131,46 @@ func presenceAnnounce(name, kind string, patterns, files []string, stop <-chan s
 	}
 }
 
+// presenceOwnSid is this process's session id once it has announced itself.
+var presenceOwnSid string
+
+// presenceNewSid derives a short instance id: two monitors with the same
+// name are different instances, and a DM is addressed to an instance.
+func presenceNewSid() string {
+	h := sha256.Sum256([]byte(fmt.Sprintf("%d|%d", os.Getpid(), time.Now().UnixNano())))
+	return hex.EncodeToString(h[:4])
+}
+
+// presenceDuplicates returns the other live processes announcing the same
+// name over any of the given files — "another X is already watching".
+func presenceDuplicates(name string, files []string) []presenceInfo {
+	var dups []presenceInfo
+	ents, err := os.ReadDir(presenceDir())
+	if err != nil {
+		return nil
+	}
+	for _, e := range ents {
+		b, err := os.ReadFile(filepath.Join(presenceDir(), e.Name()))
+		if err != nil {
+			continue
+		}
+		var info presenceInfo
+		if json.Unmarshal(b, &info) != nil || info.PID == os.Getpid() || !pidAlive(info.PID) {
+			continue
+		}
+		if strings.TrimSpace(info.Name) != strings.TrimSpace(name) {
+			continue
+		}
+		for _, f := range files {
+			if presenceMatches(&info, presenceNormPath(f)) {
+				dups = append(dups, info)
+				break
+			}
+		}
+	}
+	return dups
+}
+
 // presenceSetStalled is used by the monitor's write watchdog; it rewrites
 // the SAME record the announce created (matching announce's path scheme).
 var presenceStalledSetter func(bool)
@@ -157,6 +200,7 @@ type presenceEntry struct {
 	Delivered string `json:"delivered,omitempty"` // last event emitted for THIS file
 	Acted     string `json:"acted,omitempty"`     // last own comment/seen-marker in THIS file
 	Cwd       string `json:"cwd,omitempty"`       // where the monitor runs
+	Sid       string `json:"sid,omitempty"`       // the instance; two same-name rows differ here
 }
 
 // presenceList returns everyone whose scope covers the given document,
@@ -190,34 +234,48 @@ func presenceList(file string) []presenceEntry {
 			os.Remove(p)
 			continue
 		}
-		key := strings.TrimSpace(info.Name) // literal identity — no folding
+		name := strings.TrimSpace(info.Name) // literal identity — no folding
 		entry := presenceEntry{Name: info.Name, Kind: info.Kind,
 			Online: alive, LastSeen: info.Started,
-			Delivered: info.Delivered[target], Acted: info.Acted[target], Cwd: info.Cwd}
+			Delivered: info.Delivered[target], Acted: info.Acted[target], Cwd: info.Cwd, Sid: info.Sid}
+		// every LIVE process is its own row (an instance, not a name): two
+		// monitors called X show as two X. Dead traces of a name collapse
+		// into one offline row, dropped when a live one exists.
+		key := name
+		if alive {
+			key = name + "|" + info.Sid
+		}
 		if prev, ok := best[key]; !ok {
 			best[key] = entry
 			order = append(order, key)
 		} else {
-			// merge same-name sightings: online wins for liveness, and the
-			// freshest delivery stamp survives regardless of which process
-			// (a restarted monitor hasn't emitted yet but its predecessor had)
 			merged := prev
-			if entry.Online && !prev.Online {
-				merged = entry
-				merged.Delivered = prev.Delivered
-			}
 			if entry.Delivered > merged.Delivered {
 				merged.Delivered = entry.Delivered
 			}
 			if entry.Acted > merged.Acted {
 				merged.Acted = entry.Acted
 			}
+			if entry.LastSeen > merged.LastSeen {
+				merged.LastSeen = entry.LastSeen
+			}
 			best[key] = merged
+		}
+	}
+	liveNames := map[string]bool{}
+	for k, e := range best {
+		if e.Online {
+			liveNames[strings.TrimSpace(e.Name)] = true
+			_ = k
 		}
 	}
 	out := make([]presenceEntry, 0, len(order))
 	for _, k := range order {
-		out = append(out, best[k])
+		e := best[k]
+		if !e.Online && liveNames[strings.TrimSpace(e.Name)] {
+			continue // a dead trace of a name that is alive elsewhere
+		}
+		out = append(out, e)
 	}
 	return out
 }

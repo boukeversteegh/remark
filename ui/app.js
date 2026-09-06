@@ -1503,32 +1503,63 @@ function buildPresence() {
       walk(it.children);
     }
   })(S.parsed.items);
+  // presence is per INSTANCE: the first live process of a name sits on the
+  // name's row; every further live process of the same name gets a row of
+  // its own right under it, so two "Claude"s show as two rows, not one
+  const liveCount = new Map();
   for (const p of S.presence || []) {
     const k = claim(p.name);
     if (!k) continue;
+    if (p.online) {
+      const n = (liveCount.get(k) || 0) + 1;
+      liveCount.set(k, n);
+      if (n > 1) {
+        rows.set(k + '#' + (p.sid || n), { nameKey: k, inst: true, online: true, stalled: p.stalled,
+          lastSeen: p.lastSeen, acted: p.acted, cwd: p.cwd, sid: p.sid });
+        continue;
+      }
+    }
     const r = rows.get(k) || {};
     rows.set(k, { ...r, online: r.online || p.online, stalled: p.stalled, lastSeen: p.lastSeen,
       acted: (r.acted && (!p.acted || r.acted > p.acted)) ? r.acted : p.acted,
-      cwd: p.online ? (p.cwd || r.cwd) : (r.cwd || p.cwd) });
+      cwd: p.online ? (p.cwd || r.cwd) : (r.cwd || p.cwd),
+      sid: p.online ? (p.sid || r.sid) : r.sid });
   }
+  for (const [k, n] of liveCount) if (rows.has(k)) rows.get(k).instances = n;
+  const nameOf = ([k, r]) => display.get(r.nameKey || k) || '';
   const sorted = [...rows.entries()].sort((a, b) =>
     (b[1].isMe ? 1 : 0) - (a[1].isMe ? 1 : 0) ||
     (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0) ||
-    display.get(a[0]).localeCompare(display.get(b[0])));
+    nameOf(a).localeCompare(nameOf(b)) ||
+    (a[1].inst ? 1 : 0) - (b[1].inst ? 1 : 0));
   const closeMenus = () => wrap.querySelectorAll('.pmenu').forEach(m => m.remove());
   for (const [k, r] of sorted) {
+    const nk = r.nameKey || k; // the name this row belongs to (instances share it)
     const row = document.createElement('div');
-    row.className = 'prow' + (freshRows.has(k) ? ' fresh' : '');
-    row.appendChild(avatarEl(display.get(k)));
+    row.className = 'prow' + (freshRows.has(nk) ? ' fresh' : '') + (r.inst ? ' inst' : '');
+    row.appendChild(avatarEl(display.get(nk)));
     const nm = document.createElement('span');
     nm.className = 'pname';
     // the avatar already shows a leading emoji — don't repeat it in the name
-    let dispName = display.get(k);
+    let dispName = display.get(nk);
     const em = dispName.match(/^\p{Extended_Pictographic}️?\s*/u);
     if (em && dispName.length > em[0].length) dispName = dispName.slice(em[0].length);
     nm.textContent = dispName + (r.isMe ? ' (you)' : '');
-    if (r.cwd) nm.dataset.tip = 'monitor running in ' + r.cwd; // a worktree path tells which checkout
+    const tipBits = [];
+    if (r.online && r.lastSeen) tipBits.push('monitor since ' + r.lastSeen);
+    if (r.cwd) tipBits.push('running in ' + r.cwd); // a worktree path tells which checkout
+    if (r.sid) tipBits.push('instance ' + r.sid);
+    if (tipBits.length) nm.dataset.tip = tipBits.join(' · ');
     row.appendChild(nm);
+    if (r.instances > 1 || r.inst) {
+      // two live monitors under one name: allowed, never silent — the
+      // file cannot tell their comments apart, so the human should know
+      const dup = document.createElement('span');
+      dup.className = 'ptag pdup';
+      dup.textContent = r.inst ? 'also' : r.instances + ' online';
+      dup.dataset.tip = (r.instances || 2) + ' monitors announce this name on this file; their comments cannot be told apart — give each a distinct -as unless one is about to exit';
+      row.appendChild(dup);
+    }
     const st = document.createElement('span');
     st.className = 'pstat ' + (r.online ? (r.stalled ? 'stall' : 'on') : 'off');
     st.textContent = r.online ? (r.stalled ? 'stalled' : 'online') : 'offline';
@@ -1545,9 +1576,9 @@ function buildPresence() {
       st.textContent = m < 1 ? 'active' : 'active ' + ago;
       let waiting = 0;
       for (const it of S.parsed.items) {
-        if (!it.time || !it.author || normName(it.author) === k) continue;
+        if (!it.time || !it.author || normName(it.author) === nk) continue;
         if (it.time.replace(' ', 'T') <= r.acted.replace(' ', 'T')) continue;
-        if ((it.seenBy || []).some(n => normName(n) === k)) continue;
+        if ((it.seenBy || []).some(n => normName(n) === nk)) continue;
         waiting++;
       }
       st.dataset.tip = 'last acted ' + r.acted + ' · ' +
@@ -1557,7 +1588,7 @@ function buildPresence() {
     // "Also known as…" on the main name: pick another row and it folds in
     // under this one. Same gesture for everyone — you are a row too, so
     // "Bouke, also known as Me" is just that
-    const others = sorted.filter(([o]) => o !== k);
+    const others = r.inst ? [] : sorted.filter(([o, orow]) => o !== k && !orow.inst);
     if (others.length) {
       const more = document.createElement('button');
       more.className = 'pmore';
@@ -1589,7 +1620,7 @@ function buildPresence() {
     }
     wrap.appendChild(row);
     // the literal names folded into this row, each with an Ungroup
-    for (const lit of [...literals.get(k) || []].filter(n => n !== display.get(k)).sort()) {
+    for (const lit of r.inst ? [] : [...literals.get(nk) || []].filter(n => n !== display.get(nk)).sort()) {
       const ar = document.createElement('div');
       ar.className = 'prow alias';
       const an = document.createElement('span');
