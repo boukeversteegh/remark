@@ -31,6 +31,11 @@ const S = {
 
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));
+// the document scrolls inside #main, under the toolbar — not the window.
+// A window scrollbar runs the full height of the viewport and paints over
+// everything, the toolbar-as-title-bar included; the scroller's own starts
+// below the toolbar. Everything that would ask the window asks this.
+const scroller = () => $('#main');
 
 marked.use({ gfm: true });
 function md(text) {
@@ -341,7 +346,7 @@ function render() {
       selStart: ae.selectionStart, selEnd: ae.selectionEnd,
     };
   } else S.focusMemo = null;
-  const scrollY = window.scrollY;
+  const scrollY = scroller().scrollTop;
 
   // comments that arrived since the last render: expand the path to any
   // unread one so it is visible, and flash its card below
@@ -456,7 +461,7 @@ function render() {
   }
   S.known = new Set(parsed.items.map(i => i.key));
 
-  window.scrollTo(0, scrollY);
+  scroller().scrollTop = scrollY;
   if (S.focusMemo) {
     const ed = $('.editor[data-key="' + CSS.escape(S.focusMemo.key) + '"] textarea');
     if (ed) {
@@ -1048,14 +1053,15 @@ function mountChatBox() {
   box.appendChild(wrap);
   document.body.appendChild(box);
   S.chatFollow = true;
-  window.addEventListener('scroll', () => {
-    const room = document.documentElement.scrollHeight - window.innerHeight;
-    S.chatFollow = room - window.scrollY < 200; // near the bottom: keep following
+  scroller().addEventListener('scroll', () => {
+    const m = scroller();
+    const room = m.scrollHeight - m.clientHeight;
+    S.chatFollow = room - m.scrollTop < 200; // near the bottom: keep following
   }, { passive: true });
   chatStick();
 }
 function chatStick() {
-  if (S.chatFollow !== false) requestAnimationFrame(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  if (S.chatFollow !== false) requestAnimationFrame(() => { const m = scroller(); m.scrollTop = m.scrollHeight; });
 }
 function chatQuote(item) {
   const ta = $('#chatbox textarea');
@@ -2307,7 +2313,7 @@ function spyOutline() {
     if (keep) keep.scrollIntoView({ block: 'nearest' });
   }
 }
-window.addEventListener('scroll', () => {
+scroller().addEventListener('scroll', () => {
   if (spyPending) return;
   spyPending = true;
   requestAnimationFrame(spyOutline);
@@ -2316,7 +2322,7 @@ window.addEventListener('scroll', () => {
   if (S.path && S.pendingScroll == null) {
     clearTimeout(window.scrollSaveTimer);
     window.scrollSaveTimer = setTimeout(() => {
-      try { localStorage.setItem('remark:scroll:' + S.path, String(Math.round(window.scrollY))); } catch (e) {}
+      try { localStorage.setItem('remark:scroll:' + S.path, String(Math.round(scroller().scrollTop))); } catch (e) {}
     }, 150);
   }
 }, { passive: true });
@@ -2837,9 +2843,10 @@ function dismissSplash() {
       const until = Date.now() + 5000;
       const attempt = () => {
         if (S.pendingScroll == null) return;
-        const room = document.documentElement.scrollHeight - window.innerHeight;
+        const m = scroller();
+        const room = m.scrollHeight - m.clientHeight;
         if (room >= y || Date.now() > until) {
-          window.scrollTo(0, Math.min(y, Math.max(0, room)));
+          m.scrollTop = Math.min(y, Math.max(0, room));
           S.pendingScroll = null;
           return;
         }
@@ -2883,6 +2890,7 @@ async function init() {
   wireWindowChrome(); // the landing page has the toolbar too
   if (!S.path) { showLanding(); dismissSplash(); return; }
   applyChrome();
+  scroller().focus({ preventScroll: true }); // keyboard scrolling goes to the scroller
   const fn = $('#filename');
   fn.textContent = '';
   const bb = document.createElement('b');
