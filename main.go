@@ -58,6 +58,16 @@ Usage:
                                 <sel> belongs to, at the end of a section,
                                 or at the end of the file. "- [ ]" unless
                                 -plain.
+  remark dm <author> -as <name> [-to <sid>] [-text t | -file p | stdin]
+                                WRITE a direct message on <author>'s
+                                channel: one file per name under the
+                                config dir (shared history for every
+                                session using that name; a monitor with
+                                -as watches its own channel by itself).
+                                -to <sid> addresses one running instance
+                                (the id in the Authors panel): only that
+                                monitor's feed gets it. Events from the
+                                channel carry dm: true.
   remark unseen <files...> -as <name>
                                 every comment by someone else that does not
                                 carry your seen-marker, with its stamp and
@@ -229,6 +239,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "unseen" {
 		runUnseen(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "dm" {
+		runDm(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "recent" {

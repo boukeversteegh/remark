@@ -38,6 +38,7 @@ type monItem struct {
 	Thread     string   `json:"thread,omitempty"`
 	Root       string   `json:"root,omitempty"`   // timestamp of the thread root (its identity)
 	Parent     string   `json:"parent,omitempty"` // timestamp of the comment this one answers ("" for a root)
+	To         string   `json:"to,omitempty"`     // DM channels: the instance (sid) this comment is addressed to
 	Text       string   `json:"text"`
 	Indent     int      `json:"indent"`
 	Key        string   `json:"key"`
@@ -54,6 +55,37 @@ func (l *monListFlag) Set(v string) error {
 		}
 	}
 	return nil
+}
+
+// monToRe: a DM channel comment addressed to one instance carries
+// <!--to:sid--> on its first line; other monitors of the same name stay
+// silent on it (they can still read the file)
+var monToRe = regexp.MustCompile(`<!--\s*to:\s*([^>]*?)\s*-->`)
+
+// dmPath is the channel file for an author name: one per name under the
+// config dir, so history is shared by every session using that name.
+func dmPath(name string) string {
+	d, err := os.UserConfigDir()
+	if err != nil {
+		d = "."
+	}
+	safe := strings.Map(func(r rune) rune {
+		if strings.ContainsRune(`\/:*?"<>|`, r) {
+			return '_'
+		}
+		return r
+	}, strings.TrimSpace(name))
+	return filepath.Join(d, "remark", "dm", safe+".md")
+}
+
+// dmEnsure creates the channel file with its chat marker if it is missing.
+func dmEnsure(name string) string {
+	p := dmPath(name)
+	if _, err := os.Stat(p); err != nil {
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		os.WriteFile(p, []byte("<!--remark:chat-->\n# "+strings.TrimSpace(name)+"\n\nDirect messages with "+strings.TrimSpace(name)+". Linear, no resolution; a reply quotes and links.\n"), 0o644)
+	}
+	return p
 }
 
 // monWritesLog is where remark reply/thread record what they wrote
@@ -299,7 +331,11 @@ func monParse(content string) []*monItem {
 		}
 		if isItem {
 			seenBy := monParseSeen(text)
-			text = strings.TrimSpace(monSeenRe.ReplaceAllString(text, ""))
+			to := ""
+			if tm := monToRe.FindStringSubmatch(text); tm != nil {
+				to = strings.TrimSpace(tm[1])
+			}
+			text = strings.TrimSpace(monToRe.ReplaceAllString(monSeenRe.ReplaceAllString(text, ""), ""))
 			if ind == 0 {
 				if !monIsRoot(text) {
 					flushThread()
@@ -313,7 +349,7 @@ func monParse(content string) []*monItem {
 			it := &monItem{
 				Author: author, Time: ts,
 				Checked: checked && resolvable, Resolvable: resolvable,
-				SeenBy:  seenBy,
+				SeenBy: seenBy, To: to,
 				Section: section, Indent: ind,
 				Text: strings.TrimSpace(rest),
 			}
@@ -418,6 +454,8 @@ type monEvent struct {
 	Thread  string   `json:"thread,omitempty"`
 	Root    string   `json:"root,omitempty"`   // thread root's timestamp: `remark read <file> <root>`
 	Parent  string   `json:"parent,omitempty"` // the comment this one answers; "" for a root
+	Dm      bool     `json:"dm,omitempty"`     // from the agent's own DM channel, not a document
+	To      string   `json:"to,omitempty"`     // DM: the instance it was addressed to
 	Text    string   `json:"text"`
 }
 
@@ -431,7 +469,7 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 		prev, existed := old[it.Key]
 		if !existed {
 			evs = append(evs, monEvent{Type: "comment", File: file, Author: it.Author,
-				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, Text: it.Text})
+				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text})
 			continue
 		}
 		if prev.Time == "now" && it.Time != "" && it.Time != "now" {
@@ -439,11 +477,11 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 			// keyed on author+text, so only a placeholder-to-stamp change
 			// counts — two comments sharing a key must not look like one
 			evs = append(evs, monEvent{Type: "stamped", File: file, Author: it.Author,
-				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, Text: it.Text})
+				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text})
 		}
 		if it.Resolvable && prev.Checked != it.Checked {
 			evs = append(evs, monEvent{Type: "toggle", File: file, Author: it.Author,
-				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, Text: it.Text})
+				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text})
 		}
 		if !monSameSet(prev.SeenBy, it.SeenBy) {
 			// the ACTOR of a seen-event is whoever was added to the marker,
@@ -458,7 +496,7 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 				if !prevSet[n] {
 					evs = append(evs, monEvent{Type: "seen", File: file, Author: it.Author,
 						Reader: n, Time: it.Time, Checked: it.Checked, SeenBy: it.SeenBy,
-						Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, Text: it.Text})
+						Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text})
 				}
 			}
 		}
@@ -509,6 +547,13 @@ func runMonitor(args []string) {
 				files = append(files, abs)
 			}
 		}
+	}
+	// an agent always watches its own DM channel too (created on first
+	// use): one file per name, shared history, delivery addressed per instance
+	dmFile := ""
+	if *as != "" {
+		dmFile = presenceNormPath(dmEnsure(*as))
+		files = append(files, dmEnsure(*as))
 	}
 	if len(files) == 0 {
 		fmt.Fprintln(os.Stderr, "remark monitor: no files matched")
@@ -646,6 +691,13 @@ func runMonitor(args []string) {
 				inScope = monThreadScope(items, threadSels, *mine, *as)
 			}
 			for _, ev := range monDiff(filepath.Base(f), st.items, items) {
+				if dmFile != "" && presenceNormPath(f) == dmFile {
+					ev.Dm = true
+					// addressed to another instance of this name: not ours
+					if ev.To != "" && ev.To != presenceOwnSid {
+						continue
+					}
+				}
 				actor := ev.Author
 				if ev.Type == "seen" && ev.Reader != "" {
 					actor = ev.Reader
@@ -716,6 +768,9 @@ func runMonitor(args []string) {
 						} else {
 							suffix = " (seen by " + strings.Join(ev.SeenBy, ", ") + ")"
 						}
+					}
+					if ev.Dm && ev.Type == "comment" {
+						mark = "✉" // a direct message on this agent's channel
 					}
 					ctx := ev.Section
 					if ev.Thread != "" {

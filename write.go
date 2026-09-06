@@ -34,8 +34,8 @@ var (
 )
 
 type writeArgs struct {
-	file, sel, as, text, textFile, title, after, section string
-	end, plain, stdin                                    bool
+	file, sel, as, text, textFile, title, after, section, to string
+	end, plain, stdin                                        bool
 }
 
 func writeParseArgs(args []string) writeArgs {
@@ -68,6 +68,8 @@ func writeParseArgs(args []string) writeArgs {
 			a.after = val
 		case "section":
 			a.section = val
+		case "to":
+			a.to = val
 		case "end":
 			a.end = true
 		case "plain":
@@ -272,6 +274,37 @@ func writeWithRetry(file string, compute func(content string) (string, error)) {
 	}
 	fmt.Fprintln(os.Stderr, "remark: the file kept changing underneath — nothing written, try again")
 	os.Exit(1)
+}
+
+// remark dm <author> -as <name> [-to <sid>] [-text t | -file p | stdin]:
+// append a message to <author>'s channel. An agent answers its human with
+// -as <agent>; a human (or a script) writing to an agent may address one
+// running instance with -to <sid> (the id shown in the Authors panel), so
+// only that monitor's feed gets it — the file is shared history for all.
+func runDm(args []string) {
+	a := writeParseArgs(args)
+	to := a.to
+	if a.file == "" || a.as == "" {
+		fmt.Fprintln(os.Stderr, "usage: remark dm <author> -as <name> [-to <sid>] [-text <text> | -file <path> | stdin]")
+		os.Exit(2)
+	}
+	body := writeBody(a)
+	if strings.TrimSpace(body) == "" {
+		fmt.Fprintln(os.Stderr, "remark dm: empty body (use -text, -file or stdin)")
+		os.Exit(2)
+	}
+	channel := dmEnsure(a.file) // the positional is the channel owner's name
+	var stamp string
+	writeWithRetry(channel, func(content string) (string, error) {
+		stamp = writeUniqueStamp(content, time.Now())
+		item := writeItemLines(0, false, a.as, stamp, "", body)
+		if to != "" {
+			item[0] += " <!--to:" + to + "-->"
+		}
+		return writeInsert(strings.ReplaceAll(content, "\r\n", "\n"), len(strings.Split(content, "\n")), item), nil
+	})
+	writeLogNote(channel, stamp)
+	fmt.Printf("sent %s to %s's channel (%s)\n", stamp, a.file, channel)
 }
 
 func runReply(args []string) {
