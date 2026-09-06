@@ -391,7 +391,12 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			if r.URL.Query().Get("t") != token {
-				http.Error(w, "forbidden", http.StatusForbidden)
+				// a page load with a missing or stale code: the pairing page,
+				// styled like the app, with a field for the code
+				b, _ := fs.ReadFile(sub, "pair.html")
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.WriteHeader(http.StatusForbidden)
+				w.Write(b)
 				return
 			}
 			b, _ := fs.ReadFile(sub, "index.html")
@@ -442,7 +447,7 @@ func newMux() *http.ServeMux {
 			if p, err := os.FindProcess(rec.PID); err == nil {
 				p.Kill()
 			}
-			os.Remove(gatewayRecordPath())
+			gatewayClearPID(rec)
 		}
 		jsonOut(w, http.StatusOK, gatewayStatusJSON(r.URL.Query().Get("path")))
 	}))

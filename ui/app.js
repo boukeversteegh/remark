@@ -758,7 +758,9 @@ function buildItem(item, opts) {
   if (item.time) {
     const time = document.createElement('span');
     time.className = 'ctime';
-    time.textContent = item.time;
+    // the phone shows the time of day (the date when it is not today); the
+    // full stamp stays in the tooltip and the outline
+    time.textContent = S.mobile ? shortStamp(item.time) : item.time;
     time.title = 'Written ' + item.time;
     head.appendChild(time);
 
@@ -1973,7 +1975,7 @@ function showGateway() {
       row('Running on port ' + st.port + ' since ' + st.since, btn('Stop', 'quiet', () => call('/stop')));
       const shared = !!st.shared;
       if (S.path) row(shared ? 'This document is on the phone' : 'This document is not on the phone',
-        btn(shared ? 'Take off' : 'Put on the phone', shared ? 'quiet' : '', () => call('/share', '&on=' + (shared ? '0' : '1'))));
+        btn(shared ? 'Remove from phone' : 'Put on the phone', shared ? 'quiet' : '', () => call('/share', '&on=' + (shared ? '0' : '1'))));
       const img = document.createElement('img');
       img.className = 'gwqr';
       img.src = '/api/gateway/qr.png?t=' + TOKEN + '&r=' + Date.now();
@@ -2780,6 +2782,13 @@ function setTab(id) {
 mobileQuery.addEventListener('change', () => { applyMobile(); if (S.parsed) render(); });
 // open a comment from a panel: on the phone that means its thread alone on
 // the Document page; on the desktop just scroll to it
+function shortStamp(t) {
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/.exec(t || '');
+  if (!m) return t;
+  const d = new Date();
+  const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return m[1] + '-' + m[2] + '-' + m[3] === today ? m[4] : m[2] + '-' + m[3] + ' ' + m[4];
+}
 function openFromPanel(it, root) {
   if (S.mobile) {
     S.focusThread = root && root.time ? root.time : null;
@@ -2869,6 +2878,12 @@ function wireWindowChrome() {
 
 function wireTopbar() {
   $('#brandmark').innerHTML = iconHTML('notebook-pen');
+  // the logo is the way back to the landing page (on the phone the only way
+  // to switch documents)
+  const brand = document.querySelector('.brand');
+  brand.title = 'Open another document';
+  brand.style.cursor = 'pointer';
+  brand.addEventListener('click', () => { location.href = '/?t=' + TOKEN; });
   $('#openBtn').innerHTML = iconHTML('folder-open');
   $('#openBtn').addEventListener('click', pickAndOpen);
   $('#outlineBtn').innerHTML = iconHTML('panel-left');

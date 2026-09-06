@@ -7,6 +7,18 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### The logo opens the landing page
+Click the icon in the toolbar to go to the landing page and pick another document; on the phone that is the way to switch documents.
+
+### Gateway: stop and start keep the pairing code
+`remark gateway stop` and the window's Stop button keep the code; only New code changes it. After a restart the phone just refreshes. "Take off" is now "Remove from phone".
+
+### Pairing page
+A page load without a valid code shows a page styled like the app with a field for the code or the full link, instead of a bare "forbidden".
+
+### Phone comment headers fit
+On the phone the timestamp shows the time of day (the date when older), long names truncate, and the Open pill and read dot always stay on screen.
+
 ### Toolbar: icon only, and the phone gets its tools
 The "remark" wordmark leaves the toolbar on every screen; the icon stays. On the phone the toolbar now holds hide-resolved, collapse all and expand all, with an icon-only status chip; the name field and Gateway button are desktop-only.
 

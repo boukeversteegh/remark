@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>remark — pair this device</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --faint: #8b949e;
+    --surface: #f6f8fa; --border: #d0d7de; --accent: #0969da; --accent-fg: #fff;
+    --accent-soft: rgba(9, 105, 218, .1); --accent-border: rgba(9, 105, 218, .35);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --fg: #e6edf3; --muted: #9da7b3; --faint: #7d8590;
+      --surface: #161b22; --border: #30363d; --accent: #58a6ff; --accent-fg: #0d1117;
+      --accent-soft: rgba(88, 166, 255, .12); --accent-border: rgba(88, 166, 255, .4);
+    }
+  }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body {
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh; display: flex; justify-content: center; align-items: flex-start;
+    padding: 12vh 16px 40px; box-sizing: border-box;
+  }
+  .card { max-width: 420px; width: 100%; text-align: center; }
+  .hero {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 56px; height: 56px; border-radius: 17px;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border);
+  }
+  .hero svg { width: 28px; height: 28px; }
+  h1 { font-size: 22px; font-weight: 650; letter-spacing: -.02em; margin: 14px 0 4px; }
+  p { color: var(--muted); margin: 0 0 20px; }
+  form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+  label { font-size: 12px; font-weight: 650; color: var(--faint); text-transform: uppercase; letter-spacing: .08em; }
+  input {
+    width: 100%; box-sizing: border-box; padding: 11px 14px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--fg);
+    font: 14px ui-monospace, Consolas, monospace;
+  }
+  input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  button {
+    padding: 12px 20px; border: 0; border-radius: 11px; background: var(--accent); color: var(--accent-fg);
+    font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .err { color: #d1242f; font-size: 13px; min-height: 1.4em; margin: 2px 0 0; }
+  .hint { font-size: 12.5px; color: var(--faint); margin-top: 22px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hero"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.4 2.6a2 2 0 0 1 0 2.8L13 13.8 9.5 14.5l.7-3.5 8.4-8.4a2 2 0 0 1 2.8 0z"/></svg></div>
+  <h1>Pair this device</h1>
+  <p>This link has no valid code for the gateway, or the code was renewed on the PC. Open the Gateway panel there and scan the QR again, or paste its link or code here.</p>
+  <form id="f">
+    <label for="code">Link or code</label>
+    <input id="code" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="http://pc.home:7444/?t=… or the code">
+    <button type="submit">Open</button>
+    <div class="err" id="err"></div>
+  </form>
+  <div class="hint">The code is kept when the gateway restarts, so a stale link usually means it was renewed with "New code".</div>
+</div>
+<script>
+  document.getElementById('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = document.getElementById('code').value.trim();
+    var t = v;
+    var m = /[?&]t=([A-Za-z0-9]+)/.exec(v);
+    if (m) t = m[1];
+    if (!/^[A-Za-z0-9]{8,}$/.test(t)) { document.getElementById('err').textContent = 'That does not look like a code.'; return; }
+    var cur = new URLSearchParams(location.search);
+    var q = new URLSearchParams();
+    q.set('t', t);
+    if (cur.get('f')) q.set('f', cur.get('f'));
+    location.href = '/?' + q.toString();
+  });
+</script>
+</body>
+</html>

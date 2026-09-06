@@ -58,6 +58,14 @@ func gatewayReadRecord() (gatewayRecord, bool) {
 	return rec, rec.PID > 0 && pidAlive(rec.PID)
 }
 
+// gatewayClearPID marks the gateway stopped but keeps the record, above
+// all the token: stop/start must not force every phone to pair again.
+func gatewayClearPID(rec gatewayRecord) {
+	rec.PID = 0
+	out, _ := json.MarshalIndent(rec, "", "  ")
+	os.WriteFile(gatewayRecordPath(), out, 0o644)
+}
+
 func gatewayDocs() []string {
 	var docs []string
 	if b, err := os.ReadFile(gatewayDocsPath()); err == nil {
@@ -264,8 +272,8 @@ func runGateway(args []string) {
 		if p, err := os.FindProcess(rec.PID); err == nil {
 			p.Kill()
 		}
-		os.Remove(gatewayRecordPath())
-		fmt.Println("stopped")
+		gatewayClearPID(rec)
+		fmt.Println("stopped; the pairing code is kept, start again and the phone just refreshes")
 		return
 	case "add", "remove":
 		if len(args) < 2 {
