@@ -2543,6 +2543,7 @@ function showLanding() {
 function applyZoom() {
   document.body.style.zoom = S.zoom || 1;
   scheduleLayout();
+  if (window.__remarkChromeRelayout) __remarkChromeRelayout();
 }
 let zoomStatusTimer = null;
 function setZoom(z) {
@@ -2600,6 +2601,11 @@ function wireWindowChrome() {
   };
   let last = '';
   const report = () => {
+    // a fixed box stops at the document scrollbar; a title bar does not —
+    // span the whole viewport (in the bar's own, zoomed, pixels)
+    const z = parseFloat(document.body.style.zoom) || 1;
+    const full = (innerWidth / z) + 'px';
+    if (bar.style.width !== full) bar.style.width = full;
     const controls = [];
     for (const el of bar.querySelectorAll('button, input, label, a, select, .no-drag')) {
       if (el.closest('.caption')) continue;
@@ -2636,6 +2642,7 @@ function wireWindowChrome() {
   }).observe(bar, { subtree: true, childList: true, attributes: true, characterData: true });
   addEventListener('resize', schedule);
   document.fonts && document.fonts.ready.then(schedule);
+  window.__remarkChromeRelayout = schedule; // applyZoom: the bar's pixels changed size
   // the host pushes hover/press of the caption buttons and the maximized
   // state (which glyph the middle button shows)
   window.__remarkCaptionHover = (hover, pressed) => {
