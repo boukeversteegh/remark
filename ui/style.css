@@ -1186,3 +1186,58 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   color: var(--fg); cursor: pointer; font-size: 11.5px; padding: 3px 9px;
 }
 .conflict button:hover { border-color: var(--accent); }
+
+/* tags: "#word" in a comment's text; chips on the header, a panel, a filter */
+.tagchip {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  border: 1px solid var(--accent-border); background: var(--accent-soft); color: var(--accent);
+  border-radius: 999px; padding: 0 8px; height: 19px; line-height: 17px;
+  font: 600 11px var(--font-display); letter-spacing: .01em; white-space: nowrap; cursor: pointer;
+}
+.tagchip:hover { filter: brightness(1.04); border-color: var(--accent); }
+.tagchip.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.tagchip.reader { border-style: dashed; }
+.tagchip .tagby {
+  font-size: 9.5px; font-weight: 700; opacity: .8;
+  border-left: 1px solid currentColor; padding-left: 5px; margin-left: 1px; line-height: 1;
+}
+.tagchip .tagx { font-size: 12px; line-height: 1; opacity: .55; margin-left: 1px; padding: 0 1px; }
+.tagchip .tagx:hover { opacity: 1; color: var(--danger); }
+.chead .ctags { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; align-self: center; }
+.chead .tagadd {
+  border: 0; background: none; color: var(--faint); cursor: pointer; opacity: 0;
+  padding: 0 3px; border-radius: 6px; display: inline-flex; align-items: center; transition: opacity .12s;
+}
+.chead:hover .tagadd { opacity: .8; }
+.chead .tagadd:hover { opacity: 1; color: var(--accent); background: var(--border-soft); }
+.chead .taginput {
+  width: 96px; height: 19px; box-sizing: border-box; padding: 0 8px;
+  border: 1px solid var(--accent-border); border-radius: 999px; background: var(--card); color: var(--fg);
+  font: 600 11px var(--font-display); outline: none;
+}
+.chead .taginput:focus { border-color: var(--accent); }
+.chead .taginput.bad { border-color: var(--danger); }
+#doc a.tagref {
+  color: var(--accent); font-weight: 600; text-decoration: none;
+  background: var(--accent-soft); border-radius: 6px; padding: 0 4px;
+}
+#doc a.tagref:hover { background: var(--accent); color: var(--accent-fg); }
+.tagbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 14px; }
+.tagbar .focusback { margin: 0; }
+.tagbar .tagn { color: var(--faint); font-size: 12px; font-family: var(--font-display); }
+.tagspanel { margin-bottom: 18px; }
+.tagspanel.collapsed > :not(.ohead) { display: none; }
+.trow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 6px; border-radius: 8px; cursor: pointer; font-size: 12.5px;
+}
+.trow:hover, .trow.on { background: var(--surface); }
+.trow .tcount { margin-left: auto; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.otrow .otags { display: inline-flex; align-items: center; gap: 3px; flex: none; margin-left: auto; }
+.otrow .otags .tagchip { font-size: 9.5px; height: 15px; line-height: 13px; padding: 0 5px; }
+.otrow .tagmore { color: var(--faint); font-size: 10px; }
+body.mobile .tagchip { font-size: 12px; height: 22px; line-height: 20px; }
+body.mobile .chead .tagadd { opacity: .6; }
+body.mobile.tab-tags #outline { display: block !important; }
+body.mobile:not(.tab-tags) #outline .tagspanel { display: none; }
+body.mobile .trow { padding: 7px 6px; font-size: 14px; }

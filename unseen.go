@@ -55,7 +55,7 @@ func runUnseen(args []string) {
 		}
 		var hits []*monItem
 		for _, it := range monParse(string(b)) {
-			if it.Author == "" || monNormAuthor(it.Author) == monNormAuthor(as) {
+			if it.Bare || it.Author == "" || monNormAuthor(it.Author) == monNormAuthor(as) {
 				continue // unsigned items are not addressed to anyone yet
 			}
 			mine := false

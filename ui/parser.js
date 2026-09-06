@@ -42,6 +42,57 @@
   var HEADING_RE = /^(#{1,6})\s+(.*)$/;
   var FENCE_RE = /^\s*(```|~~~)/;
 
+  // ---- tags -------------------------------------------------------------
+  // A tag is "#word" anywhere in a comment's text: a letter first, then
+  // letters, digits, "-" or "_". Not inside code spans, fenced code or URLs;
+  // "#123" is not a tag and neither is a "#r<digits>" comment reference.
+  // Tags are case-insensitive and canonicalised to lower case. The Go side
+  // (tags.go) carries the same regex — keep the two in step.
+  var TAG_RE = /(^|[^\w&\/#])#([A-Za-z][\w-]*)/g;
+  var TAG_REF_RE = /^r\d{8,}$/;
+  var TAG_CODE_RE = /`[^`\n]*`/g;
+  var TAG_URL_RE = /https?:\/\/\S+/g;
+
+  // strips fenced blocks, code spans and URLs so the tag scan cannot fire
+  // inside them
+  function tagScannable(text) {
+    var out = [];
+    var inFence = false;
+    text.split('\n').forEach(function (l) {
+      if (FENCE_RE.test(l)) { inFence = !inFence; return; }
+      if (!inFence) out.push(l);
+    });
+    return out.join('\n').replace(TAG_CODE_RE, ' ').replace(TAG_URL_RE, ' ');
+  }
+
+  function extractTags(text) {
+    var seen = {};
+    var out = [];
+    var s = tagScannable(text || '');
+    var m;
+    TAG_RE.lastIndex = 0;
+    while ((m = TAG_RE.exec(s))) {
+      var t = m[2].replace(/-+$/, '').toLowerCase();
+      if (!t || TAG_REF_RE.test(t) || seen[t]) continue;
+      seen[t] = true;
+      out.push(t);
+    }
+    return out;
+  }
+
+  // a body that is nothing but tags (whitespace separated): a "reader tag"
+  // reply, which tags its parent instead of being a comment of its own
+  function isBareTags(text) {
+    var s = (text || '').trim();
+    if (!s) return false;
+    var words = s.split(/\s+/);
+    for (var i = 0; i < words.length; i++) {
+      var w = words[i];
+      if (!/^#[A-Za-z][\w-]*$/.test(w) || TAG_REF_RE.test(w.slice(1))) return false;
+    }
+    return true;
+  }
+
   function hashText(s) {
     var h = 5381;
     for (var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
@@ -275,6 +326,30 @@
     item.rawBody = raws.join('\n\n').replace(/\s+$/, '');
     item.hasMarker = MARKER_RE.test(raw);
     item.hash = hashText(normalize(raw));
+
+    // tags: a reply that is nothing but tags is a reader tag on its parent
+    // (bare); every other item owns the tags written in its text. An item's
+    // effective tags are its own plus those of its bare-tag children, each
+    // remembering who put it there — chips look alike, the tagger shows
+    item.bare = !isRoot && isBareTags(item.rawBody);
+    item.ownTags = item.bare ? [] : extractTags(item.rawBody);
+    item.bareTags = item.bare ? extractTags(item.rawBody) : [];
+    var byTag = {};
+    item.tags = [];
+    var claim = function (t, author, authored) {
+      var e = byTag[t];
+      if (!e) {
+        e = { tag: t, authored: false, by: [] };
+        byTag[t] = e;
+        item.tags.push(e);
+      }
+      if (authored) e.authored = true;
+      else if (author && e.by.indexOf(author) === -1) e.by.push(author);
+    };
+    item.ownTags.forEach(function (t) { claim(t, item.author, true); });
+    item.children.forEach(function (c) {
+      if (c.bare) c.bareTags.forEach(function (t) { claim(t, c.author, false); });
+    });
   }
 
   // the paragraphs of an item's own text (children excluded), each with a
@@ -694,6 +769,8 @@
     occurrenceOf: occurrenceOf,
     subtreeEnd: subtreeEnd,
     itemParagraphs: itemParagraphs,
+    extractTags: extractTags,
+    isBareTags: isBareTags,
     MARKER: MARKER
   };
 });

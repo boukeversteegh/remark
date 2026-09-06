@@ -68,6 +68,13 @@ Usage:
                                 (the id in the Authors panel): only that
                                 monitor's feed gets it. Events from the
                                 channel carry dm: true.
+  remark tag <file> <sel> #a #b -as <name>
+                                WRITE tags on the comment <sel> selects: a
+                                reply holding nothing but the tags (merged
+                                into your existing one). "#word" anywhere
+                                in any comment's text is a tag too.
+  remark tags <file>            every tag in the file with the number of
+                                comments carrying it, most used first
   remark unseen <files...> -as <name>
                                 every comment by someone else that does not
                                 carry your seen-marker, with its stamp and
@@ -153,6 +160,13 @@ Rules an agent must follow when writing:
     Inline after the colon (as in the example) and alone on the first
     continuation line are the SAME rule — the inline form is what remark
     itself writes.
+  * Tags: "#word" anywhere in a comment's text (a letter first, then
+    letters, digits, - or _; not in code or URLs; "#123" is not a tag).
+    A reply whose whole body is tags, "- Name (ts): #important #ui", is a
+    READER TAG: it tags its parent and is not shown as a comment. Tag
+    someone else's comment that way ("remark tag <file> <sel> #important
+    -as <you>"); tag your own by writing the tag in your text. A thread
+    carries the union of its comments' tags; the window filters by them.
   * Concurrent edits are normal: the human's window writes to this file
     too. Re-read the file right before each edit and make targeted
     replacements — never rewrite the whole file from a stale copy, or you
@@ -181,12 +195,17 @@ Waiting for replies:
 
   Each event line is:
     <mark> <file> | <section> › <thread> | <author>: <text>
-  with <mark> being 💬 comment, ☑/☐ resolution toggle, 👁 read marker.
+  with <mark> being 💬 comment, ☑/☐ resolution toggle, 👁 read marker,
+  🏷 a comment's tags changed.
 
   -json emits one NDJSON object per event instead, with fields:
-    type ("comment"|"toggle"|"seen"|"stamped"|"self"), file, author, text,
-    time, checked, reader, seenBy, section, thread, root, parent  (omitted
-    when empty). "stamped": a "(now)" placeholder received its real time.
+    type ("comment"|"toggle"|"seen"|"stamped"|"tag"|"self"), file, author,
+    text, time, checked, reader, seenBy, section, thread, root, parent,
+    tags (omitted when empty). "stamped": a "(now)" placeholder received
+    its real time. "tag": the comment at "time" gained or lost tags —
+    "author" is who tagged (a bare-tag reply's writer, or the comment's
+    author for an edit), "added"/"removed" say what changed, "tags" is
+    the whole current set. Bare-tag replies never arrive as comments.
     "self": YOUR OWN hand-written comment was noticed — the object carries
     its real time, parent, root and a "hint" with the remark reply command
     that would have written it; comments written through the verbs never
@@ -250,6 +269,14 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "unseen" {
 		runUnseen(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "tag" {
+		runTag(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "tags" {
+		runTags(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "dm" {

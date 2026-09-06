@@ -27,6 +27,7 @@ const S = {
   optimisticSeen: new Map(), // item key -> desired seen-by-me state
   known: null,            // Set of item keys seen in previous render
   focusMemo: null,
+  tagFilter: new Set(),   // active tag filter (AND); session-only, never persisted
 };
 
 const $ = (s, el) => (el || document).querySelector(s);
@@ -312,6 +313,7 @@ function seenByMe(item) {
 // unread = someone else's comment you haven't marked seen. A legacy-style
 // tick on a resolvable item still counts as read so old files stay sane.
 function isUnread(item) {
+  if (item.bare) return false; // a reader tag is a label, never something to read
   if (isMe(item.author)) return false;
   if (seenByMe(item)) return false;
   return !(item.resolvable && effChecked(item));
@@ -320,11 +322,247 @@ function isUnread(item) {
 function threadStats(root) {
   let count = 0, unread = 0;
   (function walk(it) {
-    count++;
+    if (!it.bare) count++;
     if (isUnread(it)) unread++;
     it.children.forEach(walk);
   })(root);
   return { count, unread };
+}
+
+// ---------------------------------------------------------------------------
+// tags: "#word" in a comment's text; a reply that is nothing but tags is a
+// reader tag on its parent (hidden as a comment, shown as a chip there). A
+// thread carries the union of its comments' tags; the filter is per tag
+// set (every active tag must be present) and lives for the session only.
+// ---------------------------------------------------------------------------
+// the tags of a whole subtree (bare-tag replies already folded into their
+// parents' tag lists)
+function subtreeTags(root) {
+  const out = new Set();
+  (function walk(it) {
+    if (!it.bare) for (const e of it.tags || []) out.add(e.tag);
+    it.children.forEach(walk);
+  })(root);
+  return out;
+}
+function threadMatchesFilter(root) {
+  if (!S.tagFilter.size) return true;
+  const have = subtreeTags(root);
+  for (const t of S.tagFilter) if (!have.has(t)) return false;
+  return true;
+}
+// every tag in the document with the number of comments carrying it
+function docTagCounts() {
+  const counts = new Map();
+  for (const it of (S.parsed && S.parsed.items) || []) {
+    if (it.bare) continue;
+    for (const e of it.tags || []) counts.set(e.tag, (counts.get(e.tag) || 0) + 1);
+  }
+  return counts;
+}
+function sortedTags(counts) {
+  return [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b));
+}
+function toggleTag(tag) {
+  if (S.tagFilter.has(tag)) S.tagFilter.delete(tag); else S.tagFilter.add(tag);
+  if (S.tagFilter.size && S.parsed) {
+    // the filter lands on the tagged comments: unfold the path to each
+    for (const it of S.parsed.items) {
+      if (it.bare || !(it.tags || []).some(e => S.tagFilter.has(e.tag))) continue;
+      for (let p = it; p; p = p.parent) S.collapsed.set(p.key, false);
+    }
+    if (S.mobile) { S.focusThread = null; setTab('doc'); }
+  }
+  render();
+  if (S.tagFilter.size) scroller().scrollTop = 0;
+}
+function tagInitial(name) {
+  const n = (name || '').trim();
+  const em = n.match(/^\p{Extended_Pictographic}️?/u);
+  if (em) return em[0];
+  return n.slice(0, 1).toUpperCase();
+}
+// one chip: "#tag", a small initial for a reader tag (who put it there); on
+// the comment it filters on click and a reader tag of yours can be taken off
+function tagChip(e, item) {
+  const chip = document.createElement('button');
+  chip.className = 'tagchip' + (S.tagFilter.has(e.tag) ? ' on' : '') + (e.authored ? '' : ' reader');
+  chip.appendChild(document.createTextNode('#' + e.tag));
+  if (!e.authored && e.by && e.by.length) {
+    const who = document.createElement('span');
+    who.className = 'tagby';
+    who.textContent = e.by.map(tagInitial).join('');
+    chip.appendChild(who);
+  }
+  chip.title = (e.authored ? 'In the text' : 'Tagged by ' + (e.by || []).join(', ')) +
+    (S.tagFilter.has(e.tag) ? ' — click to stop filtering by #' + e.tag : ' — click to show only threads with #' + e.tag);
+  chip.addEventListener('click', ev => { ev.stopPropagation(); toggleTag(e.tag); });
+  if (item && !e.authored && (e.by || []).some(isMe)) {
+    const x = document.createElement('span');
+    x.className = 'tagx';
+    x.textContent = '×';
+    x.title = 'Remove your #' + e.tag + ' from this comment';
+    x.addEventListener('click', ev => {
+      ev.stopPropagation();
+      const mine = item.children.find(c => c.bare && isMe(c.author) && c.bareTags.includes(e.tag));
+      if (!mine) return;
+      const rest = mine.bareTags.filter(t => t !== e.tag);
+      submitOps([rest.length
+        ? { type: 'edit', hash: mine.hash, occ: mine.occ, text: rest.map(t => '#' + t).join(' ') }
+        : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
+    });
+    chip.appendChild(x);
+  }
+  return chip;
+}
+// "+ tag" on a comment: a tiny input in the header; Enter writes the tag —
+// into your own text (appended, on the tag row at the end) or, on someone
+// else's comment, as a bare-tag reply of yours (merged into an existing one)
+function tagAddButton(item) {
+  const btn = document.createElement('button');
+  btn.className = 'tagadd';
+  btn.innerHTML = iconHTML('tag');
+  btn.title = 'Add a tag';
+  btn.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const inp = document.createElement('input');
+    inp.className = 'taginput';
+    inp.placeholder = '#tag';
+    inp.setAttribute('list', 'taglist');
+    inp.addEventListener('click', e2 => e2.stopPropagation());
+    const done = () => { if (inp.isConnected) inp.replaceWith(btn); };
+    inp.addEventListener('keydown', e2 => {
+      e2.stopPropagation();
+      if (e2.key === 'Escape') { e2.preventDefault(); done(); return; }
+      if (e2.key !== 'Enter') return;
+      e2.preventDefault();
+      const tags = RvParser.extractTags(inp.value.split(/\s+/).map(w => w.startsWith('#') ? w : '#' + w).join(' '));
+      if (!tags.length) { inp.classList.add('bad'); return; }
+      done();
+      addTags(item, tags);
+    });
+    inp.addEventListener('blur', () => setTimeout(done, 150));
+    btn.replaceWith(inp);
+    inp.focus();
+  });
+  return btn;
+}
+function addTags(item, tags) {
+  const have = new Set((item.tags || []).map(e => e.tag));
+  const add = tags.filter(t => !have.has(t));
+  if (!add.length) { toast('ok', 'Already tagged #' + tags.join(' #')); return; }
+  const ops = [];
+  if (isMe(item.author)) {
+    const lines = item.rawBody.split('\n');
+    const last = lines[lines.length - 1] || '';
+    const text = item.rawBody + (RvParser.isBareTags(last) ? ' ' : (item.rawBody ? '\n\n' : '')) + add.map(t => '#' + t).join(' ');
+    ops.push({ type: 'edit', hash: item.hash, occ: item.occ, text });
+    const pfx = item.author ? item.author + (item.time ? ' (' + item.time + ')' : '') + ': ' : '';
+    S.collapsed.set(RvParser.hashText(RvParser.normalize(pfx + text)) + ':' + item.occ, false);
+  } else {
+    const mine = item.children.find(c => c.bare && isMe(c.author));
+    if (mine) {
+      ops.push({ type: 'edit', hash: mine.hash, occ: mine.occ, text: mine.bareTags.concat(add).map(t => '#' + t).join(' ') });
+    } else {
+      ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me, text: add.map(t => '#' + t).join(' '), time: uniqueStamp(), opener: false });
+      if (!seenByMe(item)) {
+        S.optimisticSeen.set(item.key, true);
+        ops.push({ type: 'seen', hash: item.hash, occ: item.occ, reader: S.me, on: true });
+      }
+    }
+  }
+  submitOps(ops);
+}
+// "#tag" in rendered comment text becomes a chip-styled link that filters;
+// code and existing links are left alone (same walk as comment refs)
+function linkTags(rootNode) {
+  const re = /(^|[^\w&\/#])#([A-Za-z][\w-]*)/g;
+  const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    if (n.parentElement && n.parentElement.closest('code, pre, a')) continue;
+    re.lastIndex = 0;
+    if (re.test(n.nodeValue)) hits.push(n);
+  }
+  for (const n of hits) {
+    const s = n.nodeValue;
+    const frag = document.createDocumentFragment();
+    let last = 0, m;
+    re.lastIndex = 0;
+    while ((m = re.exec(s))) {
+      const tag = m[2].replace(/-+$/, '').toLowerCase();
+      if (/^r\d{8,}$/.test(tag)) continue;
+      const start = m.index + m[1].length;
+      frag.appendChild(document.createTextNode(s.slice(last, start)));
+      const a = document.createElement('a');
+      a.href = '#';
+      a.className = 'tagref';
+      a.textContent = '#' + m[2].slice(0, tag.length);
+      a.title = 'Show only threads with #' + tag;
+      a.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); toggleTag(tag); });
+      frag.appendChild(a);
+      last = start + 1 + tag.length;
+    }
+    frag.appendChild(document.createTextNode(s.slice(last)));
+    n.parentNode.replaceChild(frag, n);
+  }
+}
+// the Tags panel: every tag in the file with its count, most used first;
+// tap one to filter the document (several combine: all must be present)
+function buildTagsPanel() {
+  const wrap = document.createElement('div');
+  wrap.className = 'tagspanel' + (S.tagsCollapsed ? ' collapsed' : '');
+  const head = document.createElement('div');
+  head.className = 'ohead';
+  head.innerHTML = iconHTML('tag');
+  head.appendChild(document.createTextNode('Tags'));
+  head.title = 'Click to fold or unfold';
+  head.addEventListener('click', e => {
+    if (e.target.closest('button')) return;
+    S.tagsCollapsed = !S.tagsCollapsed;
+    wrap.classList.toggle('collapsed', !!S.tagsCollapsed);
+  });
+  const sp = document.createElement('span');
+  sp.className = 'spacer';
+  sp.style.flex = '1';
+  head.appendChild(sp);
+  if (S.tagFilter.size) {
+    const clr = document.createElement('button');
+    clr.className = 'ofilter';
+    clr.textContent = 'clear';
+    clr.title = 'Show every thread again';
+    clr.addEventListener('click', () => { S.tagFilter.clear(); render(); });
+    head.appendChild(clr);
+  }
+  wrap.appendChild(head);
+  const counts = docTagCounts();
+  // the datalist behind every "+ tag" input
+  let dl = $('#taglist');
+  if (!dl) { dl = document.createElement('datalist'); dl.id = 'taglist'; document.body.appendChild(dl); }
+  dl.innerHTML = '';
+  const tags = sortedTags(counts);
+  for (const t of tags) { const o = document.createElement('option'); o.value = '#' + t; dl.appendChild(o); }
+  if (!tags.length) {
+    const none = document.createElement('div');
+    none.className = 'nnone';
+    none.textContent = 'no tags yet — write #word in a comment';
+    wrap.appendChild(none);
+    return wrap;
+  }
+  for (const t of tags) {
+    const row = document.createElement('div');
+    row.className = 'trow' + (S.tagFilter.has(t) ? ' on' : '');
+    row.appendChild(tagChip({ tag: t, authored: true, by: [] }, null));
+    const c = document.createElement('span');
+    c.className = 'tcount';
+    c.textContent = counts.get(t);
+    c.title = counts.get(t) + (counts.get(t) === 1 ? ' comment' : ' comments');
+    row.appendChild(c);
+    row.addEventListener('click', () => toggleTag(t));
+    wrap.appendChild(row);
+  }
+  return wrap;
 }
 
 // ---------------------------------------------------------------------------
@@ -434,13 +672,44 @@ function render() {
       doc.appendChild(back);
     }
   }
+  // tag filter: only the threads carrying every active tag, under their
+  // section headings, with a bar naming the tags and a way back
+  let tagKeep = null;
+  if (S.tagFilter.size) {
+    tagKeep = new Set();
+    let lastHeading = null;
+    for (const b of parsed.blocks) {
+      if (b.type === 'heading') lastHeading = b;
+      if (b.type === 'thread' && threadMatchesFilter(b.thread)) {
+        if (lastHeading) tagKeep.add(lastHeading);
+        tagKeep.add(b);
+      }
+    }
+    const bar = document.createElement('div');
+    bar.className = 'tagbar';
+    const back = document.createElement('button');
+    back.className = 'focusback';
+    back.innerHTML = iconHTML('corner-down-right');
+    back.appendChild(document.createTextNode('All threads'));
+    back.addEventListener('click', () => { S.tagFilter.clear(); render(); });
+    bar.appendChild(back);
+    for (const t of S.tagFilter) bar.appendChild(tagChip({ tag: t, authored: true, by: [] }, null));
+    const n = document.createElement('span');
+    n.className = 'tagn';
+    const nt = [...tagKeep].filter(b => b.type === 'thread').length;
+    n.textContent = nt ? nt + (nt === 1 ? ' thread' : ' threads') : 'no thread carries all of these';
+    bar.appendChild(n);
+    doc.appendChild(bar);
+  }
   for (const block of parsed.blocks) {
     if (focusKeep && !focusKeep.has(block)) continue;
+    if (tagKeep && !tagKeep.has(block)) continue;
     if (block.type === 'thread') {
       // toolbar filter: resolved threads drop out of view entirely — but
       // never ones with unread comments, or the unread navigation would
-      // point at nothing
-      if (S.hideResolved && block.thread.resolvable && effChecked(block.thread) &&
+      // point at nothing; and never under a tag filter, which asks for
+      // these threads by name
+      if (S.hideResolved && !tagKeep && block.thread.resolvable && effChecked(block.thread) &&
           threadStats(block.thread).unread === 0) continue;
       clusterThreads++;
       const card = buildThread(block);
@@ -710,10 +979,13 @@ function buildItem(item, opts) {
   // comment-level "awaiting reply", never propagated to thread status
   let root = item;
   while (root.parent) root = root.parent;
+  // reader tags (bare-tag replies without replies of their own) are chips
+  // on this comment, not children of it
+  const kids = item.children.filter(c => !(c.bare && !c.children.length));
   const lastAtLevel = !item.parent ||
     item.parent.children[item.parent.children.length - 1] === item;
   const unreplied = !(root.resolvable && effChecked(root)) &&
-    isMe(item.author) && item.children.length === 0 && lastAtLevel;
+    isMe(item.author) && kids.length === 0 && lastAtLevel;
   el.className = 'citem' +
     (isUnread(item) ? ' unread' : '') +
     (collapsed ? ' collapsed' : '') +
@@ -790,6 +1062,17 @@ function buildItem(item, opts) {
     head.appendChild(bm);
   }
 
+  // tags: chips after the time (the comment's own plus reader tags), and
+  // a hover "+ tag" — on your own comment it lands in the text, on
+  // another's it is a bare-tag reply of yours
+  if ((item.tags && item.tags.length) || !collapsed) {
+    const ct = document.createElement('span');
+    ct.className = 'ctags';
+    for (const e of item.tags || []) ct.appendChild(tagChip(e, item));
+    if (!collapsed && !S.chat) ct.appendChild(tagAddButton(item));
+    head.appendChild(ct);
+  }
+
   if (item.title) {
     // the topic is the primary thing: its own line above the header row,
     // larger, in the display font; the header keeps author, time, badges
@@ -837,7 +1120,7 @@ function buildItem(item, opts) {
 
   // leaf comments get Reply in the header corner, before the status pills —
   // except thread roots, whose reply affordance is the bottom slot
-  if (!collapsed && item.children.length === 0 && item.parent) {
+  if (!collapsed && kids.length === 0 && item.parent) {
     const reply = document.createElement('button');
     reply.className = 'replybtn inhead';
     reply.innerHTML = iconHTML('reply');
@@ -937,7 +1220,11 @@ function buildItem(item, opts) {
       if (editing) continue;
       const body = document.createElement('div');
       body.className = 'cbody';
-      const chunks = mdChunks(seg.md);
+      let chunks = mdChunks(seg.md);
+      // a tag row at the end of the body (a last paragraph of nothing but
+      // tags) is already on the header as chips — not repeated as text
+      const lastText = item.segments.map(s => s.type).lastIndexOf('text') === si;
+      if (lastText && chunks.length > 1 && RvParser.isBareTags(chunks[chunks.length - 1])) chunks = chunks.slice(0, -1);
       chunks.forEach((chunk, ci) => {
         const pHash = RvParser.hashText(RvParser.normalize(chunk));
         lastParaHash = pHash;
@@ -945,6 +1232,7 @@ function buildItem(item, opts) {
         const pe = document.createElement('div');
         pe.className = 'cpara';
         pe.innerHTML = md(chunk);
+        if (chunk.indexOf('#') !== -1) linkTags(pe);
         body.appendChild(pe);
         // interject zone BETWEEN paragraphs only — a single-paragraph
         // comment has no in-between, so it gets none (reply covers it)
@@ -978,6 +1266,7 @@ function buildItem(item, opts) {
       el.appendChild(body);
       lastBody = body;
     } else {
+      if (seg.item.bare && !seg.item.children.length) continue; // a reader tag: chip on this comment, not a card
       const nxt = item.segments[si + 1];
       // an interjection sits mid-body: more of the PARENT'S OWN TEXT follows
       // it somewhere after (a sibling reply following does not count)
@@ -1022,7 +1311,7 @@ function buildItem(item, opts) {
   // thread must be answerable without hunting for the header ↩)
   // interjections (a comment sitting mid-body of its parent) get it too:
   // their header ↩ is easy to lose between the parent's paragraphs
-  if (!collapsed && (item.children.length > 0 || !item.parent || (opts && opts.interjected)) &&
+  if (!collapsed && (kids.length > 0 || !item.parent || (opts && opts.interjected)) &&
       !S.editorsOpen.has('reply:' + item.key)) {
     const foot = document.createElement('div');
     foot.className = 'cfoot';
@@ -1827,20 +2116,27 @@ function mentionCandidates() {
 // trailing space is what ends it for the reader; the monitor matches the
 // literal name and stops where it stops.
 function mountMentionPicker(ta) {
-  let box = null, start = -1, sel = 0, list = [];
+  let box = null, start = -1, sel = 0, list = [], sigil = '@';
   const close = () => { if (box) box.remove(); box = null; start = -1; sel = 0; };
+  // "@" offers names; "#" offers the document's existing tags (most used
+  // first) — a new tag is simply typed through
   const query = () => {
     const head = ta.value.slice(0, ta.selectionStart);
-    const at = head.lastIndexOf('@');
+    const at = Math.max(head.lastIndexOf('@'), head.lastIndexOf('#'));
     if (at < 0) return null;
-    if (at > 0 && /[\w@.]/.test(head[at - 1])) return null; // e-mail addresses, mid-word
     const q = head.slice(at + 1);
     if (q.includes('\n') || q.length > 40) return null;
-    return { at, q };
+    if (head[at] === '@') {
+      if (at > 0 && /[\w@.]/.test(head[at - 1])) return null; // e-mail addresses, mid-word
+      return { at, q, sigil: '@' };
+    }
+    if (at > 0 && /[\w&\/#]/.test(head[at - 1])) return null; // refs, entities, mid-word
+    if (!/^[\w-]*$/.test(q)) return null; // "# heading", "#r2026…" and the like
+    return { at, q, sigil: '#' };
   };
   const pick = name => {
     const pos = ta.selectionStart;
-    ta.value = ta.value.slice(0, start) + '@' + name + ' ' + ta.value.slice(pos);
+    ta.value = ta.value.slice(0, start) + sigil + name + ' ' + ta.value.slice(pos);
     ta.selectionStart = ta.selectionEnd = start + name.length + 2;
     close();
     ta.dispatchEvent(new Event('input'));
@@ -1850,7 +2146,10 @@ function mountMentionPicker(ta) {
     const m = query();
     if (!m) return close();
     const q = m.q.toLowerCase();
-    list = mentionCandidates().filter(n => n.toLowerCase().includes(q));
+    sigil = m.sigil;
+    list = sigil === '@'
+      ? mentionCandidates().filter(n => n.toLowerCase().includes(q))
+      : sortedTags(docTagCounts()).filter(t => t.includes(q) && t !== q);
     if (!list.length) return close();
     start = m.at;
     sel = Math.min(sel, list.length - 1);
@@ -1863,7 +2162,7 @@ function mountMentionPicker(ta) {
     list.forEach((n, i) => {
       const it = document.createElement('div');
       it.className = 'mention' + (i === sel ? ' sel' : '');
-      it.textContent = '@' + n;
+      it.textContent = sigil + n;
       it.addEventListener('mousedown', e => { e.preventDefault(); pick(n); });
       box.appendChild(it);
     });
@@ -2222,6 +2521,7 @@ function buildOutline() {
   nav.innerHTML = '';
   nav.appendChild(buildPresence());
   nav.appendChild(buildNotifications());
+  nav.appendChild(buildTagsPanel());
   const head = document.createElement('div');
   head.className = 'ohead';
   head.innerHTML = iconHTML('table-of-contents');
@@ -2348,6 +2648,7 @@ function buildOutline() {
       const marks = bookmarkedIn(th);
       // a bookmarked thread is always listed, whatever the filter says
       if (!S.outlineAll && !open && !marks.length) continue;
+      if (!threadMatchesFilter(th)) continue; // the tag filter narrows the outline too
       const trow = document.createElement('div');
       trow.className = 'otrow' + (marks.length ? ' bookmarked' : '');
       if (th.time) trow.dataset.spyTime = th.time.replace(/\D/g, ''); // scroll spy: the root's anchor
@@ -2361,6 +2662,21 @@ function buildOutline() {
         ((th.author ? th.author + ': ' : '') + th.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 46));
       txt.title = txt.textContent;
       trow.appendChild(txt);
+      // the thread's tags (its comments' union), a few chips and a count
+      const ttags = [...subtreeTags(th)];
+      if (ttags.length) {
+        const ot = document.createElement('span');
+        ot.className = 'otags';
+        for (const t of ttags.slice(0, 2)) ot.appendChild(tagChip({ tag: t, authored: true, by: [] }, null));
+        if (ttags.length > 2) {
+          const more = document.createElement('span');
+          more.className = 'tagmore';
+          more.textContent = '+' + (ttags.length - 2);
+          more.title = '#' + ttags.slice(2).join(' #');
+          ot.appendChild(more);
+        }
+        trow.appendChild(ot);
+      }
       if (marks.length) {
         const ic = document.createElement('span');
         ic.className = 'obicon';
@@ -2761,7 +3077,7 @@ function applyMobile() {
   if (!$('#tabs')) {
     const bar = document.createElement('nav');
     bar.id = 'tabs';
-    for (const [id, icon, label] of [['doc', 'file-text', 'Document'], ['notifs', 'bell-dot', 'Notifications'], ['outline', 'table-of-contents', 'Outline'], ['authors', 'users', 'Authors']]) {
+    for (const [id, icon, label] of [['doc', 'file-text', 'Document'], ['notifs', 'bell-dot', 'Notifications'], ['tags', 'tag', 'Tags'], ['outline', 'table-of-contents', 'Outline'], ['authors', 'users', 'Authors']]) {
       const b = document.createElement('button');
       b.dataset.tab = id;
       b.innerHTML = iconHTML(icon) + '<span>' + label + '</span>';

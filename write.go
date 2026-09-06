@@ -30,7 +30,8 @@ var (
 	writeSeenRe  = regexp.MustCompile(`<!--\s*seen:\s*([^>]*?)\s*-->`)
 	writeFenceRe = regexp.MustCompile("^\\s*(```|~~~)")
 	// a body whose first line cannot sit inline after the author prefix
-	writeBlockyRe = regexp.MustCompile("^(```|~~~|\\||#|>|[-*+] |\\d+[.)] |!\\[)")
+	// ("#word" is a tag, not a heading: it may stay inline)
+	writeBlockyRe = regexp.MustCompile("^(```|~~~|\\||#(\\s|$)|>|[-*+] |\\d+[.)] |!\\[)")
 )
 
 type writeArgs struct {

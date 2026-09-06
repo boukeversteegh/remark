@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Tags
+`#word` anywhere in a comment is a tag: it renders as a chip on the comment's header and as a link in the text, and a reply that is nothing but tags (`- Name (ts): #important`) tags its parent instead of showing as a comment — so anyone can label anyone's comment without touching their words. The sidebar gets a Tags panel (a page on the phone) listing every tag with its count; tapping one shows only the threads carrying it, several combine, and an "All threads" bar brings everything back. Chips in the outline rows, a `+ tag` on every comment, a `#` picker in the composer, `remark tag <file> <sel> #a #b -as <name>` and `remark tags <file>` on the command line, and `tag` events for monitors.
+
 ### Toolbar: icon only, and the phone gets its tools
 The "remark" wordmark leaves the toolbar on every screen; the icon stays. On the phone the toolbar now holds hide-resolved, collapse all and expand all, with an icon-only status chip; the name field and Gateway button are desktop-only.
 

@@ -42,6 +42,9 @@ type monItem struct {
 	Text       string   `json:"text"`
 	Indent     int      `json:"indent"`
 	Key        string   `json:"key"`
+	Tags       []string `json:"tags,omitempty"` // effective: written in the text plus reader tags (bare-tag replies)
+	Bare       bool     `json:"bare,omitempty"` // a reply that is nothing but tags: tags its parent, not a comment
+	body       string   // the full own text, for the tag scan (Text is capped)
 }
 
 // monListFlag collects a repeatable, comma-separable string flag.
@@ -351,7 +354,7 @@ func monParse(content string) []*monItem {
 				Checked: checked && resolvable, Resolvable: resolvable,
 				SeenBy: seenBy, To: to,
 				Section: section, Indent: ind,
-				Text: strings.TrimSpace(rest),
+				Text: strings.TrimSpace(rest), body: strings.TrimSpace(rest),
 			}
 			if ind == 0 {
 				threadLabel = ""
@@ -365,6 +368,7 @@ func monParse(content string) []*monItem {
 		// continuation line inside a thread
 		if rootIndent >= 0 && last != nil && strings.TrimSpace(line) != "" && indent > last.Indent {
 			cont := strings.TrimSpace(line)
+			last.body += "\n" + cont
 			if last.Indent == 0 && last.Text != "" && threadLabel == "" {
 				if tm := monTitleRe.FindStringSubmatch(last.Text); tm != nil {
 					threadLabel = tm[1]
@@ -404,6 +408,19 @@ func monParse(content string) []*monItem {
 		}
 		if len(stack) > 0 {
 			it.Parent = stack[len(stack)-1].Time
+		}
+		// tags: a bare-tag reply tags its parent (and is keyed by that parent
+		// too — "Bouke: #important" recurs under many comments); anything else
+		// owns the tags in its own text
+		if it.Indent > 0 && tagIsBare(it.body) {
+			it.Bare = true
+			it.Key = monNormalize(it.Author + "|" + it.body + "|" + it.Parent)
+			if len(stack) > 0 {
+				p := stack[len(stack)-1]
+				p.Tags = tagUnion(p.Tags, tagExtract(it.body))
+			}
+		} else {
+			it.Tags = tagUnion(tagExtract(it.body), it.Tags)
 		}
 		stack = append(stack, it)
 	}
@@ -457,6 +474,9 @@ type monEvent struct {
 	Dm      bool     `json:"dm,omitempty"`     // from the agent's own DM channel, not a document
 	To      string   `json:"to,omitempty"`     // DM: the instance it was addressed to
 	Text    string   `json:"text"`
+	Tags    []string `json:"tags,omitempty"`    // the comment's current tag set
+	Added   []string `json:"added,omitempty"`   // tag-events: what the actor put on
+	Removed []string `json:"removed,omitempty"` // tag-events: what went away
 }
 
 func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
@@ -464,13 +484,75 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 	for _, it := range oldItems {
 		old[it.Key] = it
 	}
+	// new bare-tag replies, by the parent they tag: the ACTOR of a tag-event
+	// is the tagger, so an agent's own tags never wake it
+	taggers := map[string][]*monItem{}
+	for _, it := range newItems {
+		if it.Bare && old[it.Key] == nil {
+			taggers[it.Parent] = append(taggers[it.Parent], it)
+		}
+	}
+	// an edited comment keeps its stamp and changes its key: known by time
+	oldByTime := map[string]*monItem{}
+	for _, it := range oldItems {
+		if !it.Bare && it.Time != "" && it.Time != "now" {
+			oldByTime[it.Author+"|"+it.Time] = it
+		}
+	}
 	var evs []monEvent
 	for _, it := range newItems {
+		if it.Bare {
+			continue // never a comment; it surfaces as a tag-event on its parent
+		}
 		prev, existed := old[it.Key]
 		if !existed {
 			evs = append(evs, monEvent{Type: "comment", File: file, Author: it.Author,
-				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text})
+				Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text, Tags: it.Tags})
+			// an edit that changed the tags: say so, after the comment event
+			if ed := oldByTime[it.Author+"|"+it.Time]; ed != nil && it.Time != "" && !monSameSet(ed.Tags, it.Tags) {
+				evs = append(evs, monEvent{Type: "tag", File: file, Author: it.Author,
+					Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text,
+					Tags: it.Tags, Added: tagDiff(ed.Tags, it.Tags), Removed: tagDiff(it.Tags, ed.Tags)})
+			}
 			continue
+		}
+		if added, removed := tagDiff(prev.Tags, it.Tags), tagDiff(it.Tags, prev.Tags); len(added) > 0 || len(removed) > 0 {
+			// one event per actor: each new bare-tag reply accounts for the
+			// tags it carries, the author for the rest (an edit of the text)
+			byActor := map[string][]string{}
+			var order []string
+			claim := func(actor, t string) {
+				if _, ok := byActor[actor]; !ok {
+					order = append(order, actor)
+				}
+				byActor[actor] = append(byActor[actor], t)
+			}
+			for _, t := range added {
+				actor := it.Author
+				for _, b := range taggers[it.Time] {
+					if len(tagDiff(tagExtract(b.body), []string{t})) == 0 {
+						actor = b.Author
+						break
+					}
+				}
+				claim(actor, t)
+			}
+			if len(added) == 0 {
+				claim(it.Author, "")
+			}
+			for _, actor := range order {
+				add := byActor[actor]
+				if len(add) == 1 && add[0] == "" {
+					add = nil
+				}
+				var rem []string
+				if actor == it.Author {
+					rem = removed
+				}
+				evs = append(evs, monEvent{Type: "tag", File: file, Author: actor,
+					Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text,
+					Tags: it.Tags, Added: add, Removed: rem})
+			}
 		}
 		if prev.Time == "now" && it.Time != "" && it.Time != "now" {
 			// a "(now)" placeholder got its real stamp (window or remark stamp);
@@ -759,6 +841,16 @@ func runMonitor(args []string) {
 						}
 					case "stamped":
 						mark = "🕒" // a (now) placeholder received its real stamp
+					case "tag":
+						mark = "🏷"
+						var parts []string
+						for _, t := range ev.Added {
+							parts = append(parts, "+#"+t)
+						}
+						for _, t := range ev.Removed {
+							parts = append(parts, "-#"+t)
+						}
+						suffix = " (" + strings.Join(parts, " ") + ")"
 					case "seen":
 						mark = "👁"
 						// the added name says what HAPPENED; the full set only

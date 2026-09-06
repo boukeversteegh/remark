@@ -156,6 +156,19 @@ opens a new root. Both re-read the file right before writing and retry if
 it changed underneath, and print the new comment's timestamp. `remark stamp
 <file>` fills in `(now)` placeholders left by hand edits.
 
+**Tags** — `#word` anywhere in a comment's text is a tag (a letter first,
+then letters, digits, `-` or `_`; not inside code or URLs; `#123` is not
+one). A reply that is nothing but tags, `- Bouke (2026-09-06 22:14:06):
+#important #ui`, is a *reader tag*: it tags its parent and is not shown as
+a comment, so anyone can label anyone's comment without touching their
+words. The window renders tags as chips on the comment (a reader tag with
+the tagger's initial), lists every tag with its count in the Tags panel (a
+page on the phone), and filters the document by one or more of them; the
+composer offers existing tags after `#`. `remark tag <file> <selector> #a
+#b -as <name>` writes a reader tag (merged into one you already have
+there), `remark tags <file>` lists them, and a monitor gets a `tag` event
+(`added`, `removed`, the full `tags`) whenever a comment's tag set changes.
+
 A headless watcher built for AI agents (a Claude hook, a `Monitor` command, a
 script): it emits one line per **new comment** and per **read-checkbox
 toggle** — with author, timestamp, section, thread and the comment text — and
