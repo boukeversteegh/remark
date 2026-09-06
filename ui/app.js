@@ -3104,7 +3104,6 @@ function applyMobile() {
   S.mobile = mobileQuery.matches && !!S.path;
   document.body.classList.toggle('mobile', S.mobile);
   if (!S.mobile) { document.body.className = document.body.className.replace(/\btab-\w+/g, '').trim(); return; }
-  setTab(S.tab || 'doc');
   if (!$('#tabs')) {
     const bar = document.createElement('nav');
     bar.id = 'tabs';
@@ -3117,6 +3116,8 @@ function applyMobile() {
     }
     document.body.appendChild(bar);
   }
+  // after the bar exists, so the current tab's button is lit from the start
+  setTab(S.tab || 'doc');
 }
 function setTab(id) {
   S.tab = id;

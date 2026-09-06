@@ -5,6 +5,11 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-07
+
+### Phone: the Document tab is lit from the start
+On first load the tab bar was built after the current tab was set, so no tab was highlighted until you switched.
+
 ## 2026-09-06
 
 ### Phone panel: a Shared switch first
