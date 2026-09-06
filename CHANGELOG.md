@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Landing page scrolls, and is a document picker on the phone
+The landing page is its own scroller, so a long list of files is reachable on a small screen. Behind the gateway it drops the browse button and path box (the phone can only open what the PC shared) and lists the shared documents full width, folder under the name, with the unread and open badges.
+
 ### Mobile: every panel is a page
 On a narrow screen (the phone through the gateway) the sidebar is gone and a tab bar at the bottom switches between Document, Notifications, Outline and Authors, each filling the screen. Tapping a notification opens that thread alone on the Document page, under its section heading, with a "Whole document" button to go back; the top bar keeps only the essentials. Your own devices fold into your one Authors row: only agents get per-instance rows.
 

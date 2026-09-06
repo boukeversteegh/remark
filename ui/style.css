@@ -225,7 +225,13 @@ body.maximized #capMax::before { content: "\E923"; }
 body.landing #modeSeg, body.landing .tools, body.landing .me,
 body.landing #status, body.landing #outlineBtn, body.landing #openBtn,
 body.landing #filename, body.landing #unreadBtn { display: none; }
-#landing { display: flex; justify-content: center; padding-top: 11vh; }
+/* the landing page is its own scroller under the toolbar (the window body
+   never scrolls), so a long recents list stays reachable on a phone */
+#landing {
+  display: flex; justify-content: center; align-items: flex-start;
+  position: fixed; top: 45px; left: 0; right: 0; bottom: 0;
+  overflow-y: auto; padding: 11vh 0 40px;
+}
 .landing-card { max-width: 620px; width: 92%; text-align: center; }
 .hero {
   display: inline-flex; align-items: center; justify-content: center;
@@ -271,6 +277,27 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 #recent a .rdir {
   color: var(--faint); font-size: 12px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; direction: rtl; flex: 1; text-align: right;
+}
+
+.rempty { color: var(--muted); font-size: 13.5px; margin: 8px 4px; line-height: 1.5; }
+/* behind the gateway: a document picker, not a launcher */
+body.gateway #browseBtn, body.gateway #openForm { display: none; }
+body.gateway .tagline { margin-bottom: 18px; }
+/* phone: compact header, the list is the page; folder under the name so
+   nothing is clipped */
+@media (max-width: 720px) {
+  #landing { padding: 24px 0 40px; }
+  .landing-card { width: 100%; padding: 0 14px; box-sizing: border-box; }
+  .hero { width: 48px; height: 48px; border-radius: 15px; font-size: 24px; }
+  .landing-card h1 { font-size: 22px; margin: 10px 0 4px; }
+  .tagline { font-size: 13px; margin-bottom: 18px; }
+  #openForm { flex-direction: column; }
+  #recent { max-width: none; }
+  #recent a { flex-wrap: wrap; padding: 11px 12px; border-color: var(--border-soft); margin-bottom: 6px; font-size: 15px; gap: 8px 10px; }
+  #recent a .rname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #recent a .rdir { flex: none; width: 100%; order: 3; text-align: left; direction: ltr; padding-left: 25px; }
+  #recent a .rstatus { margin-left: 0; }
+  .rremove { opacity: .7; }
 }
 
 /* document --------------------------------------------------------------- */

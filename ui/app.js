@@ -2575,10 +2575,18 @@ function showLanding() {
   browse.innerHTML = iconHTML('folder-open');
   browse.appendChild(document.createTextNode('Browse for a file…'));
   browse.addEventListener('click', pickAndOpen);
+  // behind the gateway the landing page is a document picker: the phone
+  // can only open what the PC shared, so no browsing, no pasted paths, and
+  // nothing to remove; the list is the whole page
+  const gw = !!PREFS.gateway;
+  document.body.classList.toggle('gateway', gw);
   const list = recents();
+  if (gw && !list.length) {
+    $('#recent').innerHTML = '<h3>Shared documents</h3><p class="rempty">Nothing shared yet. On the PC, open a document and choose "Put on the phone" under Gateway.</p>';
+  }
   if (list.length) {
     const div = $('#recent');
-    div.innerHTML = '<h3>Recent files</h3>';
+    div.innerHTML = '<h3>' + (gw ? 'Shared documents' : 'Recent files') + '</h3>';
     for (const p of list) {
       const a = document.createElement('a');
       a.href = '/?t=' + TOKEN + '&f=' + encodeURIComponent(p);
@@ -2595,17 +2603,19 @@ function showLanding() {
       const stat = document.createElement('span');
       stat.className = 'rstatus';
       a.appendChild(stat);
-      const rm = document.createElement('button');
-      rm.className = 'rremove';
-      rm.textContent = '×';
-      rm.title = 'Remove from recent files';
-      rm.addEventListener('click', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        setPref('recents', recents().filter(x => x !== p));
-        a.remove();
-      });
-      a.appendChild(rm);
+      if (!gw) {
+        const rm = document.createElement('button');
+        rm.className = 'rremove';
+        rm.textContent = '×';
+        rm.title = 'Remove from recent files';
+        rm.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          setPref('recents', recents().filter(x => x !== p));
+          a.remove();
+        });
+        a.appendChild(rm);
+      }
       div.appendChild(a);
       // thread-status badges load async per file: blue = unread comments
       // for this profile, amber = open (unresolved) threads

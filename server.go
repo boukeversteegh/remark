@@ -348,6 +348,7 @@ func handleGetPrefs(w http.ResponseWriter, r *http.Request) {
 		}
 		raw, _ := json.Marshal(docs)
 		cur["recents"] = raw
+		cur["gateway"] = json.RawMessage("true")
 		b, _ = json.Marshal(cur)
 	}
 	w.Header().Set("Content-Type", "application/json")
