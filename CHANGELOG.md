@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Phone cards flush with the screen edge
+The document wrapper's side padding is gone on the phone, so thread cards touch both edges.
+
 ### Phone drafts stay on the phone
 Behind the gateway, unsent comment drafts are kept on the device instead of in the PC's preferences.
 

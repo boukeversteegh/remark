@@ -369,6 +369,7 @@ body.mobile #topbar { gap: 8px; padding: 0 12px; }
 /* the document page fills the width and leaves room for the tab bar */
 body.mobile #main, body.mobile #main.outline-open { padding-left: 0 !important; bottom: 52px !important; }
 body.mobile #doc { padding: 8px 0 24px !important; max-width: none !important; }
+body.mobile #docwrap { padding-left: 0; padding-right: 0; }
 /* edge to edge: cards lose their side borders and rounding, prose keeps a
    small inset */
 body.mobile .thread { border-left: 0; border-right: 0; border-radius: 0; }
