@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Thread title on its own line
+A thread's topic sits above the header row, larger and in the display font, instead of being squeezed between author, time, badges and buttons.
+
 ### What's new since you last used remark
 On start, a build whose changelog has entries this machine never showed offers "What's new since last time"; the changelog as last shown is kept as a plain copy in the config dir.
 

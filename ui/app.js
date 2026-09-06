@@ -742,11 +742,13 @@ function buildItem(item, opts) {
   }
 
   if (item.title) {
-    const tt = document.createElement('span');
-    tt.className = 'ctitle';
+    // the topic is the primary thing: its own line above the header row,
+    // larger, in the display font; the header keeps author, time, badges
+    const tt = document.createElement('div');
+    tt.className = 'ctitlebar';
     tt.textContent = item.title;
     tt.title = item.title;
-    head.appendChild(tt);
+    el.appendChild(tt); // before the head, which is appended later
   } else if (collapsed) {
     const snip = document.createElement('span');
     snip.className = 'snippet';
