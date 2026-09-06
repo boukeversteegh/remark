@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### What's new since you last used remark
+On start, a build whose changelog has entries this machine never showed offers "What's new since last time"; the changelog as last shown is kept as a plain copy in the config dir.
+
 ### The toolbar is the title bar
 The native caption is gone: one row, dragged by the toolbar, double-click to maximise, resize borders, and our own minimise, maximise and close buttons that Windows treats as the real ones (snap-layout flyout on hover, host-driven hover and press feedback).
 

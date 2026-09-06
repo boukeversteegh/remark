@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -81,6 +82,37 @@ func whatsNew() (entries []changeEntry, ok bool) {
 		entries = []changeEntry{}
 	}
 	return entries, true
+}
+
+// changelogLastPath is the changelog as last shown on this machine, kept as
+// a plain copy under the config dir — readable by anyone, no index to keep.
+func changelogLastPath() string {
+	return filepath.Join(filepath.Dir(prefsPath()), "changelog.last.md")
+}
+
+// changelogUnseen returns this build's entries missing from the changelog
+// last shown on this machine. A machine that never showed one gets
+// everything once — the "updated elsewhere" case.
+func changelogUnseen() []changeEntry {
+	known := map[string]bool{}
+	if b, err := os.ReadFile(changelogLastPath()); err == nil {
+		for _, e := range changelogEntries(string(b)) {
+			known[e.Title] = true
+		}
+	}
+	out := []changeEntry{}
+	for _, e := range changelogEntries(changelogText) {
+		if !known[e.Title] {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// changelogAck records this build's changelog as the last one shown here.
+func changelogAck() {
+	os.MkdirAll(filepath.Dir(changelogLastPath()), 0o755)
+	os.WriteFile(changelogLastPath(), []byte(changelogText), 0o644)
 }
 
 func runChangelog() {

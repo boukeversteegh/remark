@@ -440,11 +440,21 @@ func newMux() *http.ServeMux {
 	// (entries keyed on title); ok=false means it could not be asked and the
 	// list is this build's whole changelog instead
 	mux.HandleFunc("GET /api/whatsnew", authed(func(w http.ResponseWriter, r *http.Request) {
+		// ?since=seen: this build's entries this MACHINE has not shown yet
+		// (the "updated elsewhere" case), instead of the newer-binary diff
+		if r.URL.Query().Get("since") == "seen" {
+			jsonOut(w, http.StatusOK, map[string]any{"ok": true, "entries": changelogUnseen()})
+			return
+		}
 		entries, ok := whatsNew()
 		if !ok {
 			entries = changelogEntries(changelogText)
 		}
 		jsonOut(w, http.StatusOK, map[string]any{"ok": ok, "entries": entries})
+	}))
+	mux.HandleFunc("POST /api/whatsnew/ack", authed(func(w http.ResponseWriter, r *http.Request) {
+		changelogAck()
+		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 	}))
 	mux.HandleFunc("POST /api/restart", authed(func(w http.ResponseWriter, r *http.Request) {
 		exe, err := os.Executable()

@@ -1829,17 +1829,25 @@ function mountMentionPicker(ta) {
 // "What's new": the entries the newer binary at this path knows and this
 // process does not (the server asks that binary for its changelog and
 // subtracts its own, keyed on titles). Shown in a small panel with Restart.
-function showWhatsNew() {
+function showWhatsNew(mode) {
   const old = $('#whatsnew');
   if (old) old.remove();
+  // mode 'seen': what this build has that this machine never showed (an
+  // update done elsewhere) — opening the panel records it as shown
+  const sinceSeen = mode === 'seen';
   const panel = document.createElement('div');
   panel.id = 'whatsnew';
-  panel.innerHTML = '<div class="wnhead"><b>What\'s new</b><span class="spacer"></span>' +
-    '<button class="tbtn" onclick="restartRemark()">Restart</button>' +
+  panel.innerHTML = '<div class="wnhead"><b>' + (sinceSeen ? 'What\'s new since last time' : 'What\'s new') + '</b><span class="spacer"></span>' +
+    (sinceSeen ? '' : '<button class="tbtn" onclick="restartRemark()">Restart</button>') +
     '<button class="wnclose" title="Close">×</button></div><div class="wnbody">loading…</div>';
   panel.querySelector('.wnclose').addEventListener('click', () => panel.remove());
   document.body.appendChild(panel);
-  fetch('/api/whatsnew?t=' + TOKEN).then(r => r.json()).then(j => {
+  if (sinceSeen) {
+    const n = $('#notices .notice[data-key="whatsnew-seen"]');
+    if (n) n.remove();
+    fetch('/api/whatsnew/ack?t=' + TOKEN, { method: 'POST' }).catch(() => {});
+  }
+  fetch('/api/whatsnew?t=' + TOKEN + (sinceSeen ? '&since=seen' : '')).then(r => r.json()).then(j => {
     const body = panel.querySelector('.wnbody');
     body.innerHTML = '';
     if (j.ok === false) {
@@ -2837,6 +2845,17 @@ function dismissSplash() {
       };
       requestAnimationFrame(attempt);
     }
+  }
+  // an update done elsewhere (or a first run of a changelog-aware build):
+  // whatever this build's changelog has that this machine never showed
+  if (S.path && !S.whatsNewChecked) {
+    S.whatsNewChecked = true;
+    fetch('/api/whatsnew?since=seen&t=' + TOKEN).then(r => r.json()).then(j => {
+      if (j && j.entries && j.entries.length) {
+        toast('ok', '<b>remark was updated since you last used it</b> ' +
+          '<button class="tbtn" onclick="showWhatsNew(\'seen\')">What\'s new</button>', 'whatsnew-seen');
+      }
+    }).catch(() => {});
   }
   const sp = $('#splash');
   if (!sp) return;
