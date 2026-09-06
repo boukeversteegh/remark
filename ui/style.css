@@ -137,6 +137,31 @@ button { font-family: var(--font-ui); }
 #filename b { color: var(--fg); font-weight: 600; }
 #topbar .spacer { flex: 1; }
 
+/* caption buttons — the toolbar is the title bar inside the native window.
+   Glyphs are the system's own (Segoe Fluent Icons), so they match every
+   other Windows 11 window; the host drives .hover/.pressed, never CSS,
+   because an invisible native window takes the mouse over them. */
+.caption { display: none; align-self: stretch; margin: 0 -16px 0 6px; user-select: none; }
+body.in-window .caption { display: flex; }
+.capbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 46px; color: var(--fg);
+  font: 10px "Segoe Fluent Icons", "Segoe MDL2 Assets", sans-serif;
+  transition: background .08s;
+}
+.capbtn.hover { background: rgba(0, 0, 0, .08); }
+.capbtn.pressed { background: rgba(0, 0, 0, .14); }
+#capClose.hover { background: #c42b1c; color: #fff; }
+#capClose.pressed { background: #b52a1a; color: #fff; }
+#capMin::before { content: "\E921"; }
+#capMax::before { content: "\E922"; }
+body.maximized #capMax::before { content: "\E923"; }
+#capClose::before { content: "\E8BB"; }
+@media (prefers-color-scheme: dark) {
+  .capbtn.hover { background: rgba(255, 255, 255, .1); }
+  .capbtn.pressed { background: rgba(255, 255, 255, .06); }
+}
+
 .pill {
   display: inline-flex; align-items: center; gap: 6px;
   border: 1px solid var(--border); border-radius: 999px;

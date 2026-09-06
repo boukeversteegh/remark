@@ -2582,6 +2582,76 @@ function applyChrome() {
   $('#main').className = 'mode-' + S.mode + (S.outline ? ' outline-open' : '');
 }
 
+// ---------------------------------------------------------------------------
+// window chrome: inside the native window the host drops the Windows title
+// bar and #topbar IS the title bar. An invisible native window sits over the
+// toolbar strip and answers Windows' hit test (drag, snap layouts, the
+// caption buttons), with holes punched for our own controls — it needs to
+// know where everything is, in device pixels, every time the bar lays out.
+// __remarkChrome is bound by the host; in a browser it does not exist.
+// ---------------------------------------------------------------------------
+function wireWindowChrome() {
+  if (typeof window.__remarkChrome !== 'function') return;
+  document.body.classList.add('in-window');
+  const bar = $('#topbar');
+  const dev = el => {
+    const r = el.getBoundingClientRect(), s = window.devicePixelRatio || 1;
+    return { l: Math.round(r.left * s), t: Math.round(r.top * s), r: Math.round(r.right * s), b: Math.round(r.bottom * s) };
+  };
+  let last = '';
+  const report = () => {
+    const controls = [];
+    for (const el of bar.querySelectorAll('button, input, label, a, select, .no-drag')) {
+      if (el.closest('.caption')) continue;
+      if (el.tagName === 'INPUT' && el.closest('label')) continue; // the label's rect covers it
+      if (!el.offsetParent) continue; // display:none
+      controls.push(dev(el));
+    }
+    const rep = {
+      h: dev(bar).b,
+      min: dev($('#capMin')), max: dev($('#capMax')), close: dev($('#capClose')),
+      controls,
+    };
+    // the buttons touch: rounding must not leave a 1px seam where the hot
+    // button would drop out and back in
+    rep.min.r = rep.max.l; rep.max.r = rep.close.l;
+    // only when something moved: the host answers a report by pushing state
+    // back into the bar, which the observers below see — reporting that
+    // again would loop forever
+    const key = JSON.stringify(rep);
+    if (key === last) return;
+    last = key;
+    window.__remarkChrome(rep);
+  };
+  let queued = false;
+  const schedule = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; report(); });
+  };
+  new ResizeObserver(schedule).observe(bar);
+  new MutationObserver(records => {
+    // the caption buttons only ever change by the host's own pushes
+    if (records.some(r => !(r.target.closest && r.target.closest('.caption')))) schedule();
+  }).observe(bar, { subtree: true, childList: true, attributes: true, characterData: true });
+  addEventListener('resize', schedule);
+  document.fonts && document.fonts.ready.then(schedule);
+  // the host pushes hover/press of the caption buttons and the maximized
+  // state (which glyph the middle button shows)
+  window.__remarkCaptionHover = (hover, pressed) => {
+    for (const [id, name] of [['#capMin', 'min'], ['#capMax', 'max'], ['#capClose', 'close']]) {
+      $(id).classList.toggle('hover', hover === name);
+      $(id).classList.toggle('pressed', pressed === name);
+    }
+  };
+  window.__remarkCaptionState = maximized => {
+    document.body.classList.toggle('maximized', !!maximized);
+    const t = maximized ? 'Restore' : 'Maximize';
+    if ($('#capMax').title !== t) $('#capMax').title = t;
+  };
+  schedule();
+}
+
 function wireTopbar() {
   $('#brandmark').innerHTML = iconHTML('notebook-pen');
   $('#openBtn').innerHTML = iconHTML('folder-open');
@@ -2782,6 +2852,7 @@ async function init() {
   } catch (e) { S.collapsedSaved = {}; }
   loadBookmarks();
   applyZoom();
+  wireWindowChrome(); // the landing page has the toolbar too
   if (!S.path) { showLanding(); dismissSplash(); return; }
   applyChrome();
   const fn = $('#filename');

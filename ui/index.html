@@ -34,6 +34,15 @@
   </div>
   <label class="me" title="Comments you write are signed with this name">as<input id="meInput" size="9" spellcheck="false"></label>
   <div id="status" class="statuschip"></div>
+  <!-- caption buttons: only shown inside the native window, where the host
+       removes the Windows title bar and this toolbar takes its place. The
+       host hit-tests them (HTMINBUTTON etc.) and pushes hover/press state
+       back, so they are drawn here but driven by Windows. -->
+  <div class="caption" id="caption">
+    <span class="capbtn" id="capMin" title="Minimize"></span>
+    <span class="capbtn" id="capMax" title="Maximize"></span>
+    <span class="capbtn" id="capClose" title="Close"></span>
+  </div>
 </header>
 
 <div id="landing" class="hidden">
