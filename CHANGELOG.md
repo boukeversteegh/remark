@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### The document scrolls under the title bar
+The page area is the scroller, so its scrollbar starts below the toolbar and the caption buttons own the full width; the close button's hover fill reaches the window edge.
+
 ### Thread title on its own line
 A thread's topic sits above the header row, larger and in the display font, instead of being squeezed between author, time, badges and buttons.
 
