@@ -2253,54 +2253,72 @@ function showGateway() {
   if (old) { old.remove(); return; }
   const panel = document.createElement('div');
   panel.id = 'gwpanel';
-  panel.innerHTML = '<div class="gwhead"><b>Gateway</b><span class="spacer"></span><button class="wnclose" title="Close">×</button></div><div class="gwbody">loading…</div>';
+  panel.innerHTML = '<div class="gwhead">' + iconHTML('smartphone') + '<b>Phone</b><span class="spacer"></span><button class="wnclose" title="Close">\u00d7</button></div><div class="gwbody">loading\u2026</div>';
   panel.querySelector('.wnclose').addEventListener('click', () => panel.remove());
   document.body.appendChild(panel);
   const q = '?path=' + encodeURIComponent(S.path || '') + '&t=' + TOKEN;
   const call = (ep, extra) => fetch('/api/gateway' + ep + q + (extra || ''), { method: ep ? 'POST' : 'GET' })
     .then(r => r.json()).then(render).catch(() => { panel.querySelector('.gwbody').textContent = 'Could not reach the server.'; });
+  // the gateway itself is secondary: folded away unless asked for
+  let manage = false;
   function render(st) {
     const body = panel.querySelector('.gwbody');
     body.innerHTML = '';
-    const row = (label, ctrl) => {
-      const d = document.createElement('div'); d.className = 'gwrow';
-      const l = document.createElement('span'); l.textContent = label; d.appendChild(l);
-      if (ctrl) d.appendChild(ctrl);
-      body.appendChild(d);
-    };
-    const btn = (text, cls, fn) => { const b = document.createElement('button'); b.className = 'tbtn ' + (cls || ''); b.textContent = text; b.addEventListener('click', fn); return b; };
     if (st.error) { body.textContent = st.error; return; }
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const btn = (text, cls, fn) => { const b = el('button', 'tbtn ' + (cls || ''), text); b.addEventListener('click', fn); return b; };
+    const shared = !!st.shared;
+    gatewayButtonState(shared && !!st.running);
+
+    // primary: is THIS document on the phone?
+    const top = el('div', 'gwshare');
+    top.appendChild(el('span', 'gwname', S.path ? S.path.split(/[\\/]/).pop() : 'No document open'));
+    top.appendChild(el('span', 'gwlabel', 'Shared'));
+    const sw = el('label', 'switch');
+    const chk = el('input'); chk.type = 'checkbox'; chk.checked = shared; chk.disabled = !S.path;
+    sw.appendChild(chk); sw.appendChild(el('span', 'knob'));
+    chk.addEventListener('change', () => {
+      const on = chk.checked;
+      call('/share', '&on=' + (on ? '1' : '0')).then(() => { if (on && !st.running) call('/start'); });
+    });
+    top.appendChild(sw);
+    body.appendChild(top);
+    const status = el('div', 'gwstatus' + (shared && st.running ? ' on' : ''));
+    status.textContent = !S.path ? 'Open a document to share it.'
+      : shared && st.running ? 'On the phone: open it from the list there.'
+      : shared ? 'Marked shared, but the gateway is not running: start it below.'
+      : st.running ? 'Not on the phone. Flip the switch to share it.'
+      : 'Not on the phone. Flipping the switch also starts the gateway.';
+    body.appendChild(status);
+
+    // secondary: the gateway
+    const more = el('button', 'gwmore');
+    more.innerHTML = iconHTML('chevron-down', manage ? '' : 'closed') + '<span>Gateway ' + (st.running ? 'running' : 'stopped') + '</span>';
+    more.addEventListener('click', () => { manage = !manage; render(st); });
+    body.appendChild(more);
+    if (!manage) return;
+    const row = (label, ctrl) => {
+      const d = el('div', 'gwrow'); d.appendChild(el('span', null, label)); if (ctrl) d.appendChild(ctrl); body.appendChild(d);
+    };
     if (st.running) {
-      row('Running on port ' + st.port + ' since ' + st.since, btn('Stop', 'quiet', () => call('/stop')));
-      const shared = !!st.shared;
-      if (S.path) row(shared ? 'This document is on the phone' : 'This document is not on the phone',
-        btn(shared ? 'Remove from phone' : 'Put on the phone', shared ? 'quiet' : '', () => call('/share', '&on=' + (shared ? '0' : '1'))));
-      const img = document.createElement('img');
-      img.className = 'gwqr';
+      row('Port ' + st.port + ', since ' + st.since, btn('Stop', 'quiet', () => call('/stop')));
+      const img = el('img', 'gwqr');
       img.src = '/api/gateway/qr.png?t=' + TOKEN + '&r=' + Date.now();
       img.alt = 'pairing QR';
       body.appendChild(img);
-      const url = document.createElement('div'); url.className = 'gwurl'; url.textContent = st.url || ''; body.appendChild(url);
-      if (st.addrs && st.addrs.length > 1) {
-        const a = document.createElement('div'); a.className = 'gwnote';
-        a.textContent = 'Also reachable on: ' + st.addrs.slice(1).join(', ');
-        body.appendChild(a);
-      }
-      row('Scan with the phone once; the code is the pairing key.', btn('New code', 'quiet', () => {
+      body.appendChild(el('div', 'gwurl', st.url || ''));
+      if (st.addrs && st.addrs.length > 1) body.appendChild(el('div', 'gwnote', 'Also reachable on: ' + st.addrs.slice(1).join(', ')));
+      row('Scan once with the phone; the code survives restarts.', btn('New code', 'quiet', () => {
         if (confirm('Issue a new pairing code? Every paired phone must scan again.')) call('/rotate');
       }));
     } else {
-      row('Not running', btn('Start', '', () => call('/start')));
-      const n = document.createElement('div'); n.className = 'gwnote';
-      n.textContent = 'The gateway is a separate process (remark gateway) that serves your shared documents to a paired phone over your network or VPN.';
-      body.appendChild(n);
+      row('The gateway serves your shared documents to the paired phone over your network or VPN.', btn('Start', '', () => call('/start')));
     }
     const docs = st.docs || [];
     if (docs.length) {
-      const h = document.createElement('div'); h.className = 'gwnote'; h.textContent = 'On the phone:'; body.appendChild(h);
+      body.appendChild(el('div', 'gwnote', 'Shared documents'));
       for (const d of docs) {
-        const r = document.createElement('div'); r.className = 'gwdoc';
-        r.textContent = d.split(/[\\/]/).pop();
+        const r = el('div', 'gwdoc', d.split(/[\\/]/).pop());
         r.title = d;
         body.appendChild(r);
       }
@@ -2308,9 +2326,20 @@ function showGateway() {
   }
   call('');
 }
+// the toolbar button lights up while this document is on the phone
+function gatewayButtonState(on) {
+  const b = $('#gatewayBtn');
+  if (b) { b.classList.toggle('on', !!on); b.title = on ? 'Shared with the phone' : 'Phone \u2014 share this document'; }
+}
+function gatewayProbe() {
+  if (!S.path) return;
+  fetch('/api/gateway?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN).then(r => r.json())
+    .then(st => gatewayButtonState(st && st.running && st.shared)).catch(() => {});
+}
 window.addEventListener('DOMContentLoaded', () => {
   const b = $('#gatewayBtn');
   if (b) { b.innerHTML = iconHTML('smartphone'); b.addEventListener('click', showGateway); }
+  setTimeout(gatewayProbe, 1500);
 });
 
 // restart into the newer binary on the same document: the server spawns

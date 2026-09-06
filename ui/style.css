@@ -448,6 +448,31 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 #gwpanel .gwnote { color: var(--muted); font-size: 12px; margin: 6px 0 2px; }
 #gwpanel .gwdoc { font-size: 12.5px; padding: 2px 0; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #gwpanel .wnclose { border: 0; background: none; color: var(--faint); font-size: 18px; cursor: pointer; padding: 0 4px; }
+#gwpanel .gwhead .ic { color: var(--accent); }
+/* primary: the share switch for this document */
+#gwpanel .gwshare { display: flex; align-items: center; gap: 10px; padding: 8px 0 6px; }
+#gwpanel .gwshare .gwname { flex: 1; min-width: 0; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#gwpanel .gwshare .gwlabel { font-size: 12px; color: var(--muted); }
+#gwpanel .gwstatus { font-size: 12.5px; color: var(--muted); padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); margin-bottom: 4px; }
+#gwpanel .gwstatus.on { color: var(--ok); }
+#gwpanel .gwmore {
+  display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 8px 0 4px;
+  color: var(--faint); font: 650 11px var(--font-display); text-transform: uppercase; letter-spacing: .08em; cursor: pointer;
+}
+#gwpanel .gwmore:hover { color: var(--fg); }
+#gwpanel .gwmore .ic.closed { transform: rotate(-90deg); }
+#gatewayBtn.on { color: var(--accent); }
+.switch { position: relative; width: 40px; height: 22px; flex: none; display: inline-block; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .knob { position: absolute; inset: 0; border-radius: 999px; background: var(--border); cursor: pointer; transition: background .15s; }
+.switch .knob::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .35); transition: transform .15s;
+}
+.switch input:checked + .knob { background: var(--accent); }
+.switch input:checked + .knob::after { transform: translateX(18px); }
+.switch input:focus-visible + .knob { outline: 2px solid var(--accent); outline-offset: 2px; }
+.switch input:disabled + .knob { opacity: .45; cursor: default; }
 
 /* what's new: the entries this instance does not know, with Restart */
 #whatsnew {

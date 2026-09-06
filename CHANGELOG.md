@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Phone panel: a Shared switch first
+The phone button opens a panel whose primary control is a Shared switch for the current document (turning it on also starts the gateway if needed), with a one-line status; the button lights up while the document is shared. Start/Stop, the QR, New code and the shared list sit under a folded "Gateway" disclosure.
+
 ### Tags
 `#word` anywhere in a comment is a tag: it renders as a chip on the comment's header and as a link in the text, and a reply that is nothing but tags (`- Name (ts): #important`) tags its parent instead of showing as a comment — so anyone can label anyone's comment without touching their words. The sidebar gets a Tags panel (a page on the phone) listing every tag with its count; tapping one shows only the threads carrying it, several combine, and an "All threads" bar brings everything back. Chips in the outline rows, a `+ tag` on every comment, a `#` picker in the composer, `remark tag <file> <sel> #a #b -as <name>` and `remark tags <file>` on the command line, and `tag` events for monitors.
 
