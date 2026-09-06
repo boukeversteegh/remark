@@ -749,10 +749,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 }
 /* the thread's topic: its own line above the header row, primary */
 .ctitlebar {
-  font: 650 16px/1.3 var(--font-display); letter-spacing: -.012em; color: var(--fg);
-  padding: 2px 0 6px 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 560 16px/1.3 var(--font-display); letter-spacing: -.01em; color: var(--fg);
+  padding: 2px 0 7px; margin-bottom: 7px; border-bottom: 1px solid var(--border-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.citem.collapsed .ctitlebar { padding-bottom: 2px; }
+.citem.collapsed .ctitlebar { padding-bottom: 4px; margin-bottom: 4px; }
 .chead .snippet {
   color: var(--muted); overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; min-width: 0; flex: 0 1 auto; cursor: default; font-size: 12.5px;
