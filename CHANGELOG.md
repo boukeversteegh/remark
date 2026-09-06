@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-06
 
+### Notifications panel has a fixed height
+The unread queue scrolls inside a capped box, so a big backlog never pushes the outline off the screen.
+
 ### Chat box keeps the sidebar's column
 In chat mode the pinned message box starts where the Authors sidebar ends instead of running underneath it.
 

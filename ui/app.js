@@ -2047,6 +2047,11 @@ function buildNotifications() {
     wrap.appendChild(none);
     return wrap;
   }
+  // the queue scrolls inside a capped box, so a big backlog never pushes
+  // the outline off the screen
+  const list = document.createElement('div');
+  list.className = 'nlist';
+  wrap.appendChild(list);
   for (const { it, root, size } of rows) {
     const row = document.createElement('div');
     row.className = 'nrow';
@@ -2071,7 +2076,7 @@ function buildNotifications() {
     ex.textContent = it.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 90);
     row.appendChild(ex);
     row.addEventListener('click', () => revealItem(it));
-    wrap.appendChild(row);
+    list.appendChild(row);
   }
   return wrap;
 }
