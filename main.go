@@ -98,6 +98,7 @@ Usage:
                                 binary's list against the running one's)
   remark install                copy the binary to a per-user location and
                                 add it to your PATH
+  remark help                   print this text (same as --help)
 
 Flags:
   -browser     open in the default browser instead of an app window
@@ -243,6 +244,10 @@ Waiting for replies:
 func main() {
 	attachConsole()
 	go sweepOldBinaries()
+	if len(os.Args) > 1 && os.Args[1] == "help" {
+		fmt.Print(agentHelp)
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "monitor" {
 		runMonitor(os.Args[2:])
 		return
@@ -328,6 +333,15 @@ func main() {
 	dmTo := flag.String("to", "", "DM channels: address messages written in this window to one running instance (its session id)")
 	flag.Usage = func() { fmt.Fprint(os.Stderr, agentHelp) }
 	flag.Parse()
+
+	// a positional that is not a .md file is almost always a mistyped
+	// subcommand — fail instead of opening a window on a nonexistent file
+	for _, a := range flag.Args() {
+		if !strings.HasSuffix(strings.ToLower(a), ".md") {
+			fmt.Fprintf(os.Stderr, "remark: %q is not a command or a .md file — see remark help\n", a)
+			os.Exit(1)
+		}
+	}
 
 	if *fixedToken != "" {
 		token = *fixedToken
