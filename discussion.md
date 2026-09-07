@@ -132,7 +132,7 @@ Reply to my comment below, start a new thread on any paragraph, or test the conf
 - [x] Me (2026-09-02 22:05): **New-thread composer placement** <!--rv-->
   I'm missing a way to start a new thread after a few other ones. i can scroll up to the last text to which the other threads are attached, but then my thread comes at the top.
 
-  - Me (2026-09-02 22:05): actually it comes at the bottom, just the input shows at the top. <!--rv--> <!--seen:🤖 Claude-->
+  - Me (2026-09-02 22:05): actually it comes at the bottom, just the input shows at the top. <!--rv--> <!--seen:🤖 Claude,Bouke-->
 
     - 🤖 Claude (2026-09-02 22:08): Exactly right — the file insertion was already at the cluster's end; only the composer rendered at the top. Fixed both halves in the build you're looking at now (I restarted the window): the composer opens *after* the last thread of the cluster, right where the comment will land, and every thread cluster now ends with a dashed **“New thread here”** button so you don't have to scroll back up to the paragraph at all. The window/taskbar icon is fixed in this build too — if Explorer still shows the old file icon, that's just Windows' icon cache catching up. <!--rv--> <!--seen:Bouke,Me-->
 
@@ -146,7 +146,7 @@ Reply to my comment below, start a new thread on any paragraph, or test the conf
 
   - 🤖 Claude (2026-09-02 22:18): Fixed — the 💬 button now sits just inside the content's right edge (with its own background, floating above the text), so it can't be clipped no matter how narrow the window gets. <!--rv--> <!--seen:Bouke,Me-->
 
-  - Me (2026-09-02 23:45): hm not so happy it just goes on top of the text, how about just having a bit of extra margin for that button? <!--seen:🤖 Claude-->
+  - Me (2026-09-02 23:45): hm not so happy it just goes on top of the text, how about just having a bit of extra margin for that button? <!--seen:🤖 Claude,Bouke-->
 
     - 🤖 Claude (2026-09-02 23:47): Fair — overlaying text was the cheap fix. Every content block now reserves a small right gutter and the button lives in it: never on top of text, never clipped. Live in this window. <!--rv--> <!--seen:Bouke,Me-->
 
@@ -2436,7 +2436,11 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 12:16:32): Picking this up now (the mockup came from my colleague session on your other machine — same name, same plan). Building it as proposed: gateway-groups.json registry, per-group key and QR with /g/<group>?k=<key> links, the Groups section in the Phone panel, the join screen where members pick their own name (nothing synced from your desktop), and group-scoped documents and Authors. Everyone sees everyone within a group, and external members get no Message button toward desktop agents — DMs stay yours. <!--seen:Me-->
 
-  - 🤖 Claude (2026-09-07 12:31:21): Built, tested end to end, and installed. The Phone panel now has a Groups section: create a group, put documents in it (a one-click Share this document while you have it open), see who joined, remove members, show its QR, issue a New code (locks out everyone on the old one) or delete it — each group has its own key, so none of this ever touches your own pairing or another group. Scanning the code lands on the join screen: your name, the group name, and a field where the member picks the name they will write under — stored only on their phone, with none of your prefs leaking (verified: the synthetic prefs a member receives contain only the group and its documents). Verified headlessly as a member too: joined as Anna, saw only the group document, posted a comment signed Anna, and every probe outside the fence came back 403 — other paths, gateway controls, group management, prefs writes, and DMs to your desktop agents. Members appear in each other's Authors panel; the Message button is gone for them. If the gateway is stopped, the panel says so next to the invite.
+  - 🤖 Claude (2026-09-07 12:31:21): Built, tested end to end, and installed. The Phone panel now has a Groups section: create a group, put documents in it (a one-click Share this document while you have it open), see who joined, remove members, show its QR, issue a New code (locks out everyone on the old one) or delete it — each group has its own key, so none of this ever touches your own pairing or another group. Scanning the code lands on the join screen: your name, the group name, and a field where the member picks the name they will write under — stored only on their phone, with none of your prefs leaking (verified: the synthetic prefs a member receives contain only the group and its documents). Verified headlessly as a member too: joined as Anna, saw only the group document, posted a comment signed Anna, and every probe outside the fence came back 403 — other paths, gateway controls, group management, prefs writes, and DMs to your desktop agents. Members appear in each other's Authors panel; the Message button is gone for them. If the gateway is stopped, the panel says so next to the invite. <!--seen:Bouke-->
+
+  - Bouke (2026-09-07 15:10:38): Great! Please hide the qr code until the gateway is running, otherwise it produces a url without port, and noone could use it anyway <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-07 15:11:59): Done and installed. While the gateway is stopped the Invite section shows only a note — the invite code appears once it runs — and the server backs it up: the group list carries no URL and the QR endpoint refuses, so a portless link can never be handed out. New code and Delete still work while stopped, so you can revoke a group offline.
 
 - [x] Me (2026-09-07 09:25:51): **Image popout with zoom** view image popout <!--thread--> <!--seen:🤖 Claude-->
   sometimes screenshots are small on my screen, i would like to be able to click them and see them large in an overlay with scroll to zoom (pinch on mobile)

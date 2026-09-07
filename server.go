@@ -513,10 +513,10 @@ func newMux() *http.ServeMux {
 	// shared file the gateway re-reads per request, so every change below
 	// reaches a running gateway at once, no restart
 	mux.HandleFunc("GET /api/groups", authed(func(w http.ResponseWriter, r *http.Request) {
-		rec, _ := gatewayReadRecord()
+		rec, alive := gatewayReadRecord()
 		out := []map[string]any{}
 		for _, g := range gatewayGroups() {
-			out = append(out, groupJSON(rec, g))
+			out = append(out, groupJSON(rec, alive, g))
 		}
 		jsonOut(w, http.StatusOK, out)
 	}))
@@ -527,8 +527,8 @@ func newMux() *http.ServeMux {
 			jsonOut(w, http.StatusBadRequest, map[string]string{"error": "missing name"})
 			return
 		}
-		rec, _ := gatewayReadRecord()
-		jsonOut(w, http.StatusOK, groupJSON(rec, groupNew(strings.TrimSpace(body.Name))))
+		rec, alive := gatewayReadRecord()
+		jsonOut(w, http.StatusOK, groupJSON(rec, alive, groupNew(strings.TrimSpace(body.Name))))
 	}))
 	mux.HandleFunc("POST /api/groups/delete", authed(func(w http.ResponseWriter, r *http.Request) {
 		var body struct{ ID string `json:"id"` }
@@ -547,8 +547,8 @@ func newMux() *http.ServeMux {
 			jsonOut(w, http.StatusNotFound, map[string]string{"error": "no such group"})
 			return
 		}
-		rec, _ := gatewayReadRecord()
-		jsonOut(w, http.StatusOK, groupJSON(rec, g))
+		rec, alive := gatewayReadRecord()
+		jsonOut(w, http.StatusOK, groupJSON(rec, alive, g))
 	}))
 	mux.HandleFunc("POST /api/groups/member/remove", authed(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -561,8 +561,8 @@ func newMux() *http.ServeMux {
 			jsonOut(w, http.StatusNotFound, map[string]string{"error": "no such group"})
 			return
 		}
-		rec, _ := gatewayReadRecord()
-		jsonOut(w, http.StatusOK, groupJSON(rec, g))
+		rec, alive := gatewayReadRecord()
+		jsonOut(w, http.StatusOK, groupJSON(rec, alive, g))
 	}))
 	mux.HandleFunc("POST /api/groups/rotate", authed(func(w http.ResponseWriter, r *http.Request) {
 		var body struct{ ID string `json:"id"` }
@@ -572,8 +572,8 @@ func newMux() *http.ServeMux {
 			jsonOut(w, http.StatusNotFound, map[string]string{"error": "no such group"})
 			return
 		}
-		rec, _ := gatewayReadRecord()
-		jsonOut(w, http.StatusOK, groupJSON(rec, g))
+		rec, alive := gatewayReadRecord()
+		jsonOut(w, http.StatusOK, groupJSON(rec, alive, g))
 	}))
 	mux.HandleFunc("GET /api/groups/qr.png", authed(func(w http.ResponseWriter, r *http.Request) {
 		g, ok := groupByID(r.URL.Query().Get("id"))
@@ -581,7 +581,13 @@ func newMux() *http.ServeMux {
 			http.Error(w, "no such group", http.StatusNotFound)
 			return
 		}
-		rec, _ := gatewayReadRecord()
+		// a stopped gateway has no live port: the code would encode a URL
+		// nobody can open
+		rec, alive := gatewayReadRecord()
+		if !alive {
+			http.Error(w, "gateway not running", http.StatusNotFound)
+			return
+		}
 		png, err := qrcode.Encode(groupURL(rec, g), qrcode.Medium, 320)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

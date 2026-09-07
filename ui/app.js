@@ -2449,12 +2449,17 @@ function showGateway() {
           det.appendChild(r3);
         }
         det.appendChild(el('div', 'glabel', 'Invite'));
-        if (!st.running) det.appendChild(el('div', 'gwnote', 'Start the gateway below, or members cannot reach the group.'));
-        const img = el('img', 'gwqr');
-        img.src = '/api/groups/qr.png?id=' + encodeURIComponent(g.id) + '&t=' + TOKEN + '&r=' + Date.now();
-        img.alt = 'group QR';
-        det.appendChild(img);
-        det.appendChild(el('div', 'gwurl', g.url || ''));
+        // no gateway, no code: a stopped gateway has no live port, so the
+        // QR would encode a link nobody can open
+        if (!st.running) {
+          det.appendChild(el('div', 'gwnote', 'Start the gateway below — the invite code appears once it runs.'));
+        } else {
+          const img = el('img', 'gwqr');
+          img.src = '/api/groups/qr.png?id=' + encodeURIComponent(g.id) + '&t=' + TOKEN + '&r=' + Date.now();
+          img.alt = 'group QR';
+          det.appendChild(img);
+          det.appendChild(el('div', 'gwurl', g.url || ''));
+        }
         const rr = el('div', 'gwrow');
         rr.appendChild(el('span', null, 'Members scan once; a new code locks out everyone who scanned this one.'));
         rr.appendChild(btn('New code', 'quiet', () => {

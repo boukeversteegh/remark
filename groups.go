@@ -199,14 +199,20 @@ func groupMemberNames(g gatewayGroup) []string {
 	return names
 }
 
-// groupJSON is the shape both panels consume.
-func groupJSON(rec gatewayRecord, g gatewayGroup) map[string]any {
+// groupJSON is the shape both panels consume. The join URL needs the
+// gateway's live port, so it is only present while one is running — a
+// stopped gateway would hand out a link nobody can use.
+func groupJSON(rec gatewayRecord, alive bool, g gatewayGroup) map[string]any {
 	docs := g.Docs
 	if docs == nil {
 		docs = []string{}
 	}
-	return map[string]any{
+	out := map[string]any{
 		"id": g.ID, "name": g.Name, "docs": docs,
-		"members": groupMemberNames(g), "url": groupURL(rec, g),
+		"members": groupMemberNames(g),
 	}
+	if alive {
+		out["url"] = groupURL(rec, g)
+	}
+	return out
 }
