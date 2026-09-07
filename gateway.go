@@ -366,6 +366,10 @@ func runGateway(args []string) {
 	// idle keep-alive connections are reaped: a phone that drops off a VPN
 	// must not leave sessions stuck open (some VPN servers cap them per client)
 	srv := &http.Server{Handler: gatewayHandler(newMux()), IdleTimeout: 20 * time.Second, ReadHeaderTimeout: 15 * time.Second}
+	// no keep-alive across a VPN: a pooled connection whose tunnel state has
+	// silently expired looks alive to the phone's browser, which then reuses
+	// it and fails; one connection per request sidesteps that entirely
+	srv.SetKeepAlivesEnabled(false)
 	if err := srv.Serve(ln); err != nil {
 		fmt.Fprintln(os.Stderr, "remark gateway: server stopped:", err)
 	}

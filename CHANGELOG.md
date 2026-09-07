@@ -7,8 +7,8 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
-### Gateway reaps idle connections
-Keep-alive connections idle for 20 seconds are closed, so a phone that drops off the VPN leaves nothing stuck open on the PC.
+### Gateway: one connection per request
+The gateway no longer keeps connections alive between requests, and closes any idle one after 20 seconds: over a VPN a pooled connection can silently die while the phone's browser still reuses it, which showed as "connection aborted" until the gateway was restarted.
 
 ### Phone: the Document tab is lit from the start
 On first load the tab bar was built after the current tab was set, so no tab was highlighted until you switched.
