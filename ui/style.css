@@ -137,6 +137,7 @@ button { font-family: var(--font-ui); }
   max-width: 34vw;
 }
 #filename b { color: var(--fg); font-weight: 600; }
+#filename .fnfile { color: var(--muted); }
 #topbar .spacer { flex: 1; }
 
 /* caption buttons — the toolbar is the title bar inside the native window.
@@ -895,17 +896,19 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .citem.unread { background: var(--card-unread); }
 /* the collapse rail: every card is positioned so nested cards (later in
    source order) paint over their parent's strip — the empty gutter below
-   each caret stays clickable at every depth, nothing else is covered */
+   each caret folds exactly the comment it belongs to, at every depth */
 .citem { position: relative; }
 .citem > .crail {
   position: absolute; left: 0; top: 34px; bottom: 0; width: 28px;
-  cursor: pointer; border-radius: 8px 0 0 8px;
+  cursor: pointer;
 }
-/* hovering any strip lights the whole thread's column: what will fold */
-.citem.railhot .crail { background: var(--accent-soft); }
-.citem.railhot .crail::after {
-  content: ''; position: absolute; left: 13px; top: 2px; bottom: 2px;
-  width: 2px; border-radius: 1px; background: var(--accent); opacity: .45;
+/* hovering the strip tints the comment that will fold — no extra marks,
+   just its own color a touch more intense (overlay sits under nested
+   cards, so a child keeps its own look above the parent's tint) */
+.citem.railhot::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+  border-radius: inherit;
 }
 .citem.collapsed { padding-bottom: 9px; }
 .citem.collapsed > .cbody,

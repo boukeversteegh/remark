@@ -641,6 +641,14 @@ func runMonitor(args []string) {
 		fmt.Fprintln(os.Stderr, "remark monitor: no files matched")
 		os.Exit(1)
 	}
+	// a watched path that does not exist produces no events, ever — say so
+	// loudly instead of sitting silent (a shell that ate backslashes looks
+	// exactly like a healthy quiet monitor otherwise)
+	for _, f := range files {
+		if _, err := os.Stat(f); err != nil {
+			fmt.Fprintf(os.Stderr, "remark monitor: WARNING: %s does not exist — no events until it does\n", f)
+		}
+	}
 
 	ignored := map[string]bool{}
 	for _, n := range strings.Split(*ignore, ",") {

@@ -996,29 +996,25 @@ function buildItem(item, opts) {
   // markdown can reference a comment as [](#r20260903221807)
   if (item.time) el.id = 'r' + item.time.replace(/\D/g, '');
 
-  // the empty gutter under the caret collapses the whole thread — no
-  // scrolling back up to the caret from the bottom of a long thread. One
+  // the empty gutter under a caret collapses the comment it belongs to —
+  // no scrolling back up to the caret from the bottom of a long one. One
   // strip per card: nested cards are positioned, so each covers its
-  // parent's strip with its own and the column stays fully clickable.
+  // parent's strip with its own. Flat replies under a root thus fold
+  // individually, while a parent's rail running alongside its indented
+  // subthread folds the whole subtree — the strip you click is always
+  // exactly the thing that folds, and the hover lights its full extent.
   if (!collapsed) {
     const rail = document.createElement('div');
     rail.className = 'crail';
-    rail.title = 'Collapse this thread';
-    const rootHot = on => {
-      let n = el, p;
-      while ((p = n.parentElement && n.parentElement.closest('.citem'))) n = p;
-      n.classList.toggle('railhot', on);
-    };
-    rail.addEventListener('mouseenter', () => rootHot(true));
-    rail.addEventListener('mouseleave', () => rootHot(false));
+    rail.title = 'Collapse';
+    rail.addEventListener('mouseenter', () => el.classList.add('railhot'));
+    rail.addEventListener('mouseleave', () => el.classList.remove('railhot'));
     rail.addEventListener('click', () => {
-      let r = item;
-      while (r.parent) r = r.parent;
-      S.collapsed.set(r.key, true);
-      persistCollapse(r.key, true);
+      S.collapsed.set(item.key, true);
+      persistCollapse(item.key, true);
       render();
       // land on the header of what was just folded, not a random spot below
-      const hd = r.time && document.getElementById('r' + r.time.replace(/\D/g, ''));
+      const hd = item.time && document.getElementById('r' + item.time.replace(/\D/g, ''));
       if (hd) hd.scrollIntoView({ block: 'nearest' });
     });
     el.appendChild(rail);
@@ -1877,14 +1873,36 @@ function updateUnreadUI() {
   btn.innerHTML = iconHTML('bell-dot');
   btn.appendChild(document.createTextNode(unread.length + ' unread'));
   setAppTitle((unread.length ? '(' + unread.length + ') ' : '') + docDisplayName());
+  updateFilenameUI();
 }
 
 // the document is named by its first heading; the filename disambiguates
+function docTitle() {
+  const h = S.parsed && S.parsed.blocks.find(b => b.type === 'heading');
+  return h ? h.headingText.replace(/[#*_`\[\]]/g, '').trim() : '';
+}
 function docDisplayName() {
   const base = (S.path && S.path.split(/[\\/]/).pop()) || 'remark';
-  const h = S.parsed && S.parsed.blocks.find(b => b.type === 'heading');
-  const title = h ? h.headingText.replace(/[#*_`\[\]]/g, '').trim() : '';
+  const title = docTitle();
   return title && title !== base ? title + ' — ' + base : base;
+}
+// the toolbar names the document the same way: title first, file after
+function updateFilenameUI() {
+  const fn = $('#filename');
+  if (!fn || !S.path) return;
+  const title = docTitle();
+  const base = splitPath(S.path).base;
+  fn.textContent = '';
+  const bb = document.createElement('b');
+  bb.textContent = title || base;
+  fn.appendChild(bb);
+  if (title && title !== base) {
+    const dim = document.createElement('span');
+    dim.className = 'fnfile';
+    dim.textContent = ' — ' + base;
+    fn.appendChild(dim);
+  }
+  fn.title = S.path;
 }
 
 // document.title names the tab; the native window (alt-tab, taskbar)

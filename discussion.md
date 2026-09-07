@@ -2430,16 +2430,18 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
       Open questions for you: should members see each other in Authors (I assumed yes, within the group), and may a member remove their own name and rejoin under another (I assumed yes, it is just a phone setting)?
 
-    - Me (2026-09-07 11:10:30): awesome, please build this, and yes everyone can see everyone
+    - Me (2026-09-07 11:10:30): awesome, please build this, and yes everyone can see everyone <!--seen:🤖 Claude-->
 
-    - Me (2026-09-07 11:10:44): but external users cannot directly DM an agent running on the desktop
+    - Me (2026-09-07 11:10:44): but external users cannot directly DM an agent running on the desktop <!--seen:🤖 Claude-->
 
-- [ ] Me (2026-09-07 09:25:51): **Image popout with zoom** view image popout <!--thread--> <!--seen:🤖 Claude-->
+  - 🤖 Claude (2026-09-07 12:16:32): Picking this up now (the mockup came from my colleague session on your other machine — same name, same plan). Building it as proposed: gateway-groups.json registry, per-group key and QR with /g/<group>?k=<key> links, the Groups section in the Phone panel, the join screen where members pick their own name (nothing synced from your desktop), and group-scoped documents and Authors. Everyone sees everyone within a group, and external members get no Message button toward desktop agents — DMs stay yours.
+
+- [x] Me (2026-09-07 09:25:51): **Image popout with zoom** view image popout <!--thread--> <!--seen:🤖 Claude-->
   sometimes screenshots are small on my screen, i would like to be able to click them and see them large in an overlay with scroll to zoom (pinch on mobile)
 
-  - 🤖 Claude (2026-09-07 09:26:27): Building it: click any image in the document to open it in a full-screen overlay; mouse wheel zooms around the pointer, drag pans, double-click toggles 2x, Esc, the × or a tap on the backdrop closes; on the phone pinch zooms and one finger pans. <!--seen:🤖 Claude-->
+  - 🤖 Claude (2026-09-07 09:26:27): Building it: click any image in the document to open it in a full-screen overlay; mouse wheel zooms around the pointer, drag pans, double-click toggles 2x, Esc, the × or a tap on the backdrop closes; on the phone pinch zooms and one finger pans. <!--seen:🤖 Claude,Me-->
 
-    - 🤖 Claude (2026-09-07 09:28:08): Shipped, installed, pushed, gateway restarted (same code). Click any image in the document (or in the margin rail) and it opens full-screen on a dark backdrop: mouse wheel zooms around the pointer between 25% and 1000%, drag pans, double-click toggles 2x and back, Esc, the × or a click on the backdrop closes; on the phone pinch zooms and one finger pans, with a zoom readout at the bottom. Desktop windows get it on their next restart.
+    - 🤖 Claude (2026-09-07 09:28:08): Shipped, installed, pushed, gateway restarted (same code). Click any image in the document (or in the margin rail) and it opens full-screen on a dark backdrop: mouse wheel zooms around the pointer between 25% and 1000%, drag pans, double-click toggles 2x and back, Esc, the × or a click on the backdrop closes; on the phone pinch zooms and one finger pans, with a zoom readout at the bottom. Desktop windows get it on their next restart. <!--seen:Me-->
 
       ![Image popout at 132%](discussion-20260907-lightbox.png)
 
@@ -2452,17 +2454,27 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 11:01:02): On it — the indent rail below the caret becomes a full-height click target that collapses the thread, with a hover highlight so you can see what you are about to fold. <!--seen:Me-->
 
-  - Me (2026-09-07 11:01:57): actually be careful. root threads have their comments shown flat, so there the left margin should just collapse the comment next to it. on deeper threads, the parent extends along side the child comments, so there you can more easily collapse a whole subtree
+  - Me (2026-09-07 11:01:57): actually be careful. root threads have their comments shown flat, so there the left margin should just collapse the comment next to it. on deeper threads, the parent extends alongside the child comments, so there you can more easily collapse a whole subtree <!--seen:🤖 Claude-->
 
-  - Me (2026-09-07 11:02:20): this is not a big deal because root threads have a "go to top" button on the right so you can easily go back
+  - Me (2026-09-07 11:02:20): this is not a big deal because root threads have a "go to top" button on the right so you can easily go back <!--seen:🤖 Claude-->
 
-  - 🤖 Claude (2026-09-07 11:17:44): Built and running in your window. The whole empty column under the caret — at every nesting depth — now folds the thread on click; hovering it lights the full column with a thin accent line so you can see exactly what will fold, and after folding the view lands on the thread header instead of a random spot. Verified headlessly: clicking the gutter next to the last reply of a 7-comment thread collapsed the root and kept its header in view.
+  - 🤖 Claude (2026-09-07 11:17:44): Built and running in your window. The whole empty column under the caret — at every nesting depth — now folds the thread on click; hovering it lights the full column with a thin accent line so you can see exactly what will fold, and after folding the view lands on the thread header instead of a random spot. Verified headlessly: clicking the gutter next to the last reply of a 7-comment thread collapsed the root and kept its header in view. <!--seen:Me-->
+
+  - Me (2026-09-07 12:13:16): it looks very weird, and the problem i mentioned is exactly what happened now, the root thread collapser now goes over/past all the nested comments that are rendered as flat siblings, for root i dont want the full extension. <!--seen:🤖 Claude-->
+
+    plus, the collapse affordance has its own blue line, while i would expect it to just be simply a bit more intense color of that particular comment. it also appears whenever i hover any comment at all on all parents, not just when hovering that affordance to the left. so not good as it is.
+
+  - 🤖 Claude (2026-09-07 12:16:17): Reworked to your model and installed. The strip now folds exactly the comment it belongs to: flat replies under a root fold individually, and a parent whose rail runs alongside its indented subthread folds that subtree — the root never grabs the whole column. The blue line is gone too: hovering the strip just makes that comment its own color a touch more intense, and only while you are on the strip itself, not when hovering the comment. Verified: hovering and clicking a flat reply touches only that reply; a subtree parent folds its subtree; the root stays put.
 
 - [ ] Me (2026-09-07 10:44:55): **Native window title from the document** i've opened remark without a document and then clicked on the document from recents, now the window title just remains 'remark' without the document title (when i do alt-tab, so the native windows title). I would actually also like that the document title is the primary identifier of the document, not the filename. filename should be suffixed. <!--thread--> <!--seen:🤖 Claude-->
 
-  - 🤖 Claude (2026-09-07 11:01:26): Agreed — the native title should follow the document, not the process. Plan: the title becomes `Document Title — filename.md` (first heading as the primary name, filename suffixed), set when a document loads and updated when you open one from recents.
+  - 🤖 Claude (2026-09-07 11:01:26): Agreed — the native title should follow the document, not the process. Plan: the title becomes `Document Title — filename.md` (first heading as the primary name, filename suffixed), set when a document loads and updated when you open one from recents. <!--seen:Me-->
 
-  - 🤖 Claude (2026-09-07 11:17:54): Done. The page now pushes its title to the native window through a host bind, so alt-tab and the taskbar show the first heading with the filename suffixed — for this file that reads: Discussion Board — discussion.md (with the unread count in front when there is one). It updates the moment a document loads, including when you pick one from recents in a window that started empty, and the landing page titles itself plain remark.
+  - 🤖 Claude (2026-09-07 11:17:54): Done. The page now pushes its title to the native window through a host bind, so alt-tab and the taskbar show the first heading with the filename suffixed — for this file that reads: Discussion Board — discussion.md (with the unread count in front when there is one). It updates the moment a document loads, including when you pick one from recents in a window that started empty, and the landing page titles itself plain remark. <!--seen:Me-->
+
+  - Me (2026-09-07 12:13:37): please also do this in the header, i still see only discussion.md <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-07 12:16:20): The toolbar now shows it too: the document title in bold with the filename dimmed after it — Discussion Board — discussion.md — kept in sync on every render, full path still in the tooltip. Installed in your window.
 
 - [ ] Me (2026-09-07 10:51:05): **Keep my scroll position on updates** often when the document is updated with new comments, the page shifts, and i lose where i was reading and have to scroll up or down to find it back. <!--thread--> <!--seen:🤖 Claude-->
 
@@ -2480,5 +2492,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 11:17:57): Done. remark help prints the usage (exit 0), and any positional that does not end in .md errors out: remark nonsense now says it is not a command or a .md file and points at remark help, instead of opening a window. Globs like *.md still pass, and all real subcommands are dispatched before the check.
 
-- [ ] Me (2026-09-07 11:00:45): **Bug: Stale agent status** <!--thread-->
+- [ ] Me (2026-09-07 11:00:45): **Bug: Stale agent status** <!--thread--> <!--seen:🤖 Claude-->
   After restarting a claude session that went offline, I don't see claude as being online in the authors list, even though claude code is clearly monitoring this file: `remark monitor -as "🤖 Claude" -json D:\remark\discussion.md` (from Monitor details in claude code).
+
+  - 🤖 Claude (2026-09-07 12:16:28): Found and fixed — the fault was on my side, not in remark. My harness launches the monitor through a POSIX shell, which ate the backslashes in the path: the process was really running `remark monitor -as 🤖
