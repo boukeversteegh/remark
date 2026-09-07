@@ -860,7 +860,11 @@ Reply to my comment below, start a new thread on any paragraph, or test the conf
 
   - Bouke (2026-09-07 15:50:29): reminder! you haven't done this for a while. please remember it somehow. <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-07 15:51:30): You are right — I titled the morning threads and then let the afternoon ones slip. All five from today are titled now (Replies misplaced as interjections, Unread bar missing on unread comments, Checklist items auto-stamped as comments, Zoom and window position forgotten, Headless UI testing harness), and I have hardened the rule on my side: titling the root is now part of processing a new thread event itself, same standing as writing the seen-marker, not something I do when a thread grows.
+    - 🤖 Claude (2026-09-07 15:51:30): You are right — I titled the morning threads and then let the afternoon ones slip. All five from today are titled now (Replies misplaced as interjections, Unread bar missing on unread comments, Checklist items auto-stamped as comments, Zoom and window position forgotten, Headless UI testing harness), and I have hardened the rule on my side: titling the root is now part of processing a new thread event itself, same standing as writing the seen-marker, not something I do when a thread grows. <!--seen:Bouke-->
+
+    - Bouke (2026-09-07 22:26:14): i see open threads without title again <!--seen:🤖 Claude-->
+
+      - 🤖 Claude (2026-09-07 22:29:14): Those were the inline-titled ones — bold at the start of the line but with text after it, which the renderer rightly refuses as a title. All fourteen are restructured to the standalone form and show their title bars now; new threads get titled that way from the start.
 
 - [x] 🤖 Claude-Guest (2026-09-03 13:33): **seen-events are attributed to the wrong author, so `-as` filters them backwards** <!--thread--> <!--seen:🤖 Claude,Me-->
   Hello — different agent, different session. I'm the Claude working on a ticket in another repo, and I've been using `remark monitor` all afternoon to hold a review conversation in a file over there. It works beautifully, with one exception that Bouke spotted before I did: I kept getting 👁 notifications for read-markers I had just written myself.
@@ -2183,6 +2187,10 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
         - 🤖 Claude (2026-09-06 23:49:18): Landed on main (fast-forward to e463572), built, installed and pushed; your gateway is restarted on it (same code), so the phone has the Tags tab after a refresh, and your desktop windows get it on their next restart. Tests: 14 of 14 pass. Nice work by 🤖 Tags; it is done and its monitor is retired. <!--seen:Me-->
 
+  - Bouke (2026-09-07 22:24:42): rgb colors show up as hashtags, not intended. #r references still show up in the taglist. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-07 22:29:11): Both excluded now, in the UI and the Go side alike: a hex color (3-8 hex characters with at least one digit, like #eaf3ff or #b2b) is not a tag, and neither is anything #r-shaped — the comment references and the bare #r your own message just got tagged with. Installed; existing stray tags disappear on the next render since tags are derived from the text, nothing stored.
+
 - [x] Me (2026-09-06 22:03:29): **Mobile App** <!--thread--> <!--seen:🤖 Claude-->
   I now am using remark as my primary interface with AI, it works fantastically, but for mobile situations I'm still reliant on claude code remote, which drops be back to the linear experience. I desperately need a way to continue my work on mobile. I want to setup a gateway infrastructure which can run on my pc to which i can connect the app. The app needs a single connection, the gateway, and the other clients expose their documents to it. Once my remark client (the app) has a configured gateway, enabling remote access should just be a single toggle. ideally i can just run the gateway with remark gateway, and keep it on, and that's it. authentication is needed, and the app should require scanning a configuration code or something.
 
@@ -2397,17 +2405,20 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
       - 🤖 Claude (2026-09-07 00:10:58): Fixed, installed, pushed, gateway restarted (same code): the Document tab is lit from the first load now; verified on a fresh phone-width load. <!--seen:Me-->
 
-- [x] Me (2026-09-06 23:09:46): **Resolution default for new threads** new root threads should always have 'needs resolution' on by default, regardless of last post. at laest i noticed my mobile app post didn't have the checkbox, which was surprising, maybe it was removed, i dont think so, so i think it remembered previous state or something <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-06 23:09:46): **Resolution default for new threads** <!--thread--> <!--seen:🤖 Claude-->
+  new root threads should always have 'needs resolution' on by default, regardless of last post. at laest i noticed my mobile app post didn't have the checkbox, which was surprising, maybe it was removed, i dont think so, so i think it remembered previous state or something
 
   - 🤖 Claude (2026-09-06 23:16:01): Checked: the composer already defaults "needs resolution" to on for every new root thread and never remembers the previous choice (only editing an existing comment copies its state). I opened the new-thread composer at phone width just now: ticked and visible. And all your roots in this file, Mobile App included, are written with the checkbox. So I cannot find the post you mean; if you can point at it (or it happens again) I will dig further. <!--seen:Me-->
 
-- [x] Me (2026-09-06 23:27:12): **Brand logo opens the landing page** Make the brand logo on the top show the remark landing page so i can switch documents on mobile. <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-06 23:27:12): **Brand logo opens the landing page** <!--thread--> <!--seen:🤖 Claude-->
+  Make the brand logo on the top show the remark landing page so i can switch documents on mobile.
 
   - 🤖 Claude (2026-09-06 23:27:51): Doing it in the build that is running now: the icon in the toolbar opens the landing page (the shared-documents list on the phone), on the desktop too. <!--seen:🤖 Claude,Me-->
 
     - 🤖 Claude (2026-09-06 23:39:43): Shipped, installed, gateway restarted: tap the icon in the toolbar and you are on the landing page with the shared documents. Same on the desktop. <!--seen:Me-->
 
-- [x] Me (2026-09-07 09:15:18): **Hide resolved keeps threads with open subthreads** threads with unresolved subthreads (nested [ ]) should remain visible even when 'show resolved' is off and their root or parent is resolved. <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 09:15:18): **Hide resolved keeps threads with open subthreads** <!--thread--> <!--seen:🤖 Claude-->
+  threads with unresolved subthreads (nested [ ]) should remain visible even when 'show resolved' is off and their root or parent is resolved.
 
   - 🤖 Claude (2026-09-07 09:15:40): Agreed; a resolved root with an open subthread is not finished. Changing the filter: with Show resolved off, a thread hides only when its root and every nested resolvable comment are resolved. Building. <!--seen:🤖 Claude,Me-->
 
@@ -2418,6 +2429,8 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   So they must be able to set their own names (app settings not synced at all with desktop!).
 
   Each group has its own qr code. Please design the interface for this and propose as a screenshot.
+
+  #sharing
 
   - 🤖 Claude (2026-09-07 09:17:53): Understood: groups of people, each with its own QR code and its own set of documents, members choosing their own name on the phone with nothing synced from your desktop. I will draft the interface as static mockups (the desktop Phone panel with a Groups section, the phone's first-run name screen, and the phone's document list) and post them here for you to react to before anything is built. <!--seen:🤖 Claude,Me-->
 
@@ -2444,9 +2457,10 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-07 15:10:38): Great! Please hide the qr code until the gateway is running, otherwise it produces a url without port, and noone could use it anyway <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-07 15:11:59): Done and installed. While the gateway is stopped the Invite section shows only a note — the invite code appears once it runs — and the server backs it up: the group list carries no URL and the QR endpoint refuses, so a portless link can never be handed out. New code and Delete still work while stopped, so you can revoke a group offline.
+    - 🤖 Claude (2026-09-07 15:11:59): Done and installed. While the gateway is stopped the Invite section shows only a note — the invite code appears once it runs — and the server backs it up: the group list carries no URL and the QR endpoint refuses, so a portless link can never be handed out. New code and Delete still work while stopped, so you can revoke a group offline. <!--seen:Bouke-->
 
-- [x] Me (2026-09-07 09:25:51): **Image popout with zoom** view image popout <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 09:25:51): **Image popout with zoom** <!--thread--> <!--seen:🤖 Claude-->
+  view image popout
   sometimes screenshots are small on my screen, i would like to be able to click them and see them large in an overlay with scroll to zoom (pinch on mobile)
 
   - 🤖 Claude (2026-09-07 09:26:27): Building it: click any image in the document to open it in a full-screen overlay; mouse wheel zooms around the pointer, drag pans, double-click toggles 2x, Esc, the × or a tap on the backdrop closes; on the phone pinch zooms and one finger pans. <!--seen:🤖 Claude,Me-->
@@ -2455,12 +2469,16 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
       ![Image popout at 132%](discussion-20260907-lightbox.png)
 
-- [x] Me (2026-09-07 10:23:43): **Commit the discussion and push** please ensure that this discussion file is committed and the whole repo is pushed. <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 10:23:43): **Commit the discussion and push** <!--thread--> <!--seen:🤖 Claude-->
+  please ensure that this discussion file is committed and the whole repo is pushed.
 
-- [ ] Me (2026-09-07 10:43:32): **Collapse by clicking the thread rail** Thread collapse button is now a small caret at the top, but when i want to collapse a thread where i'm at the bottom of it, i first have to scroll up to find the caret to collapse it. This is pretty tedious. <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Me (2026-09-07 10:43:32): **Collapse by clicking the thread rail** <!--thread--> <!--seen:🤖 Claude-->
+  Thread collapse button is now a small caret at the top, but when i want to collapse a thread where i'm at the bottom of it, i first have to scroll up to find the caret to collapse it. This is pretty tedious.
 
   But we actually have an indentation below the caret that stretches all the way to the end of the thread.
   Please make that whole empty space the collapse toggle, with hover state for clarity
+
+  #collapse
 
   - 🤖 Claude (2026-09-07 11:01:02): On it — the indent rail below the caret becomes a full-height click target that collapses the thread, with a hover highlight so you can see what you are about to fold. <!--seen:Me-->
 
@@ -2480,9 +2498,12 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     also, the reply box now also has a collapse region which collapse the whole thread, which is a bit confusing.
 
-  - 🤖 Claude (2026-09-07 12:59:34): All three, installed. The caret and the strip are one control now: hovering either lights the caret and tints the comment that will fold — no competing buttons. The gutter beside the reply box (and beside an open editor) does nothing anymore. And collapsed, the header row was already the expand target — clicking anywhere on it expands — it just never showed it; now it highlights on hover so you can see the whole row is clickable.
+  - 🤖 Claude (2026-09-07 12:59:34): All three, installed. The caret and the strip are one control now: hovering either lights the caret and tints the comment that will fold — no competing buttons. The gutter beside the reply box (and beside an open editor) does nothing anymore. And collapsed, the header row was already the expand target — clicking anywhere on it expands — it just never showed it; now it highlights on hover so you can see the whole row is clickable. <!--seen:Bouke-->
 
-- [ ] Me (2026-09-07 10:44:55): **Native window title from the document** i've opened remark without a document and then clicked on the document from recents, now the window title just remains 'remark' without the document title (when i do alt-tab, so the native windows title). I would actually also like that the document title is the primary identifier of the document, not the filename. filename should be suffixed. <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Me (2026-09-07 10:44:55): **Native window title from the document** <!--thread--> <!--seen:🤖 Claude-->
+  i've opened remark without a document and then clicked on the document from recents, now the window title just remains 'remark' without the document title (when i do alt-tab, so the native windows title). I would actually also like that the document title is the primary identifier of the document, not the filename. filename should be suffixed.
+
+  #window
 
   - 🤖 Claude (2026-09-07 11:01:26): Agreed — the native title should follow the document, not the process. Plan: the title becomes `Document Title — filename.md` (first heading as the primary name, filename suffixed), set when a document loads and updated when you open one from recents. <!--seen:Me-->
 
@@ -2492,15 +2513,19 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 12:16:20): The toolbar now shows it too: the document title in bold with the filename dimmed after it — Discussion Board — discussion.md — kept in sync on every render, full path still in the tooltip. Installed in your window. <!--seen:Me-->
 
-- [ ] Me (2026-09-07 10:51:05): **Keep my scroll position on updates** often when the document is updated with new comments, the page shifts, and i lose where i was reading and have to scroll up or down to find it back. <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Me (2026-09-07 10:51:05): **Keep my scroll position on updates** <!--thread--> <!--seen:🤖 Claude-->
+  often when the document is updated with new comments, the page shifts, and i lose where i was reading and have to scroll up or down to find it back.
 
   is it possible to make sure that i dont notice at all if anything in the document is edited?
 
-  - 🤖 Claude (2026-09-07 11:01:31): Yes, that is doable. Before every external re-render I will note which comment sits at your reading position and put the page back so it does not move a pixel — new comments arriving above you change nothing on screen until you scroll. Building it now.
+  #sync
 
-  - 🤖 Claude (2026-09-07 11:17:47): Done and in your window. Before every external re-render the page remembers the first comment or paragraph at your reading position and puts it back at the same pixel — even at 130% zoom (the correction iterates, so zoom cannot skew it). At the very top you stay pinned to the top, and at the very bottom the distance to the end is kept instead. Measured drift in the tests: 0.3px mid-page, 0 at the bottom.
+  - 🤖 Claude (2026-09-07 11:01:31): Yes, that is doable. Before every external re-render I will note which comment sits at your reading position and put the page back so it does not move a pixel — new comments arriving above you change nothing on screen until you scroll. Building it now. <!--seen:Bouke-->
 
-- [x] Me (2026-09-07 10:59:19): **CLI: help command and .md-only arguments** make `remark help` equivalent to `remark --help` <!--thread--> <!--seen:🤖 Claude-->
+  - 🤖 Claude (2026-09-07 11:17:47): Done and in your window. Before every external re-render the page remembers the first comment or paragraph at your reading position and puts it back at the same pixel — even at 130% zoom (the correction iterates, so zoom cannot skew it). At the very top you stay pinned to the top, and at the very bottom the distance to the end is kept instead. Measured drift in the tests: 0.3px mid-page, 0 at the bottom. <!--seen:Bouke-->
+
+- [x] Me (2026-09-07 10:59:19): **CLI: help command and .md-only arguments** <!--thread--> <!--seen:🤖 Claude-->
+  make `remark help` equivalent to `remark --help`
 
   also make `remark <ANYTHING>`  error if it doesn't end in .md
 
@@ -2517,7 +2542,8 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-07 15:25:06): It did have an argument — just a mangled one: the shell turned D:\remark\discussion.md into D:remarkdiscussion.md, which resolved to a file called remarkdiscussion.md in D:\remark, so it faithfully watched a path that will never exist (plus my own DM channel, which every -as monitor watches). You are right that a warning is not enough, though: it now refuses to start — remark monitor exits with the missing path and a hint about backslash-eating shells, instead of sitting there looking healthy. Installed. <!--seen:Bouke-->
 
-- [x] Me (2026-09-07 14:51:42): **Replies misplaced as interjections** I see several times now that my comments end up somewhere I dont expect, for example, as a interjection rather than a followup reply on an existing comment. <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 14:51:42): **Replies misplaced as interjections** <!--thread--> <!--seen:🤖 Claude-->
+  I see several times now that my comments end up somewhere I dont expect, for example, as a interjection rather than a followup reply on an existing comment.
 
   For example:
 
@@ -2561,7 +2587,8 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 15:04:21): Reproduced, root-caused, fixed, and the example is now scrubbed (a neutral reconstruction with the same indentation shape is in its place). The file itself was never wrong — the comments sat exactly where they should. It was the RENDERER: when a comment body ends in a bullet list and the body happens to be indented deeper than usual (hand-written bodies often are), the next reply was mistaken for a note nested under the last bullet and drawn inside the list — above earlier siblings, mid-body, exactly like an interjection. Now a card only hangs under a list item when the raw markdown really nests it deeper than the bullet, and once a normal reply follows the body, nothing later can be swallowed into that list. Verified against your exact shape: replies land after their siblings at the right level, and genuinely nested list-notes still render inside their list items. <!--seen:Bouke-->
 
-- [x] Me (2026-09-07 14:57:27): **Unread bar missing on unread comments** unread comments on an unread thread missing their blue 'unread' bar <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 14:57:27): **Unread bar missing on unread comments** <!--thread--> <!--seen:🤖 Claude-->
+  unread comments on an unread thread missing their blue 'unread' bar
 
   ![discussion-20260907-145726.png](discussion-20260907-145726.png)
 
@@ -2577,11 +2604,13 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 15:18:42): Fixed everywhere and installed. The parser had a shortcut where any nested checkbox was a comment, brackets alone sufficing — against the documented rule that the timestamp is what marks a nested line as one. Now a nested `- [ ]` without an authored timestamp (or a thread marker) is body content: it renders as a normal task list, the auto-stamper never touches it, and the monitor and remark read agree. Verified with your exact backticked-path shape plus plain unquoted task items — the file stays byte-identical — while an authored nested opener like `- [ ] Name (ts): …` still becomes a resolvable comment. The window, monitor and read all carry the new rule; note it applies to any bare nested checkbox, quoted or not — the backticks were never the deciding factor. <!--seen:Bouke-->
 
-- [x] Bouke (2026-09-07 15:47:42): **Zoom and window position forgotten** It seems that zoom, window position are not remembered anymore. when i restart sometimes my window goes to another screen. seems to have been broken after group sharing <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-07 15:47:42): **Zoom and window position forgotten** <!--thread--> <!--seen:🤖 Claude-->
+  It seems that zoom, window position are not remembered anymore. when i restart sometimes my window goes to another screen. seems to have been broken after group sharing
 
   - 🤖 Claude (2026-09-07 15:52:56): Root-caused and fixed, installed. Nothing was erased — the culprit was that ALL windows shared ONE remembered placement and ONE zoom: the last window you moved won, so with your other documents open on another monitor today (plus my frequent restarts of this window), a restart adopted whichever window wrote last and landed on its screen. Both are per document now: this file, and each of your other documents, keep their own window bounds and their own zoom, with the old shared values as the seed on first open. Verified headlessly for zoom (two documents holding 180% and 90% independently across reloads); the placement key follows the same per-document scheme. Your window will settle on the right monitor from its next move onward. I also cleaned three of my test files out of your recents — they leaked in from headless test runs against your config; my tests now run isolated. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-07 15:49:03): **Headless UI testing harness** UI testing <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-07 15:49:03): **Headless UI testing harness** <!--thread--> <!--seen:🤖 Claude-->
+  UI testing
 
   I want a testing harness that you can run headlessly to verify that there are no regressions. It should run completely hidden from me so that it doesn't take over my mouse. I dont care if that's through an e2e testing framework, or a custom script that runs on edge headlessly, as long as it leads to quick validation and short testing cycles and reduces regressions.
 
@@ -2591,9 +2620,9 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-07 20:32:35): from now on each feature should at least have a happy flow test, and each bugfix a test to protect against regressions <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-07 20:41:58): Adopted as a standing rule: every feature ships with at least a happy-flow test, every bugfix with a regression test, in uitest/tests/. The suite now covers the basics — open and render (headings, outline, thread cards, title), new thread from a paragraph, reply, resolve and reopen, the read dot writing and withdrawing your seen-marker, editing your own comment, live arrival of external comments, and tag chips — 15 tests, ~45 seconds, all green.
+    - 🤖 Claude (2026-09-07 20:41:58): Adopted as a standing rule: every feature ships with at least a happy-flow test, every bugfix with a regression test, in uitest/tests/. The suite now covers the basics — open and render (headings, outline, thread cards, title), new thread from a paragraph, reply, resolve and reopen, the read dot writing and withdrawing your seen-marker, editing your own comment, live arrival of external comments, and tag chips — 15 tests, ~45 seconds, all green. <!--seen:Bouke-->
 
-- [ ] Claude-edwinchat (2026-09-07 20:34:43): **Group session feedback: remote viewer gaps** <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Claude-edwinchat (2026-09-07 20:34:43): **Group session feedback: remote viewer gaps** <!--thread--> <!--seen:🤖 Claude,Bouke-->
   Relayed on Bouke's request from another session (I am the agent in `D:\temp\edwinchat`, where Bouke and Edwin used remark as a group for the first time today — Bouke collected these there and asked me to post them here). The observations are his, not mine; I have not reproduced or investigated any of them.
 
   **1. Links do not open from the remote viewer.** Opening a URL posted in a comment — for example the link to the app we were building — does nothing when clicked from the remote viewer. No window, no tab, no error. Locally the same link works.
@@ -2606,9 +2635,22 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 20:41:49): All three fixed, installed, and the gateway restarted on the build (same code, remote sessions just refresh). 1: external links from a remote session now open in the reader's own browser — the old path asked the HOST to open them, which the gateway refused without a word; a link to a file on the host now says so in a toast instead of doing nothing. 2: remotely the Phone button is a green connection light with a signal icon (not phone-shaped anymore — desktops join groups too); clicking it names the group and who shares it. 3: pasting images works for group members now — the endpoint was missing from the group whitelist; it is path-scoped, so images land only next to the group's own documents, and rendering them was already allowed. Also, per the new standing rule: this landed together with an integration test that spins up a real gateway and a group, pastes an image, checks the fences (prefs and foreign paths still 403) and verifies the light and the link behavior in a real browser — plus happy-flow tests for the basic features (open, new thread, reply, resolve, read-dot, edit, live updates, tags). The suite is at 15 tests, all green. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-07 22:14:03): **Sharing panel: one switch per audience** it seems weird that i can share a document with a group, but then not with myself, and then in practice, the document doesnt show up in the group when they join. <!--thread--> <!--seen:🤖 Claude-->
+  - Bouke (2026-09-07 22:21:50): ~thanks, makes more sense now!
+    btw the panel is too large to show everything, it must not clip and have a scrollbar. wrong thread~
+
+- [ ] Bouke (2026-09-07 22:14:03): **Sharing panel: one switch per audience** <!--thread--> <!--seen:🤖 Claude-->
+  it seems weird that i can share a document with a group, but then not with myself, and then in practice, the document doesnt show up in the group when they join.
 
   i also want to separate group management from sharing with groups.
   so like gateway, groups becomes its own collapsible section, and above the fold we just see toggles for Myself and each group. and they have no dependencies between them. but when you enable sharing for any option then the gateway should start up. inversely, sharing should not be removed when stopping the gateway, its just a ux feature, if you enabled sharing, you probably wanted the gateway to be on.
 
-  - 🤖 Claude (2026-09-07 22:20:10): Rebuilt as you describe, installed, gateway restarted (same code). Above the fold the panel now shows the document name and one switch per audience — Myself first, then every group — flat and independent: any switch turning on also starts the gateway, and stopping the gateway never touches the sharing itself. Group management (documents, members, invite QR, new code, delete) moved behind its own collapsible Groups section, like the Gateway one. And the not-showing-up part is fixed too: it was the remote landing never refreshing — a member who had the list open before you flipped the switch saw a frozen page. The landing now watches the shared list and refreshes itself, so the document simply appears (verified end to end: a member sitting on an empty group landing sees the document arrive within seconds of your toggle). Two new tests pin all of this; the suite is at 17.
+  - 🤖 Claude (2026-09-07 22:20:10): Rebuilt as you describe, installed, gateway restarted (same code). Above the fold the panel now shows the document name and one switch per audience — Myself first, then every group — flat and independent: any switch turning on also starts the gateway, and stopping the gateway never touches the sharing itself. Group management (documents, members, invite QR, new code, delete) moved behind its own collapsible Groups section, like the Gateway one. And the not-showing-up part is fixed too: it was the remote landing never refreshing — a member who had the list open before you flipped the switch saw a frozen page. The landing now watches the shared list and refreshes itself, so the document simply appears (verified end to end: a member sitting on an empty group landing sees the document arrive within seconds of your toggle). Two new tests pin all of this; the suite is at 17. <!--seen:Bouke-->
+
+  - Bouke (2026-09-07 22:22:34): thanks, makes more sense now! btw the panel is too large to show everything, it must not clip and have a scrollba <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-07 22:28:58): Capped and installed: the panel never grows past the screen — its body scrolls. The cap is computed in pixels because 100vh misbehaves inside a zoomed page; verified at 150% zoom with every fold and a group open (test added).
+
+- [ ] Bouke (2026-09-07 22:23:33): **Inline titles did not render as titles** <!--thread--> <!--seen:🤖 Claude-->
+  in thread #r20260907221403 the title doesn't show up as a title
+
+  - 🤖 Claude (2026-09-07 22:29:02): You caught a bad habit of mine: I had been titling threads INLINE — bold text with the rest of the sentence following — but a title only renders as one when the bold stands alone on the first line, which is also what the convention says. I restructured all fourteen inline-titled roots in this file (title alone, original text moved to the next line), so every titled thread now shows its title bar, and from now on I title new threads in the standalone form directly.

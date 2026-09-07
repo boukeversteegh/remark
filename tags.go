@@ -23,8 +23,11 @@ import (
 )
 
 var (
-	tagRe     = regexp.MustCompile(`(^|[^\w&/#])#([A-Za-z][\w-]*)`)
-	tagRefRe  = regexp.MustCompile(`^r\d{8,}$`)
+	tagRe    = regexp.MustCompile(`(^|[^\w&/#])#([A-Za-z][\w-]*)`)
+	tagRefRe = regexp.MustCompile(`^r\d*$`) // "#r…" comment references, and a bare "#r"
+	// hex colors ("#eaf3ff") are not tags: 3-8 hex chars, at least one digit
+	tagHexRe  = regexp.MustCompile(`^[a-f0-9]{3,8}$`)
+	tagDigRe  = regexp.MustCompile(`\d`)
 	tagCodeRe = regexp.MustCompile("`[^`\n]*`")
 	tagURLRe  = regexp.MustCompile(`https?://\S+`)
 	tagWordRe = regexp.MustCompile(`^#[A-Za-z][\w-]*$`)
@@ -54,7 +57,8 @@ func tagExtract(text string) []string {
 	var out []string
 	for _, m := range tagRe.FindAllStringSubmatch(tagScannable(text), -1) {
 		t := strings.ToLower(strings.TrimRight(m[2], "-"))
-		if t == "" || tagRefRe.MatchString(t) || seen[t] {
+		if t == "" || tagRefRe.MatchString(t) || seen[t] ||
+			(tagHexRe.MatchString(t) && tagDigRe.MatchString(t)) {
 			continue
 		}
 		seen[t] = true

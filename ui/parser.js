@@ -49,7 +49,9 @@
   // Tags are case-insensitive and canonicalised to lower case. The Go side
   // (tags.go) carries the same regex — keep the two in step.
   var TAG_RE = /(^|[^\w&\/#])#([A-Za-z][\w-]*)/g;
-  var TAG_REF_RE = /^r\d{8,}$/;
+  var TAG_REF_RE = /^r\d*$/; // "#r…" comment references, and a bare "#r"
+  // hex colors ("#eaf3ff") are not tags: 3-8 hex chars with a digit in them
+  var TAG_HEX_RE = /^(?=[a-f0-9]*\d)[a-f0-9]{3,8}$/;
   var TAG_CODE_RE = /`[^`\n]*`/g;
   var TAG_URL_RE = /https?:\/\/\S+/g;
 
@@ -73,7 +75,7 @@
     TAG_RE.lastIndex = 0;
     while ((m = TAG_RE.exec(s))) {
       var t = m[2].replace(/-+$/, '').toLowerCase();
-      if (!t || TAG_REF_RE.test(t) || seen[t]) continue;
+      if (!t || TAG_REF_RE.test(t) || TAG_HEX_RE.test(t) || seen[t]) continue;
       seen[t] = true;
       out.push(t);
     }

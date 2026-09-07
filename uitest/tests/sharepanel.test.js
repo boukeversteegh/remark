@@ -43,6 +43,34 @@ module.exports = async ctx => {
   const managed = await page.evaluate(() =>
     [...document.querySelectorAll('#gwpanel .ggroup .ghead b')].map(x => x.textContent));
   assert(managed.includes('Panelists'), 'the Groups fold lists the group, got ' + JSON.stringify(managed));
+
+  // with every fold and group open, the panel never grows past the screen —
+  // its body scrolls instead of clipping, zoom included (the cap is
+  // computed in px because 100vh misbehaves inside a zoomed body)
+  await page.setViewportSize({ width: 1100, height: 420 });
+  await page.evaluate(() => {
+    setZoom(1.5);
+    document.getElementById('gatewayBtn').click(); // close…
+    document.getElementById('gatewayBtn').click(); // …reopen at the new zoom
+  });
+  await page.waitForSelector('#gwpanel .gwshare', { timeout: 4000 });
+  await page.evaluate(() => {
+    for (const f of document.querySelectorAll('#gwpanel .gwmore')) if (f.querySelector('.ic.closed')) f.click();
+    const gh = document.querySelector('#gwpanel .ggroup .ghead');
+    if (gh) gh.click();
+  });
+  await page.waitForTimeout(400);
+  const cap = await page.evaluate(() => {
+    const panel = document.getElementById('gwpanel');
+    const body2 = panel.querySelector('.gwbody');
+    return {
+      bottom: Math.round(panel.getBoundingClientRect().bottom),
+      vh: innerHeight,
+      scrolls: body2.scrollHeight > body2.clientHeight + 1,
+    };
+  });
+  assert(cap.bottom <= cap.vh, `panel fits the screen (bottom ${cap.bottom} vs ${cap.vh})`);
+  assert(cap.scrolls, 'the body scrolls the overflow');
   assertEq(page.errors.length, 0, 'no page errors: ' + page.errors.join(' | '));
   await page.close();
 };

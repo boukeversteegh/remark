@@ -442,10 +442,14 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
   position: fixed; right: 16px; top: 56px; z-index: 60; width: min(380px, calc(100vw - 32px));
   background: var(--card); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: var(--shadow-card); font-size: 13px; color: var(--fg);
+  /* never taller than the screen: the body scrolls, nothing clips */
+  display: flex; flex-direction: column; max-height: calc(100vh - 72px);
 }
 #gwpanel .gwhead { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--border-soft); }
 #gwpanel .gwhead .spacer { flex: 1; }
-#gwpanel .gwbody { padding: 8px 14px 12px; }
+#gwpanel .gwbody { padding: 8px 14px 12px; overflow-y: auto; min-height: 0; }
+#gwpanel .gwbody > .gwname { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px 0 2px; }
+#gwpanel .gwshare > .gwlabel { flex: 1; font-size: 13px; color: var(--fg); }
 #gwpanel .gwrow { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
 #gwpanel .gwrow > span { flex: 1; }
 #gwpanel .tbtn {

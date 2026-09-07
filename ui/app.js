@@ -2363,6 +2363,9 @@ function showGateway() {
   panel.id = 'gwpanel';
   panel.innerHTML = '<div class="gwhead">' + iconHTML('smartphone') + '<b>Phone</b><span class="spacer"></span><button class="wnclose" title="Close">\u00d7</button></div><div class="gwbody">loading\u2026</div>';
   panel.querySelector('.wnclose').addEventListener('click', () => panel.remove());
+  // the height cap is computed, not declared: inside a zoomed body 100vh
+  // does not track the real viewport, so px divided by the zoom do
+  panel.style.maxHeight = Math.round(innerHeight / (S.zoom || 1) - 72) + 'px';
   document.body.appendChild(panel);
   const q = '?path=' + encodeURIComponent(S.path || '') + '&t=' + TOKEN;
   const call = (ep, extra) => fetch('/api/gateway' + ep + q + (extra || ''), { method: ep ? 'POST' : 'GET' })
