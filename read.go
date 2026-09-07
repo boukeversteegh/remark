@@ -79,6 +79,9 @@ func readParse(content string) (lines []string, roots []*readNode, all []*readNo
 			text = m[3]
 			checked = m[2] != " "
 			resolvable = true
+			if ind > 0 && !monNestedComment(text) {
+				isItem = false // a nested task-list checkbox, not a comment
+			}
 		} else if m := monPlainRe.FindStringSubmatch(line); m != nil {
 			ind = len(m[1])
 			text = m[2]

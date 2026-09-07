@@ -224,6 +224,20 @@ func monParseAuthor(line string) (author, timeStr, rest string, ok bool) {
 	return name, timeStr, m[2], true
 }
 
+// monNestedComment reports whether a NESTED checkbox line's text carries a
+// comment signal: a thread/rv marker or an authored timestamp ((now)
+// counts). Brackets alone are not enough — a task list pasted into a
+// comment body must stay body content, or it would read as unauthored
+// comments and get auto-stamped by a window.
+func monNestedComment(text string) bool {
+	stripped := monSeenRe.ReplaceAllString(text, "")
+	if monMarkerRe.MatchString(stripped) {
+		return true
+	}
+	_, ts, _, ok := monParseAuthor(monMarkerRe.ReplaceAllString(stripped, ""))
+	return ok && ts != ""
+}
+
 // Catch-up state: with -as, the monitor persists its diff baseline per
 // (identity, file) under the config dir. A restarted monitor loads its
 // predecessor's baseline and the first tick replays every event the agent
@@ -311,6 +325,9 @@ func monParse(content string) []*monItem {
 			text = m[3]
 			checked = m[2] != " "
 			resolvable = true
+			if ind > 0 && !monNestedComment(text) {
+				isItem = false // a nested task-list checkbox, not a comment
+			}
 		} else if m := monPlainRe.FindStringSubmatch(line); m != nil {
 			// plain list item: a comment only if (marker-stripped) text has an
 			// author prefix or carries a thread/rv marker; otherwise ordinary

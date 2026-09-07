@@ -223,7 +223,10 @@
       if (!inFence && ind <= rootIndent) break;
 
       var im = !inFence && matchItemForm(line);
-      if (im && im.indent > rootIndent && (im.resolvable || isCommentText(im.text))) {
+      // the timestamp (or marker) is what marks a nested line as a comment —
+      // brackets alone are not enough, or a task list pasted into a body
+      // would read as unauthored comments and get auto-stamped
+      if (im && im.indent > rootIndent && isCommentText(im.text)) {
         var iind = im.indent;
         while (stack.length > 1 && stack[stack.length - 1].indent >= iind) stack.pop();
         var parent = stack[stack.length - 1];

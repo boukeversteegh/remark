@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
+### A task list in a comment body stays a task list
+A nested checkbox without an author timestamp is body content, not a comment — pasting a checklist into a comment no longer turns each box into an unauthored comment that then receives your name and a stamp. An authored nested opener (`- [ ] Name (ts): …`) still works, in the window, the monitor and remark read alike.
+
 ### Group sharing
 Share documents with other people, not just your own phone. The Phone panel gets a Groups section: each group holds its own set of documents behind its own key and QR, with a members list, New code and Delete — revoking one group never touches another or your own pairing. Scanning a group's code lands on a join screen where the member picks the name they will write under; it lives only on their phone, none of your preferences reach them, and they see only that group's documents. Within a group everyone sees everyone in the Authors panel; everything else — your prefs, the gateway controls, direct messages to your desktop agents — is refused to group members.
 

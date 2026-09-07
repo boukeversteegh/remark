@@ -2558,3 +2558,13 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   ![discussion-20260907-145726.png](discussion-20260907-145726.png)
 
   - 🤖 Claude (2026-09-07 15:04:24): Fixed and installed. My collapse-rail change made every comment card positioned, and an unread card's opaque background started painting over the thread's blue edge bar. The bar now sits above the cards again — verified that it is the topmost paint over an unread comment.
+
+- [ ] Bouke (2026-09-07 15:14:49): Bug: <!--thread--> <!--seen:🤖 Claude-->
+
+  A checklist containing an item like this was automatically interpreted as a comment, and received an author (Me) and timestamp:
+
+  - `UseCases/Prospects/Export/ — ModelLoader.cs:35-37; writers PreEducation + Prospect`
+
+  Even though it was quoted with backticks!
+
+  - 🤖 Claude (2026-09-07 15:18:42): Fixed everywhere and installed. The parser had a shortcut where any nested checkbox was a comment, brackets alone sufficing — against the documented rule that the timestamp is what marks a nested line as one. Now a nested `- [ ]` without an authored timestamp (or a thread marker) is body content: it renders as a normal task list, the auto-stamper never touches it, and the monitor and remark read agree. Verified with your exact backticked-path shape plus plain unquoted task items — the file stays byte-identical — while an authored nested opener like `- [ ] Name (ts): …` still becomes a resolvable comment. The window, monitor and read all carry the new rule; note it applies to any bare nested checkbox, quoted or not — the backticks were never the deciding factor.
