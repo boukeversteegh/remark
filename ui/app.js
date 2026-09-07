@@ -996,6 +996,34 @@ function buildItem(item, opts) {
   // markdown can reference a comment as [](#r20260903221807)
   if (item.time) el.id = 'r' + item.time.replace(/\D/g, '');
 
+  // the empty gutter under the caret collapses the whole thread — no
+  // scrolling back up to the caret from the bottom of a long thread. One
+  // strip per card: nested cards are positioned, so each covers its
+  // parent's strip with its own and the column stays fully clickable.
+  if (!collapsed) {
+    const rail = document.createElement('div');
+    rail.className = 'crail';
+    rail.title = 'Collapse this thread';
+    const rootHot = on => {
+      let n = el, p;
+      while ((p = n.parentElement && n.parentElement.closest('.citem'))) n = p;
+      n.classList.toggle('railhot', on);
+    };
+    rail.addEventListener('mouseenter', () => rootHot(true));
+    rail.addEventListener('mouseleave', () => rootHot(false));
+    rail.addEventListener('click', () => {
+      let r = item;
+      while (r.parent) r = r.parent;
+      S.collapsed.set(r.key, true);
+      persistCollapse(r.key, true);
+      render();
+      // land on the header of what was just folded, not a random spot below
+      const hd = r.time && document.getElementById('r' + r.time.replace(/\D/g, ''));
+      if (hd) hd.scrollIntoView({ block: 'nearest' });
+    });
+    el.appendChild(rail);
+  }
+
   const head = document.createElement('div');
   head.className = 'chead';
   // the whole header row toggles collapse; buttons inside keep their own action
@@ -1848,7 +1876,22 @@ function updateUnreadUI() {
   btn.classList.toggle('hidden', unread.length === 0);
   btn.innerHTML = iconHTML('bell-dot');
   btn.appendChild(document.createTextNode(unread.length + ' unread'));
-  document.title = (unread.length ? '(' + unread.length + ') ' : '') + (S.path.split(/[\\/]/).pop() || 'remark');
+  setAppTitle((unread.length ? '(' + unread.length + ') ' : '') + docDisplayName());
+}
+
+// the document is named by its first heading; the filename disambiguates
+function docDisplayName() {
+  const base = (S.path && S.path.split(/[\\/]/).pop()) || 'remark';
+  const h = S.parsed && S.parsed.blocks.find(b => b.type === 'heading');
+  const title = h ? h.headingText.replace(/[#*_`\[\]]/g, '').trim() : '';
+  return title && title !== base ? title + ' — ' + base : base;
+}
+
+// document.title names the tab; the native window (alt-tab, taskbar)
+// follows through the host bind when running in the app shell
+function setAppTitle(t) {
+  document.title = t;
+  try { if (window.__remarkTitle) window.__remarkTitle(t); } catch (e) { }
 }
 function jumpUnread() {
   const unread = S.parsed.items.filter(isUnread);
@@ -2984,6 +3027,41 @@ function scheduleAutoStamp() {
   }, 2500);
 }
 
+// an external update must not move the text the reader is on: remember the
+// first identifiable element starting below the topbar and put it back at
+// the same screen position after the re-render
+function captureScrollAnchor() {
+  const m = scroller();
+  if (!m || m.scrollTop < 5) return null; // pinned to the top stays at the top
+  const base = m.getBoundingClientRect().top;
+  for (const el of document.querySelectorAll('.citem[id], .block[data-key]')) {
+    const r = el.getBoundingClientRect();
+    if (r.top >= base && r.height > 0) {
+      return { id: el.id || '', key: (el.dataset && el.dataset.key) || '', top: r.top };
+    }
+  }
+  // reading past the last anchor: keep the distance to the end of the page
+  return { end: m.scrollHeight - m.scrollTop };
+}
+function restoreScrollAnchor(a) {
+  const m = scroller();
+  if (!a || !m) return;
+  if (a.end != null) {
+    m.scrollTop = m.scrollHeight - a.end;
+    return;
+  }
+  const el = a.id ? document.getElementById(a.id)
+    : document.querySelector('.block[data-key="' + CSS.escape(a.key) + '"]');
+  if (!el) return;
+  // iterate: with CSS zoom active, rect pixels and scrollTop units differ
+  // by the zoom factor — each pass closes the remaining gap
+  for (let i = 0; i < 4; i++) {
+    const d = el.getBoundingClientRect().top - a.top;
+    if (Math.abs(d) < 0.5) break;
+    m.scrollTop += d;
+  }
+}
+
 function openEvents() {
   const es = new EventSource('/api/events?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN);
   es.onmessage = e => {
@@ -2991,7 +3069,9 @@ function openEvents() {
     if (S.doc && state.hash === S.doc.hash) return;
     S.doc = { content: state.content, hash: state.hash };
     detectEol();
+    const anchor = captureScrollAnchor();
     render();
+    restoreScrollAnchor(anchor);
     if (!S.saving) idleStatus();
     scheduleAutoStamp();
   };
@@ -3014,6 +3094,7 @@ function splitPath(p) {
 }
 
 function showLanding() {
+  setAppTitle('remark');
   document.body.classList.add('landing');
   $('#brandmark').innerHTML = iconHTML('notebook-pen');
   $('#landing').classList.remove('hidden');

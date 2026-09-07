@@ -435,6 +435,13 @@ func runWindow(url, title string) bool {
 	brush, _, _ := pCreateSolidBrush.Call(themeBGR())
 	pSetClassLongPtrW.Call(hwnd, ^uintptr(9) /*GCLP_HBRBACKGROUND=-10*/, brush)
 	setWebViewBackground(w)
+	// the page owns the window title: its document.title (first heading —
+	// filename) is pushed here so alt-tab and the taskbar follow along
+	w.Bind("__remarkTitle", func(t string) {
+		if t != "" {
+			w.SetTitle(t)
+		}
+	})
 	stop := make(chan struct{})
 	defer close(stop)
 	go func() {

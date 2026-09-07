@@ -893,6 +893,20 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   padding-left: 11px; padding-right: 11px;
 }
 .citem.unread { background: var(--card-unread); }
+/* the collapse rail: every card is positioned so nested cards (later in
+   source order) paint over their parent's strip — the empty gutter below
+   each caret stays clickable at every depth, nothing else is covered */
+.citem { position: relative; }
+.citem > .crail {
+  position: absolute; left: 0; top: 34px; bottom: 0; width: 28px;
+  cursor: pointer; border-radius: 8px 0 0 8px;
+}
+/* hovering any strip lights the whole thread's column: what will fold */
+.citem.railhot .crail { background: var(--accent-soft); }
+.citem.railhot .crail::after {
+  content: ''; position: absolute; left: 13px; top: 2px; bottom: 2px;
+  width: 2px; border-radius: 1px; background: var(--accent); opacity: .45;
+}
 .citem.collapsed { padding-bottom: 9px; }
 .citem.collapsed > .cbody,
 .citem.collapsed > .citem,
