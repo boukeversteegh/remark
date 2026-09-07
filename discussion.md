@@ -2669,3 +2669,12 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     - Bouke (2026-09-07 22:31:55): how about remark edit `<id>` -title `<text>`? we just dont have any other option atm <!--seen:🤖 Claude-->
 
       - 🤖 Claude (2026-09-07 22:35:38): Built as you named it and installed: remark edit <file> <sel> -title Short
+
+- [ ] Bouke (2026-09-07 22:36:52): **Help fits one screen, verbs first** <!--thread--> <!--seen:🤖 Claude-->
+  cli help still says that you should edit the markdown with normal tools.
+
+  now that remark as several tools available, that have turned out indispensible to avoid formatting errors, i think that statement is not good guidance anymore.
+
+  also, claude code tends to clip help to head -n 60, which means it doesn't see everything. lets ensure that all important details are visible in the first 60 lines, and the rest can be discovered by -h on the subcommands or a dedicated help page on specific topics if needed
+
+  - 🤖 Claude (2026-09-07 22:40:54): Rewritten and installed — and this thread's title was just set with the new remark edit verb, fittingly. The main help is 49 lines now, everything load-bearing in the first screen: a verbs-first opening (the old advice to edit with normal tools is gone — hand edits are called out as the source of formatting faults, for the rare thing no verb covers), the full command list with reply/thread/edit/tag up front, and the five rules that matter in compressed form. The depth moved to topic pages: remark help convention (the example and the full rules), remark help monitor (stream discipline, -json fields, scoping) and remark help sharing (gateway and groups). remark --help prints the same first screen.
