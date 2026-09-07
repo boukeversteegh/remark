@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
+### Image popout stays below the toolbar
+The overlay no longer covers the toolbar, so its close button cannot land on the window's own close caption.
+
 ### Image popout with zoom
 Click an image in the document to see it large in an overlay: wheel or pinch zooms around the pointer, drag pans, double-click toggles 2x, Esc or a tap outside closes.
 
