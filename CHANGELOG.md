@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
+### Phone panel buttons match the app
+Start, Stop and New code in the gateway details use the app's pill buttons instead of the browser default.
+
 ### Gateway: one connection per request
 The gateway no longer keeps connections alive between requests, and closes any idle one after 20 seconds: over a VPN a pooled connection can silently die while the phone's browser still reuses it, which showed as "connection aborted" until the gateway was restarted.
 
