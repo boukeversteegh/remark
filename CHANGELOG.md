@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
+### Sharing panel: one switch per audience, management folded away
+Above the fold the Phone panel shows a switch per audience for the open document — Myself and each group — with no dependencies between them; flipping any of them on also starts the gateway, and stopping the gateway never clears the sharing itself. Group management (documents, members, invite codes) moved behind its own Groups fold, like the gateway's. And a remote reader's landing refreshes itself when you share something new — the document simply appears in their list.
+
 ### Remote viewers: links, images and a connection light
 From a remote (group) session, an external link now opens in the reader's own browser — it used to ask the host to open it, which the gateway refused, silently. Pasting images works remotely within the group's documents. And the Phone button, which did nothing remotely, is now a green connection light with a signal icon (desktops join groups too); clicking it names the group and who shares it.
 

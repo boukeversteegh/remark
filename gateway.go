@@ -504,7 +504,18 @@ func gatewayStatusJSON(doc string) map[string]any {
 		out["hostPinned"] = rec.Host != ""
 	}
 	if doc != "" {
-		out["shared"] = gatewayAllows(doc)
+		own := gatewayAllows(doc)
+		out["shared"] = own
+		any := own
+		if !any {
+			for _, g := range gatewayGroups() {
+				if groupAllows(g, doc) {
+					any = true
+					break
+				}
+			}
+		}
+		out["sharedAny"] = any
 	}
 	if out["docs"] == nil {
 		out["docs"] = []string{}

@@ -2375,8 +2375,8 @@ function showGateway() {
   const gpost = (ep, bodyObj) => fetch('/api/groups' + ep + '?t=' + TOKEN, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyObj),
   }).then(r => r.json()).then(loadGroups).then(() => { if (lastSt) render(lastSt); });
-  // the gateway itself is secondary: folded away unless asked for
-  let manage = false;
+  // management (groups, the gateway itself) is secondary: folded away
+  let manage = false, manageGroups = false;
   function render(st) {
     lastSt = st;
     const body = panel.querySelector('.gwbody');
@@ -2385,32 +2385,66 @@ function showGateway() {
     const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
     const btn = (text, cls, fn) => { const b = el('button', 'tbtn ' + (cls || ''), text); b.addEventListener('click', fn); return b; };
     const shared = !!st.shared;
-    gatewayButtonState(shared && !!st.running);
+    const here = p => S.path && p.replace(/\//g, '\\').toLowerCase() === S.path.replace(/\//g, '\\').toLowerCase();
+    const sharedGroups = S.path ? groups.filter(g => g.docs.some(here)) : [];
+    const sharedAny = shared || sharedGroups.length > 0;
+    gatewayButtonState(sharedAny && !!st.running);
 
-    // primary: is THIS document on the phone?
-    const top = el('div', 'gwshare');
-    top.appendChild(el('span', 'gwname', S.path ? S.path.split(/[\\/]/).pop() : 'No document open'));
-    top.appendChild(el('span', 'gwlabel', 'Shared'));
-    const sw = el('label', 'switch');
-    const chk = el('input'); chk.type = 'checkbox'; chk.checked = shared; chk.disabled = !S.path;
-    sw.appendChild(chk); sw.appendChild(el('span', 'knob'));
-    chk.addEventListener('change', () => {
-      const on = chk.checked;
-      call('/share', '&on=' + (on ? '1' : '0')).then(() => { if (on && !st.running) call('/start'); });
+    // above the fold: one flat toggle per audience for THIS document —
+    // Myself (your own phone) and each group. No dependencies between them;
+    // turning any of them on also starts the gateway (a UX courtesy —
+    // stopping the gateway never clears the sharing itself)
+    body.appendChild(el('div', 'gwname', S.path ? S.path.split(/[\\/]/).pop() : 'No document open'));
+    const startIfOff = () => { if (!st.running) call('/start'); };
+    const shareRow = (label, on, toggle) => {
+      const row = el('div', 'gwshare');
+      row.appendChild(el('span', 'gwlabel', label));
+      const sw = el('label', 'switch');
+      const chk = el('input'); chk.type = 'checkbox'; chk.checked = on; chk.disabled = !S.path;
+      sw.appendChild(chk); sw.appendChild(el('span', 'knob'));
+      chk.addEventListener('change', () => toggle(chk.checked));
+      row.appendChild(sw);
+      body.appendChild(row);
+    };
+    shareRow('Myself', shared, on => {
+      call('/share', '&on=' + (on ? '1' : '0')).then(() => { if (on) startIfOff(); });
     });
-    top.appendChild(sw);
-    body.appendChild(top);
-    const status = el('div', 'gwstatus' + (shared && st.running ? ' on' : ''));
+    for (const g of groups) {
+      shareRow(g.name, S.path ? g.docs.some(here) : false, on => {
+        gpost('/doc', { id: g.id, path: S.path, on }).then(() => { if (on) startIfOff(); });
+      });
+    }
+    const status = el('div', 'gwstatus' + (sharedAny && st.running ? ' on' : ''));
     status.textContent = !S.path ? 'Open a document to share it.'
-      : shared && st.running ? 'On the phone: open it from the list there.'
-      : shared ? 'Marked shared, but the gateway is not running: start it below.'
-      : st.running ? 'Not on the phone. Flip the switch to share it.'
-      : 'Not on the phone. Flipping the switch also starts the gateway.';
+      : sharedAny && st.running ? 'Shared and reachable — readers open it from their list.'
+      : sharedAny ? 'Marked shared, but the gateway is not running: start it below.'
+      : st.running ? 'Not shared. Flip a switch to share it.'
+      : 'Not shared. Flipping a switch also starts the gateway.';
     body.appendChild(status);
 
-    // groups: each shares its own set of documents with other people under
-    // its own key and QR; members name themselves on their phones
-    body.appendChild(el('div', 'glabel', 'Groups'));
+    // group MANAGEMENT lives behind its own fold, like the gateway:
+    // members, invites and document lists, separate from sharing
+    const gmore = el('button', 'gwmore');
+    gmore.innerHTML = iconHTML('chevron-down', manageGroups ? '' : 'closed') +
+      '<span>Groups' + (groups.length ? ' (' + groups.length + ')' : '') + '</span>';
+    gmore.addEventListener('click', () => { manageGroups = !manageGroups; render(st); });
+    body.appendChild(gmore);
+    if (manageGroups) renderGroups(st);
+
+    // secondary: the gateway
+    const more = el('button', 'gwmore');
+    more.innerHTML = iconHTML('chevron-down', manage ? '' : 'closed') + '<span>Gateway ' + (st.running ? 'running' : 'stopped') + '</span>';
+    more.addEventListener('click', () => { manage = !manage; render(st); });
+    body.appendChild(more);
+    if (!manage) return;
+    renderGateway(st);
+  }
+
+  function renderGroups(st) {
+    const body = panel.querySelector('.gwbody');
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const btn = (text, cls, fn) => { const b = el('button', 'tbtn ' + (cls || ''), text); b.addEventListener('click', fn); return b; };
+    const here = p => S.path && p.replace(/\//g, '\\').toLowerCase() === S.path.replace(/\//g, '\\').toLowerCase();
     for (const g of groups) {
       const grow = el('div', 'ggroup' + (openGid === g.id ? ' gopen' : ''));
       const gh = el('div', 'ghead');
@@ -2423,7 +2457,7 @@ function showGateway() {
       if (openGid === g.id) {
         const det = el('div', 'gdet');
         det.appendChild(el('div', 'glabel', 'Documents'));
-        const here = p => S.path && p.replace(/\//g, '\\').toLowerCase() === S.path.replace(/\//g, '\\').toLowerCase();
+        if (!g.docs.length) det.appendChild(el('div', 'gwnote', 'Nothing shared with this group — the toggles above do that.'));
         for (const d of g.docs) {
           const r2 = el('div', 'gwdoc', d.split(/[\\/]/).pop() + (here(d) ? ' — this one' : ''));
           r2.title = d;
@@ -2431,9 +2465,6 @@ function showGateway() {
           x.title = 'Take out of the group';
           r2.appendChild(x);
           det.appendChild(r2);
-        }
-        if (S.path && !g.docs.some(here)) {
-          det.appendChild(btn('Share this document', 'quiet', () => gpost('/doc', { id: g.id, path: S.path, on: true })));
         }
         det.appendChild(el('div', 'glabel', 'Members'));
         if (!g.members.length) det.appendChild(el('div', 'gwnote', 'Nobody yet — have them scan the code below.'));
@@ -2487,13 +2518,12 @@ function showGateway() {
     ng.appendChild(ninp);
     ng.appendChild(nbtn);
     body.appendChild(ng);
+  }
 
-    // secondary: the gateway
-    const more = el('button', 'gwmore');
-    more.innerHTML = iconHTML('chevron-down', manage ? '' : 'closed') + '<span>Gateway ' + (st.running ? 'running' : 'stopped') + '</span>';
-    more.addEventListener('click', () => { manage = !manage; render(st); });
-    body.appendChild(more);
-    if (!manage) return;
+  function renderGateway(st) {
+    const body = panel.querySelector('.gwbody');
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const btn = (text, cls, fn) => { const b = el('button', 'tbtn ' + (cls || ''), text); b.addEventListener('click', fn); return b; };
     const row = (label, ctrl) => {
       const d = el('div', 'gwrow'); d.appendChild(el('span', null, label)); if (ctrl) d.appendChild(ctrl); body.appendChild(d);
     };
@@ -2551,7 +2581,7 @@ function wireRemoteBadge() {
 function gatewayProbe() {
   if (PREFS.gateway || !S.path) return;
   fetch('/api/gateway?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN).then(r => r.json())
-    .then(st => gatewayButtonState(st && st.running && st.shared)).catch(() => {});
+    .then(st => gatewayButtonState(st && st.running && (st.sharedAny || st.shared))).catch(() => {});
 }
 window.addEventListener('DOMContentLoaded', () => {
   const b = $('#gatewayBtn');
@@ -3325,6 +3355,17 @@ function showLanding() {
     $('#recent .rempty').textContent = grp
       ? 'Nothing shared with this group yet.'
       : 'Nothing shared yet. On the PC, open a document and choose "Put on the phone" under Gateway.';
+  }
+  // remotely the shared list changes under you (the owner flips a switch):
+  // watch for it and refresh, so a newly shared document just appears
+  if (gw) {
+    const before = JSON.stringify(recents());
+    setInterval(async () => {
+      try {
+        const r = await api('GET', '/api/prefs');
+        if (JSON.stringify((r.json && r.json.recents) || []) !== before) location.reload();
+      } catch (e) { }
+    }, 5000);
   }
   // inside a group the header names the group, and you can re-pick your name
   if (grp) {

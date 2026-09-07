@@ -1,4 +1,4 @@
-// remote (group) viewers: pasting images is allowed within the group's
+﻿// remote (group) viewers: pasting images is allowed within the group's
 // documents, everything else stays fenced, the Phone button is a green
 // connection light, and external links open in the reader's own browser
 const fs = require('fs');
@@ -37,7 +37,8 @@ module.exports = async ctx => {
       body: JSON.stringify({ id: mk.id, path: doc, on: true }),
     });
     const groups = JSON.parse(fs.readFileSync(path.join(cfg, 'remark', 'gateway-groups.json'), 'utf8'));
-    const gtok = groups[0].id + '.' + groups[0].key;
+    const grp = groups.find(g => g.id === mk.id); // other tests add groups too
+    const gtok = grp.id + '.' + grp.key;
     const gu = p => `http://127.0.0.1:${GW_PORT}${p}${p.includes('?') ? '&' : '?'}t=${gtok}`;
 
     // image paste is allowed within the group's documents
@@ -59,7 +60,7 @@ module.exports = async ctx => {
       localStorage.setItem('remark:prefs:group:' + id, JSON.stringify({ me: 'Edwin' }));
       window.__opened = [];
       window.open = u => { window.__opened.push(u); return null; };
-    }, [groups[0].id]);
+    }, [grp.id]);
     await page.goto(`http://127.0.0.1:${GW_PORT}/?t=${gtok}&f=${encodeURIComponent(doc)}`, { waitUntil: 'networkidle' });
     await page.waitForSelector('.citem', { timeout: 8000 });
     const badge = await page.evaluate(() => {
