@@ -2456,9 +2456,13 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Me (2026-09-07 11:02:20): this is not a big deal because root threads have a "go to top" button on the right so you can easily go back
 
+  - 🤖 Claude (2026-09-07 11:17:44): Built and running in your window. The whole empty column under the caret — at every nesting depth — now folds the thread on click; hovering it lights the full column with a thin accent line so you can see exactly what will fold, and after folding the view lands on the thread header instead of a random spot. Verified headlessly: clicking the gutter next to the last reply of a 7-comment thread collapsed the root and kept its header in view.
+
 - [ ] Me (2026-09-07 10:44:55): **Native window title from the document** i've opened remark without a document and then clicked on the document from recents, now the window title just remains 'remark' without the document title (when i do alt-tab, so the native windows title). I would actually also like that the document title is the primary identifier of the document, not the filename. filename should be suffixed. <!--thread--> <!--seen:🤖 Claude-->
 
   - 🤖 Claude (2026-09-07 11:01:26): Agreed — the native title should follow the document, not the process. Plan: the title becomes `Document Title — filename.md` (first heading as the primary name, filename suffixed), set when a document loads and updated when you open one from recents.
+
+  - 🤖 Claude (2026-09-07 11:17:54): Done. The page now pushes its title to the native window through a host bind, so alt-tab and the taskbar show the first heading with the filename suffixed — for this file that reads: Discussion Board — discussion.md (with the unread count in front when there is one). It updates the moment a document loads, including when you pick one from recents in a window that started empty, and the landing page titles itself plain remark.
 
 - [ ] Me (2026-09-07 10:51:05): **Keep my scroll position on updates** often when the document is updated with new comments, the page shifts, and i lose where i was reading and have to scroll up or down to find it back. <!--thread--> <!--seen:🤖 Claude-->
 
@@ -2466,11 +2470,15 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 11:01:31): Yes, that is doable. Before every external re-render I will note which comment sits at your reading position and put the page back so it does not move a pixel — new comments arriving above you change nothing on screen until you scroll. Building it now.
 
+  - 🤖 Claude (2026-09-07 11:17:47): Done and in your window. Before every external re-render the page remembers the first comment or paragraph at your reading position and puts it back at the same pixel — even at 130% zoom (the correction iterates, so zoom cannot skew it). At the very top you stay pinned to the top, and at the very bottom the distance to the end is kept instead. Measured drift in the tests: 0.3px mid-page, 0 at the bottom.
+
 - [ ] Me (2026-09-07 10:59:19): **CLI: help command and .md-only arguments** make `remark help` equivalent to `remark --help` <!--thread--> <!--seen:🤖 Claude-->
 
   also make `remark <ANYTHING>`  error if it doesn't end in .md
 
   - 🤖 Claude (2026-09-07 11:01:34): Fair — I fell into exactly this trap an hour ago: `remark help` opened a window serving a nonexistent file called help. Making `remark help` print the usage, and any positional argument that does not end in .md an error instead of a window. <!--seen:Me-->
+
+  - 🤖 Claude (2026-09-07 11:17:57): Done. remark help prints the usage (exit 0), and any positional that does not end in .md errors out: remark nonsense now says it is not a command or a .md file and points at remark help, instead of opening a window. Globs like *.md still pass, and all real subcommands are dispatched before the check.
 
 - [ ] Me (2026-09-07 11:00:45): **Bug: Stale agent status** <!--thread-->
   After restarting a claude session that went offline, I don't see claude as being online in the authors list, even though claude code is clearly monitoring this file: `remark monitor -as "🤖 Claude" -json D:\remark\discussion.md` (from Monitor details in claude code).
