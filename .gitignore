@@ -11,6 +11,9 @@
 *.test
 *.out
 
+# UI test dependencies (playwright-core; installed by `task test:ui`)
+/uitest/node_modules/
+
 # Editor / OS
 .DS_Store
 Thumbs.db

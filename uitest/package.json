@@ -1,0 +1,8 @@
+{
+  "name": "remark-uitest",
+  "private": true,
+  "description": "Headless UI regression tests — drives the built binary's UI in headless Edge, no browser download needed",
+  "dependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}
