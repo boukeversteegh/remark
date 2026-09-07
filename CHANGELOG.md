@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
+### Every document remembers its own window and zoom
+Window bounds and zoom are stored per document: two documents on two monitors no longer fight over one remembered position (the last window moved used to win, so a restart could land on the other screen) or over one zoom level. The old shared values seed a document's first open.
+
 ### A task list in a comment body stays a task list
 A nested checkbox without an author timestamp is body content, not a comment — pasting a checklist into a comment no longer turns each box into an unauthored comment that then receives your name and a stamp. An authored nested opener (`- [ ] Name (ts): …`) still works, in the window, the monitor and remark read alike.
 

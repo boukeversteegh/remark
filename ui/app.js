@@ -3433,7 +3433,12 @@ function phoneZoom() {
 function setZoom(z) {
   S.zoom = Math.min(2.5, Math.max(0.5, Math.round(z * 10) / 10));
   if (mobileQuery.matches) { try { localStorage.setItem('remark:zoom:phone', String(S.zoom)); } catch (e) {} }
-  else setPref('zoom', S.zoom);
+  else {
+    // per document, so two windows never fight over one number; the plain
+    // key stays as the seed for documents opened for the first time
+    setPref('zoom', S.zoom);
+    if (S.path) setPref('zoom:' + S.path, S.zoom);
+  }
   applyZoom();
   setStatus('ok', Math.round(S.zoom * 100) + '%');
   clearTimeout(zoomStatusTimer);
@@ -3814,7 +3819,8 @@ async function init() {
   S.outline = PREFS.outline !== undefined ? PREFS.outline : true;
   S.outlineAll = !!PREFS.outlineAll;
   S.hideResolved = !!PREFS.hideResolved;
-  S.zoom = mobileQuery.matches ? phoneZoom() : (PREFS.zoom || 1);
+  S.zoom = mobileQuery.matches ? phoneZoom()
+    : (S.path && PREFS['zoom:' + S.path]) || PREFS.zoom || 1;
   try {
     S.collapsedSaved = JSON.parse(localStorage.getItem('remark:collapsed:' + S.path) || '{}');
   } catch (e) { S.collapsedSaved = {}; }

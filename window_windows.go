@@ -61,7 +61,8 @@ var (
 )
 
 // window placement persisted to prefs so size/position (and maximized
-// state) survive restarts; the most recently moved window wins.
+// state) survive restarts — per document (main sets winKey), with the
+// legacy shared "win" key as the seed for a document's first open.
 type winPlacement struct {
 	Cmd int32 `json:"cmd"` // 1 = normal, 3 = maximized
 	X   int32 `json:"x"`
@@ -102,9 +103,16 @@ func workAreaSize(x, y, r, b int32) (int32, int32, bool) {
 	return mi.workR - mi.workL, mi.workB - mi.workT, true
 }
 
+func winGet(p *winPlacement) bool {
+	if prefsGetKey(winKey, p) {
+		return true
+	}
+	return winKey != "win" && prefsGetKey("win", p)
+}
+
 func restoreWindowBounds(hwnd uintptr) bool {
 	var p winPlacement
-	if !prefsGetKey("win", &p) || p.R-p.X < 400 || p.B-p.Y < 300 {
+	if !winGet(&p) || p.R-p.X < 400 || p.B-p.Y < 300 {
 		return false
 	}
 	// ignore stale bounds that fall outside the current virtual screen
@@ -146,7 +154,7 @@ func trackWindowBounds(hwnd uintptr, stop chan struct{}) {
 			}
 			if cur != last {
 				last = cur
-				prefsSetKey("win", cur)
+				prefsSetKey(winKey, cur)
 			}
 		}
 	}
@@ -390,7 +398,7 @@ func runWindow(url, title string) bool {
 	// creation only repositions it — no visible resize jump on launch
 	width, height := 1280, 940
 	var p winPlacement
-	if prefsGetKey("win", &p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
+	if winGet(&p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
 		width, height = int(p.R-p.X), int(p.B-p.Y)
 	}
 	// the library shows its window DURING creation and pumps messages while
@@ -455,7 +463,7 @@ func runWindow(url, title string) bool {
 		// and let the page lay out and paint where nobody can see it.
 		tw, th := int32(width), int32(height)
 		var p winPlacement
-		if prefsGetKey("win", &p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
+		if winGet(&p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
 			tw, th = p.R-p.X, p.B-p.Y
 			if p.Cmd == 3 {
 				if ww, wh, ok := workAreaSize(p.X, p.Y, p.R, p.B); ok {

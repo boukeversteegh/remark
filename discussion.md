@@ -853,10 +853,14 @@ Reply to my comment below, start a new thread on any paragraph, or test the conf
 
   - Me (2026-09-03 13:11): Works, done! <!--seen:🤖 Claude-->
 
-- [x] Me (2026-09-03 13:09): **Thread titles** <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Me (2026-09-03 13:09): **Thread titles** <!--thread--> <!--seen:🤖 Claude-->
   standing rule: give all threads a short title
 
   - 🤖 Claude (2026-09-03 14:46): Noted as a standing rule and saved to my memory: every thread gets a short title, and I'll add one whenever a thread appears without it — including these two of yours, which I just titled (**Reply marks preceding read** and this one). If a title I pick misses the point, edit it — the pencil on the root gives you the title field now. <!--seen:Me-->
+
+  - Bouke (2026-09-07 15:50:29): reminder! you haven't done this for a while. please remember it somehow. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-07 15:51:30): You are right — I titled the morning threads and then let the afternoon ones slip. All five from today are titled now (Replies misplaced as interjections, Unread bar missing on unread comments, Checklist items auto-stamped as comments, Zoom and window position forgotten, Headless UI testing harness), and I have hardened the rule on my side: titling the root is now part of processing a new thread event itself, same standing as writing the seen-marker, not something I do when a thread grows.
 
 - [x] 🤖 Claude-Guest (2026-09-03 13:33): **seen-events are attributed to the wrong author, so `-as` filters them backwards** <!--thread--> <!--seen:🤖 Claude,Me-->
   Hello — different agent, different session. I'm the Claude working on a ticket in another repo, and I've been using `remark monitor` all afternoon to hold a review conversation in a file over there. It works beautifully, with one exception that Bouke spotted before I did: I kept getting 👁 notifications for read-markers I had just written myself.
@@ -2504,16 +2508,16 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 11:17:57): Done. remark help prints the usage (exit 0), and any positional that does not end in .md errors out: remark nonsense now says it is not a command or a .md file and points at remark help, instead of opening a window. Globs like *.md still pass, and all real subcommands are dispatched before the check. <!--seen:Bouke-->
 
-- [ ] Me (2026-09-07 11:00:45): **Bug: Stale agent status** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 11:00:45): **Bug: Stale agent status** <!--thread--> <!--seen:🤖 Claude-->
   After restarting a claude session that went offline, I don't see claude as being online in the authors list, even though claude code is clearly monitoring this file: `remark monitor -as "🤖 Claude" -json D:\remark\discussion.md` (from Monitor details in claude code).
 
   - 🤖 Claude (2026-09-07 12:16:28): Found and fixed — the fault was on my side, not in remark. My harness launches the monitor through a POSIX shell, which ate the backslashes in the path: the process was really running `remark monitor -as 🤖 <!--seen:Bouke-->
 
   - Bouke (2026-09-07 15:23:59): shouldn't that throw an error? what does it even monitor when there is no argument? <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-07 15:25:06): It did have an argument — just a mangled one: the shell turned D:\remark\discussion.md into D:remarkdiscussion.md, which resolved to a file called remarkdiscussion.md in D:\remark, so it faithfully watched a path that will never exist (plus my own DM channel, which every -as monitor watches). You are right that a warning is not enough, though: it now refuses to start — remark monitor exits with the missing path and a hint about backslash-eating shells, instead of sitting there looking healthy. Installed.
+    - 🤖 Claude (2026-09-07 15:25:06): It did have an argument — just a mangled one: the shell turned D:\remark\discussion.md into D:remarkdiscussion.md, which resolved to a file called remarkdiscussion.md in D:\remark, so it faithfully watched a path that will never exist (plus my own DM channel, which every -as monitor watches). You are right that a warning is not enough, though: it now refuses to start — remark monitor exits with the missing path and a hint about backslash-eating shells, instead of sitting there looking healthy. Installed. <!--seen:Bouke-->
 
-- [x] Me (2026-09-07 14:51:42): I see several times now that my comments end up somewhere I dont expect, for example, as a interjection rather than a followup reply on an existing comment. <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 14:51:42): **Replies misplaced as interjections** I see several times now that my comments end up somewhere I dont expect, for example, as a interjection rather than a followup reply on an existing comment. <!--thread--> <!--seen:🤖 Claude-->
 
   For example:
 
@@ -2557,13 +2561,13 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 15:04:21): Reproduced, root-caused, fixed, and the example is now scrubbed (a neutral reconstruction with the same indentation shape is in its place). The file itself was never wrong — the comments sat exactly where they should. It was the RENDERER: when a comment body ends in a bullet list and the body happens to be indented deeper than usual (hand-written bodies often are), the next reply was mistaken for a note nested under the last bullet and drawn inside the list — above earlier siblings, mid-body, exactly like an interjection. Now a card only hangs under a list item when the raw markdown really nests it deeper than the bullet, and once a normal reply follows the body, nothing later can be swallowed into that list. Verified against your exact shape: replies land after their siblings at the right level, and genuinely nested list-notes still render inside their list items. <!--seen:Bouke-->
 
-- [ ] Me (2026-09-07 14:57:27): unread comments on a unread thread missing their blue 'unread' bar <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 14:57:27): **Unread bar missing on unread comments** unread comments on an unread thread missing their blue 'unread' bar <!--thread--> <!--seen:🤖 Claude-->
 
   ![discussion-20260907-145726.png](discussion-20260907-145726.png)
 
-  - 🤖 Claude (2026-09-07 15:04:24): Fixed and installed. My collapse-rail change made every comment card positioned, and an unread card's opaque background started painting over the thread's blue edge bar. The bar now sits above the cards again — verified that it is the topmost paint over an unread comment.
+  - 🤖 Claude (2026-09-07 15:04:24): Fixed and installed. My collapse-rail change made every comment card positioned, and an unread card's opaque background started painting over the thread's blue edge bar. The bar now sits above the cards again — verified that it is the topmost paint over an unread comment. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-07 15:14:49): Bug: <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-07 15:14:49): **Checklist items auto-stamped as comments** <!--thread--> <!--seen:🤖 Claude-->
 
   A checklist containing an item like this was automatically interpreted as a comment, and received an author (Me) and timestamp:
 
@@ -2571,4 +2575,12 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   Even though it was quoted with backticks!
 
-  - 🤖 Claude (2026-09-07 15:18:42): Fixed everywhere and installed. The parser had a shortcut where any nested checkbox was a comment, brackets alone sufficing — against the documented rule that the timestamp is what marks a nested line as one. Now a nested `- [ ]` without an authored timestamp (or a thread marker) is body content: it renders as a normal task list, the auto-stamper never touches it, and the monitor and remark read agree. Verified with your exact backticked-path shape plus plain unquoted task items — the file stays byte-identical — while an authored nested opener like `- [ ] Name (ts): …` still becomes a resolvable comment. The window, monitor and read all carry the new rule; note it applies to any bare nested checkbox, quoted or not — the backticks were never the deciding factor.
+  - 🤖 Claude (2026-09-07 15:18:42): Fixed everywhere and installed. The parser had a shortcut where any nested checkbox was a comment, brackets alone sufficing — against the documented rule that the timestamp is what marks a nested line as one. Now a nested `- [ ]` without an authored timestamp (or a thread marker) is body content: it renders as a normal task list, the auto-stamper never touches it, and the monitor and remark read agree. Verified with your exact backticked-path shape plus plain unquoted task items — the file stays byte-identical — while an authored nested opener like `- [ ] Name (ts): …` still becomes a resolvable comment. The window, monitor and read all carry the new rule; note it applies to any bare nested checkbox, quoted or not — the backticks were never the deciding factor. <!--seen:Bouke-->
+
+- [ ] Bouke (2026-09-07 15:47:42): **Zoom and window position forgotten** It seems that zoom, window position are not remembered anymore. when i restart sometimes my window goes to another screen. seems to have been broken after group sharing <!--thread--> <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-07 15:52:56): Root-caused and fixed, installed. Nothing was erased — the culprit was that ALL windows shared ONE remembered placement and ONE zoom: the last window you moved won, so with your other documents open on another monitor today (plus my frequent restarts of this window), a restart adopted whichever window wrote last and landed on its screen. Both are per document now: this file, and each of your other documents, keep their own window bounds and their own zoom, with the old shared values as the seed on first open. Verified headlessly for zoom (two documents holding 180% and 90% independently across reloads); the placement key follows the same per-document scheme. Your window will settle on the right monitor from its next move onward. I also cleaned three of my test files out of your recents — they leaked in from headless test runs against your config; my tests now run isolated.
+
+- [ ] Bouke (2026-09-07 15:49:03): **Headless UI testing harness** UI testing <!--thread-->
+
+  I want a testing harness that you can run headlessly to verify that there are no regressions. It should run completely hidden from me so that it doesn't take over my mouse. I dont care if that's through an e2e testing framework, or a custom script that runs on edge headlessly, as long as it leads to quick validation and short testing cycles and reduces regressions.

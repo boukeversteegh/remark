@@ -246,6 +246,10 @@ Waiting for replies:
   accumulate — the last value wins.
 `
 
+// winKey is the prefs key this window's placement lives under: per document
+// once one is open, the shared legacy "win" otherwise (and as fallback).
+var winKey = "win"
+
 func main() {
 	attachConsole()
 	go sweepOldBinaries()
@@ -401,6 +405,9 @@ func main() {
 	if f := first; f != "" {
 		abs, err := filepath.Abs(f)
 		if err == nil {
+			// each document remembers its own window bounds — two documents
+			// on two monitors must not fight over one placement
+			winKey = "win:" + presenceNormPath(abs)
 			u += "&f=" + url.QueryEscape(abs)
 			title = filepath.Base(abs) + " — remark"
 			// the document's own title beats its filename
