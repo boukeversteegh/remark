@@ -52,6 +52,13 @@ Usage:
                                 the parent's seen-marker. Prints the new
                                 comment's timestamp. Use this instead of
                                 editing the file by hand.
+  remark edit <file> <sel> -title <t>
+                                WRITE the title of the thread <sel> belongs
+                                to: the standalone bold line the window
+                                shows as the thread's name. Replaces an
+                                existing title (inline or standalone) and
+                                moves prose that sat inline down into the
+                                body. Titles are the only edit for now.
   remark thread <file> -as <name> [-title t] [-plain]
                 (-after <sel> | -section <heading> | -end) [-text|-file|stdin]
                                 WRITE a new thread root: after the thread
@@ -271,6 +278,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "stamp" {
 		runStamp(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "edit" {
+		runEdit(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "reply" {

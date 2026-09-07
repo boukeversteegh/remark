@@ -308,6 +308,68 @@ func runDm(args []string) {
 	fmt.Printf("sent %s to %s's channel (%s)\n", stamp, a.file, channel)
 }
 
+var (
+	editRootRe = regexp.MustCompile(`^(\s*- (?:\[[ xX]\] )?.+? \(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?\)):\s?(.*)$`)
+	editMarkRe = regexp.MustCompile(`<!--[^>]*-->`)
+	editBoldRe = regexp.MustCompile(`^\*\*[^*]+\*\*\s*`)
+	editSoloRe = regexp.MustCompile(`^\*\*[^*]+\*\*$`)
+)
+
+// remark edit <file> <selector> -title "text": deliberate edits to an
+// existing comment — today that is only the thread's title. The title is
+// written in the one form the window renders as a title (the bold alone as
+// the root's inline text), replacing an existing title whether it sat
+// inline or alone on the first body line, and moving any prose that sat
+// inline down into the body — the exact restructure hands get wrong.
+func runEdit(args []string) {
+	a := writeParseArgs(args)
+	if a.file == "" || a.sel == "" || strings.TrimSpace(a.title) == "" {
+		fmt.Fprintln(os.Stderr, "usage: remark edit <file> <selector> -title <text>")
+		os.Exit(2)
+	}
+	var line int
+	writeWithRetry(a.file, func(content string) (string, error) {
+		lines, _, all := readParse(content)
+		hits := readSelect(all, a.sel)
+		switch {
+		case len(hits) == 0:
+			return "", fmt.Errorf("no comment matches %q", a.sel)
+		case len(hits) > 1:
+			return "", fmt.Errorf("%q is ambiguous — use an exact selector", a.sel)
+		}
+		n := hits[0]
+		for n.parent != nil {
+			n = n.parent // titles live on thread roots
+		}
+		m := editRootRe.FindStringSubmatch(lines[n.start])
+		if m == nil {
+			return "", fmt.Errorf("cannot parse the root line at %d", n.start+1)
+		}
+		marks := editMarkRe.FindAllString(m[2], -1)
+		text := strings.TrimSpace(editMarkRe.ReplaceAllString(m[2], " "))
+		text = strings.TrimSpace(editBoldRe.ReplaceAllString(text, "")) // an old inline title goes
+		head := m[1] + ": **" + strings.TrimSpace(strings.ReplaceAll(a.title, "**", "")) + "**"
+		for _, mk := range marks {
+			head += " " + mk
+		}
+		lines[n.start] = head
+		// an old standalone title on the first body line goes too
+		next := n.start + 1
+		pad := strings.Repeat(" ", n.indent+2)
+		if next < len(lines) && strings.HasPrefix(lines[next], pad) &&
+			editSoloRe.MatchString(strings.TrimSpace(lines[next])) {
+			lines = append(lines[:next], lines[next+1:]...)
+		}
+		if text != "" {
+			// prose that sat inline moves to the body's first line
+			lines = append(lines[:next], append([]string{pad + text}, lines[next:]...)...)
+		}
+		line = n.start + 1
+		return strings.ReplaceAll(strings.Join(lines, "\n"), "\r\n", "\n"), nil
+	})
+	fmt.Printf("titled %s at line %d\n", a.sel, line)
+}
+
 func runReply(args []string) {
 	a := writeParseArgs(args)
 	if a.file == "" || a.sel == "" || a.as == "" {

@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
+### remark edit sets a thread's title
+`remark edit <file> <sel> -title "…"` writes the one form the window renders as a title — the bold standing alone — replacing an existing title whether it sat inline or on its own line, and moving prose that sat inline down into the body. Titles are the only edit for now.
+
 ### Sharing panel: one switch per audience, management folded away
 Above the fold the Phone panel shows a switch per audience for the open document — Myself and each group — with no dependencies between them; flipping any of them on also starts the gateway, and stopping the gateway never clears the sharing itself. Group management (documents, members, invite codes) moved behind its own Groups fold, like the gateway's. And a remote reader's landing refreshes itself when you share something new — the document simply appears in their list.
 

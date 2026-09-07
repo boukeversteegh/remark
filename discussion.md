@@ -2309,6 +2309,8 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 - [x] Me (2026-09-06 22:45:39): **Remark Mobile Feedback** <!--thread--> <!--seen:🤖 Claude-->
   For gathering feedback. Each is a thread of its own, please reply nested
 
+  #sharing
+
   - 🤖 Claude (2026-09-06 22:45:55): Watching this thread. Post what you run into on the phone here, one comment per issue, and I will answer and fix under each; screenshots from the phone can go in the folder next to this file and be linked as usual. <!--seen:Me-->
 
   - [x] Me (2026-09-06 22:46:39): The landing page doesn't scroll so i can see only one clipped 'recent file'. Needs a redesign for mobile. <!--seen:🤖 Claude-->
@@ -2638,19 +2640,32 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   - Bouke (2026-09-07 22:21:50): ~thanks, makes more sense now!
     btw the panel is too large to show everything, it must not clip and have a scrollbar. wrong thread~
 
-- [ ] Bouke (2026-09-07 22:14:03): **Sharing panel: one switch per audience** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-07 22:14:03): **Sharing panel: one switch per audience** <!--thread--> <!--seen:🤖 Claude-->
   it seems weird that i can share a document with a group, but then not with myself, and then in practice, the document doesnt show up in the group when they join.
 
   i also want to separate group management from sharing with groups.
   so like gateway, groups becomes its own collapsible section, and above the fold we just see toggles for Myself and each group. and they have no dependencies between them. but when you enable sharing for any option then the gateway should start up. inversely, sharing should not be removed when stopping the gateway, its just a ux feature, if you enabled sharing, you probably wanted the gateway to be on.
 
+  #sharing
+
   - 🤖 Claude (2026-09-07 22:20:10): Rebuilt as you describe, installed, gateway restarted (same code). Above the fold the panel now shows the document name and one switch per audience — Myself first, then every group — flat and independent: any switch turning on also starts the gateway, and stopping the gateway never touches the sharing itself. Group management (documents, members, invite QR, new code, delete) moved behind its own collapsible Groups section, like the Gateway one. And the not-showing-up part is fixed too: it was the remote landing never refreshing — a member who had the list open before you flipped the switch saw a frozen page. The landing now watches the shared list and refreshes itself, so the document simply appears (verified end to end: a member sitting on an empty group landing sees the document arrive within seconds of your toggle). Two new tests pin all of this; the suite is at 17. <!--seen:Bouke-->
 
   - Bouke (2026-09-07 22:22:34): thanks, makes more sense now! btw the panel is too large to show everything, it must not clip and have a scrollba <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-07 22:28:58): Capped and installed: the panel never grows past the screen — its body scrolls. The cap is computed in pixels because 100vh misbehaves inside a zoomed page; verified at 150% zoom with every fold and a group open (test added).
+    - 🤖 Claude (2026-09-07 22:28:58): Capped and installed: the panel never grows past the screen — its body scrolls. The cap is computed in pixels because 100vh misbehaves inside a zoomed page; verified at 150% zoom with every fold and a group open (test added). <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-07 22:23:33): **Inline titles did not render as titles** <!--thread--> <!--seen:🤖 Claude-->
   in thread #r20260907221403 the title doesn't show up as a title
 
-  - 🤖 Claude (2026-09-07 22:29:02): You caught a bad habit of mine: I had been titling threads INLINE — bold text with the rest of the sentence following — but a title only renders as one when the bold stands alone on the first line, which is also what the convention says. I restructured all fourteen inline-titled roots in this file (title alone, original text moved to the next line), so every titled thread now shows its title bar, and from now on I title new threads in the standalone form directly.
+  #cli
+
+  - 🤖 Claude (2026-09-07 22:29:02): You caught a bad habit of mine: I had been titling threads INLINE — bold text with the rest of the sentence following — but a title only renders as one when the bold stands alone on the first line, which is also what the convention says. I restructured all fourteen inline-titled roots in this file (title alone, original text moved to the next line), so every titled thread now shows its title bar, and from now on I title new threads in the standalone form directly. <!--seen:Bouke-->
+
+  - Bouke (2026-09-07 22:30:34): do we need a cli command to set a title for a thread? <!--seen:🤖 Claude-->
+    is this something like an edit command?
+
+    - 🤖 Claude (2026-09-07 22:30:54): Worth having, yes — as a narrow verb rather than a general edit. Titling is a structural edit that is easy to get wrong by hand (standalone bold on the first line, markers kept after it, any inline text moved down — exactly the mistake I made fourteen times), and by convention it happens on every new thread, so agents do it constantly. I would add: remark title <file> <sel> -text Short <!--seen:Bouke-->
+
+    - Bouke (2026-09-07 22:31:55): how about remark edit `<id>` -title `<text>`? we just dont have any other option atm <!--seen:🤖 Claude-->
+
+      - 🤖 Claude (2026-09-07 22:35:38): Built as you named it and installed: remark edit <file> <sel> -title Short
