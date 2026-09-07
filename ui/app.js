@@ -1253,6 +1253,7 @@ function buildItem(item, opts) {
     list.lastElementChild.appendChild(w);
   };
   let lastBody = null;
+  let lastTextSeg = null; // the text segment behind lastBody, for source indents
   let lastParaHash = null; // the paragraph an interjection after it anchors on
   let pendingLi = null; // cards awaiting the list continuation in the next text
   for (let si = 0; si < item.segments.length; si++) {
@@ -1306,6 +1307,7 @@ function buildItem(item, opts) {
       }
       el.appendChild(body);
       lastBody = body;
+      lastTextSeg = seg;
     } else {
       if (seg.item.bare && !seg.item.children.length) continue; // a reader tag: chip on this comment, not a card
       const nxt = item.segments[si + 1];
@@ -1315,14 +1317,33 @@ function buildItem(item, opts) {
       const card = buildItem(seg.item, { interjected: textFollows });
       if (textFollows) card.classList.add('interjected'); // indented at every level, root included
       const tl = trailingList(lastBody);
+      // a card hangs under the final list item ONLY when the raw markdown
+      // nests it there — its bullet deeper than the list's own bullets.
+      // A reply at the parent's child indent is never part of the list,
+      // however deep the body happens to be indented (hand-written bodies
+      // often are, which used to swallow the reply into the list and
+      // render it mid-body like an interjection). Body lines are stored
+      // dedented by item.indent + 2, so that base recovers source indents.
+      const lastLiIndent = (() => {
+        if (!tl) return null;
+        const ls = (lastTextSeg && lastTextSeg.part && lastTextSeg.part.lines) || [];
+        for (let li = ls.length - 1; li >= 0; li--) {
+          const mm = ls[li].match(/^(\s*)(?:[-*+]|\d+[.)])\s/);
+          if (mm) return item.indent + 2 + mm[1].length;
+        }
+        return null;
+      })();
+      const nestedInLi = lastLiIndent != null && seg.item.indent > lastLiIndent;
       const nxtFirst = nxt && nxt.type === 'text'
         ? (nxt.md.split('\n').find(l => l.trim() !== '') || '') : '';
-      if (tl && /^ {0,3}(?:[-*+]|\d+[.)])\s/.test(nxtFirst)) {
+      if (tl && nestedInLi && /^ {0,3}(?:[-*+]|\d+[.)])\s/.test(nxtFirst)) {
         (pendingLi = pendingLi || { list: tl, cards: [] }).cards.push(card);
-      } else if (tl && !nxt) {
+      } else if (tl && nestedInLi && !nxt) {
         hangInLi(tl, card); // nested under the final list item
       } else {
         el.appendChild(card);
+        lastBody = null; // the list no longer trails: later cards stay out of it
+        lastTextSeg = null;
         // the seam survives an interjection: another comment can be placed
         // at the same point, landing after the ones already there. Anchored
         // on the paragraph before them (what the parser positions by);

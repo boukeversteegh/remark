@@ -2403,11 +2403,11 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-06 23:39:43): Shipped, installed, gateway restarted: tap the icon in the toolbar and you are on the landing page with the shared documents. Same on the desktop. <!--seen:Me-->
 
-- [ ] Me (2026-09-07 09:15:18): **Hide resolved keeps threads with open subthreads** threads with unresolved subthreads (nested [ ]) should remain visible even when 'show resolved' is off and their root or parent is resolved. <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 09:15:18): **Hide resolved keeps threads with open subthreads** threads with unresolved subthreads (nested [ ]) should remain visible even when 'show resolved' is off and their root or parent is resolved. <!--thread--> <!--seen:🤖 Claude-->
 
-  - 🤖 Claude (2026-09-07 09:15:40): Agreed; a resolved root with an open subthread is not finished. Changing the filter: with Show resolved off, a thread hides only when its root and every nested resolvable comment are resolved. Building. <!--seen:🤖 Claude-->
+  - 🤖 Claude (2026-09-07 09:15:40): Agreed; a resolved root with an open subthread is not finished. Changing the filter: with Show resolved off, a thread hides only when its root and every nested resolvable comment are resolved. Building. <!--seen:🤖 Claude,Me-->
 
-    - 🤖 Claude (2026-09-07 09:19:35): Shipped, installed, pushed, gateway restarted (same code). Verified on this file with Show resolved off: of 102 threads, the 97 fully resolved ones hide, the one resolved root with an open nested comment stays, nothing else changes. Desktop windows pick it up on their next restart.
+    - 🤖 Claude (2026-09-07 09:19:35): Shipped, installed, pushed, gateway restarted (same code). Verified on this file with Show resolved off: of 102 threads, the 97 fully resolved ones hide, the one resolved root with an open nested comment stays, nothing else changes. Desktop windows pick it up on their next restart. <!--seen:Me-->
 
 - [ ] Me (2026-09-07 09:17:33): **Group sharing** <!--thread--> <!--seen:🤖 Claude-->
   I want to be able to share specific documents through the gateway, but with others, not with myself.
@@ -2434,7 +2434,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - Me (2026-09-07 11:10:44): but external users cannot directly DM an agent running on the desktop <!--seen:🤖 Claude-->
 
-  - 🤖 Claude (2026-09-07 12:16:32): Picking this up now (the mockup came from my colleague session on your other machine — same name, same plan). Building it as proposed: gateway-groups.json registry, per-group key and QR with /g/<group>?k=<key> links, the Groups section in the Phone panel, the join screen where members pick their own name (nothing synced from your desktop), and group-scoped documents and Authors. Everyone sees everyone within a group, and external members get no Message button toward desktop agents — DMs stay yours.
+  - 🤖 Claude (2026-09-07 12:16:32): Picking this up now (the mockup came from my colleague session on your other machine — same name, same plan). Building it as proposed: gateway-groups.json registry, per-group key and QR with /g/<group>?k=<key> links, the Groups section in the Phone panel, the join screen where members pick their own name (nothing synced from your desktop), and group-scoped documents and Authors. Everyone sees everyone within a group, and external members get no Message button toward desktop agents — DMs stay yours. <!--seen:Me-->
 
   - 🤖 Claude (2026-09-07 12:31:21): Built, tested end to end, and installed. The Phone panel now has a Groups section: create a group, put documents in it (a one-click Share this document while you have it open), see who joined, remove members, show its QR, issue a New code (locks out everyone on the old one) or delete it — each group has its own key, so none of this ever touches your own pairing or another group. Scanning the code lands on the join screen: your name, the group name, and a field where the member picks the name they will write under — stored only on their phone, with none of your prefs leaking (verified: the synthetic prefs a member receives contain only the group and its documents). Verified headlessly as a member too: joined as Anna, saw only the group document, posted a comment signed Anna, and every probe outside the fence came back 403 — other paths, gateway controls, group management, prefs writes, and DMs to your desktop agents. Members appear in each other's Authors panel; the Message button is gone for them. If the gateway is stopped, the panel says so next to the invite.
 
@@ -2504,3 +2504,53 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   After restarting a claude session that went offline, I don't see claude as being online in the authors list, even though claude code is clearly monitoring this file: `remark monitor -as "🤖 Claude" -json D:\remark\discussion.md` (from Monitor details in claude code).
 
   - 🤖 Claude (2026-09-07 12:16:28): Found and fixed — the fault was on my side, not in remark. My harness launches the monitor through a POSIX shell, which ate the backslashes in the path: the process was really running `remark monitor -as 🤖
+
+- [ ] Me (2026-09-07 14:51:42): I see several times now that my comments end up somewhere I dont expect, for example, as a interjection rather than a followup reply on an existing comment. <!--thread--> <!--seen:🤖 Claude-->
+
+  For example:
+
+  ```
+              - Me (2026-09-07 14:39:48): A question about the design, ending with a colon: <!--seen:claude-->
+
+                  And there are indeed two options for that:
+
+                  - An instance
+                  - An expression
+
+                  - claude (2026-09-07 14:40:50): A reply with a rich body — fence, heading, table. <!--seen:Me-->
+
+                    `ISomething<TThing>` already declares the key. So:
+
+                    ```csharp
+                    // primary: no argument needed
+                    public static Thing By(this IRepo repo);
+                    ```
+
+                    ## And if you must choose
+
+                    | option | check |
+                    |---|---|
+                    | instance | compile |
+                    | expression | runtime |
+
+                    A closing paragraph with a proposal.
+
+                  - Me (2026-09-07 14:46:30): but you could also shape it differently. <!--seen:claude-->
+                    for example:
+
+                    new Options {
+                       Field = Some.Value
+                    }
+  ```
+
+  (example scrubbed — a neutral reconstruction with the same indentation shape: the body sits at +6 instead of +2, the bullets and the replies share that indent)
+
+  Please reproduce and then scrub this example as its a work project (do not commit this document until scrubbed)
+
+  - 🤖 Claude (2026-09-07 15:04:21): Reproduced, root-caused, fixed, and the example is now scrubbed (a neutral reconstruction with the same indentation shape is in its place). The file itself was never wrong — the comments sat exactly where they should. It was the RENDERER: when a comment body ends in a bullet list and the body happens to be indented deeper than usual (hand-written bodies often are), the next reply was mistaken for a note nested under the last bullet and drawn inside the list — above earlier siblings, mid-body, exactly like an interjection. Now a card only hangs under a list item when the raw markdown really nests it deeper than the bullet, and once a normal reply follows the body, nothing later can be swallowed into that list. Verified against your exact shape: replies land after their siblings at the right level, and genuinely nested list-notes still render inside their list items.
+
+- [ ] Me (2026-09-07 14:57:27): unread comments on a unread thread missing their blue 'unread' bar <!--thread--> <!--seen:🤖 Claude-->
+
+  ![discussion-20260907-145726.png](discussion-20260907-145726.png)
+
+  - 🤖 Claude (2026-09-07 15:04:24): Fixed and installed. My collapse-rail change made every comment card positioned, and an unread card's opaque background started painting over the thread's blue edge bar. The bar now sits above the cards again — verified that it is the topmost paint over an unread comment.

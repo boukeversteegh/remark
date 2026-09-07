@@ -835,6 +835,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .thread::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
   background: var(--border); opacity: .6;
+  /* above the comment cards: they are positioned (collapse rail), and an
+     unread card's opaque background would otherwise cover the bar */
+  z-index: 1;
 }
 .thread.has-unread { border-color: var(--accent-border); }
 .thread.has-unread::before { background: var(--unread); opacity: 1; }
