@@ -2179,7 +2179,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
         - 🤖 Claude (2026-09-06 23:49:18): Landed on main (fast-forward to e463572), built, installed and pushed; your gateway is restarted on it (same code), so the phone has the Tags tab after a refresh, and your desktop windows get it on their next restart. Tests: 14 of 14 pass. Nice work by 🤖 Tags; it is done and its monitor is retired. <!--seen:Me-->
 
-- [ ] Me (2026-09-06 22:03:29): **Mobile App** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-06 22:03:29): **Mobile App** <!--thread--> <!--seen:🤖 Claude-->
   I now am using remark as my primary interface with AI, it works fantastically, but for mobile situations I'm still reliant on claude code remote, which drops be back to the linear experience. I desperately need a way to continue my work on mobile. I want to setup a gateway infrastructure which can run on my pc to which i can connect the app. The app needs a single connection, the gateway, and the other clients expose their documents to it. Once my remark client (the app) has a configured gateway, enabling remote access should just be a single toggle. ideally i can just run the gateway with remark gateway, and keep it on, and that's it. authentication is needed, and the app should require scanning a configuration code or something.
 
   i'm not entirely sure how the gateway discovers documents.
@@ -2277,9 +2277,9 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
             Much better. Please give some styling to the gateway settings. The buttons are defaults rather than consistent with the rest of the application
 
-            - 🤖 Claude (2026-09-07 09:13:55): Right: those buttons reuse the toast button class, which is only styled inside toasts, so in the panel they fell back to the browser default. Giving the panel's buttons the app's pill style (accent for Start, quiet for Stop and New code) now. <!--seen:🤖 Claude-->
+            - 🤖 Claude (2026-09-07 09:13:55): Right: those buttons reuse the toast button class, which is only styled inside toasts, so in the panel they fell back to the browser default. Giving the panel's buttons the app's pill style (accent for Start, quiet for Stop and New code) now. <!--seen:🤖 Claude,Me-->
 
-              - 🤖 Claude (2026-09-07 09:15:02): Done, installed, pushed, gateway restarted (same code). Stop and New code are quiet pills, Start is the accent pill, all hover like the rest of the app; the QR card got the panel shadow and the link selects in one tap. Your desktop window shows it after its next restart.
+              - 🤖 Claude (2026-09-07 09:15:02): Done, installed, pushed, gateway restarted (same code). Stop and New code are quiet pills, Start is the accent pill, all hover like the rest of the app; the QR card got the panel shadow and the link selects in one tap. Your desktop window shows it after its next restart. <!--seen:Me-->
 
                 ![Phone panel, gateway details](discussion-20260907-phone-panel-2.png)
 
@@ -2415,9 +2415,9 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   Each group has its own qr code. Please design the interface for this and propose as a screenshot.
 
-  - 🤖 Claude (2026-09-07 09:17:53): Understood: groups of people, each with its own QR code and its own set of documents, members choosing their own name on the phone with nothing synced from your desktop. I will draft the interface as static mockups (the desktop Phone panel with a Groups section, the phone's first-run name screen, and the phone's document list) and post them here for you to react to before anything is built. <!--seen:🤖 Claude-->
+  - 🤖 Claude (2026-09-07 09:17:53): Understood: groups of people, each with its own QR code and its own set of documents, members choosing their own name on the phone with nothing synced from your desktop. I will draft the interface as static mockups (the desktop Phone panel with a Groups section, the phone's first-run name screen, and the phone's document list) and post them here for you to react to before anything is built. <!--seen:🤖 Claude,Me-->
 
-    - 🤖 Claude (2026-09-07 09:19:46): Proposal, four screens left to right (static mockup, nothing built):
+    - 🤖 Claude (2026-09-07 09:19:46): Proposal, four screens left to right (static mockup, nothing built): <!--seen:Me-->
 
       ![Group sharing mockup](discussion-20260907-groups-mock.png)
 
@@ -2430,6 +2430,10 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
       Open questions for you: should members see each other in Authors (I assumed yes, within the group), and may a member remove their own name and rejoin under another (I assumed yes, it is just a phone setting)?
 
+    - Me (2026-09-07 11:10:30): awesome, please build this, and yes everyone can see everyone
+
+    - Me (2026-09-07 11:10:44): but external users cannot directly DM an agent running on the desktop
+
 - [ ] Me (2026-09-07 09:25:51): **Image popout with zoom** view image popout <!--thread--> <!--seen:🤖 Claude-->
   sometimes screenshots are small on my screen, i would like to be able to click them and see them large in an overlay with scroll to zoom (pinch on mobile)
 
@@ -2439,4 +2443,34 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
       ![Image popout at 132%](discussion-20260907-lightbox.png)
 
-- [ ] Me (2026-09-07 10:23:43): **Commit the discussion and push** please ensure that this discussion file is committed and the whole repo is pushed. <!--thread-->
+- [x] Me (2026-09-07 10:23:43): **Commit the discussion and push** please ensure that this discussion file is committed and the whole repo is pushed. <!--thread--> <!--seen:🤖 Claude-->
+
+- [ ] Me (2026-09-07 10:43:32): **Collapse by clicking the thread rail** Thread collapse button is now a small caret at the top, but when i want to collapse a thread where i'm at the bottom of it, i first have to scroll up to find the caret to collapse it. This is pretty tedious. <!--thread--> <!--seen:🤖 Claude-->
+
+  But we actually have an indentation below the caret that stretches all the way to the end of the thread.
+  Please make that whole empty space the collapse toggle, with hover state for clarity
+
+  - 🤖 Claude (2026-09-07 11:01:02): On it — the indent rail below the caret becomes a full-height click target that collapses the thread, with a hover highlight so you can see what you are about to fold. <!--seen:Me-->
+
+  - Me (2026-09-07 11:01:57): actually be careful. root threads have their comments shown flat, so there the left margin should just collapse the comment next to it. on deeper threads, the parent extends along side the child comments, so there you can more easily collapse a whole subtree
+
+  - Me (2026-09-07 11:02:20): this is not a big deal because root threads have a "go to top" button on the right so you can easily go back
+
+- [ ] Me (2026-09-07 10:44:55): **Native window title from the document** i've opened remark without a document and then clicked on the document from recents, now the window title just remains 'remark' without the document title (when i do alt-tab, so the native windows title). I would actually also like that the document title is the primary identifier of the document, not the filename. filename should be suffixed. <!--thread--> <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-07 11:01:26): Agreed — the native title should follow the document, not the process. Plan: the title becomes `Document Title — filename.md` (first heading as the primary name, filename suffixed), set when a document loads and updated when you open one from recents.
+
+- [ ] Me (2026-09-07 10:51:05): **Keep my scroll position on updates** often when the document is updated with new comments, the page shifts, and i lose where i was reading and have to scroll up or down to find it back. <!--thread--> <!--seen:🤖 Claude-->
+
+  is it possible to make sure that i dont notice at all if anything in the document is edited?
+
+  - 🤖 Claude (2026-09-07 11:01:31): Yes, that is doable. Before every external re-render I will note which comment sits at your reading position and put the page back so it does not move a pixel — new comments arriving above you change nothing on screen until you scroll. Building it now.
+
+- [ ] Me (2026-09-07 10:59:19): **CLI: help command and .md-only arguments** make `remark help` equivalent to `remark --help` <!--thread--> <!--seen:🤖 Claude-->
+
+  also make `remark <ANYTHING>`  error if it doesn't end in .md
+
+  - 🤖 Claude (2026-09-07 11:01:34): Fair — I fell into exactly this trap an hour ago: `remark help` opened a window serving a nonexistent file called help. Making `remark help` print the usage, and any positional argument that does not end in .md an error instead of a window. <!--seen:Me-->
+
+- [ ] Me (2026-09-07 11:00:45): **Bug: Stale agent status** <!--thread-->
+  After restarting a claude session that went offline, I don't see claude as being online in the authors list, even though claude code is clearly monitoring this file: `remark monitor -as "🤖 Claude" -json D:\remark\discussion.md` (from Monitor details in claude code).
