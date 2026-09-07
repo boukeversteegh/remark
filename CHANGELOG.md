@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
+### Remote viewers: links, images and a connection light
+From a remote (group) session, an external link now opens in the reader's own browser — it used to ask the host to open it, which the gateway refused, silently. Pasting images works remotely within the group's documents. And the Phone button, which did nothing remotely, is now a green connection light with a signal icon (desktops join groups too); clicking it names the group and who shares it.
+
 ### Every document remembers its own window and zoom
 Window bounds and zoom are stored per document: two documents on two monitors no longer fight over one remembered position (the last window moved used to win, so a restart could land on the other screen) or over one zoom level. The old shared values seed a document's first open.
 

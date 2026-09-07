@@ -2528,8 +2528,28 @@ function gatewayButtonState(on) {
   const b = $('#gatewayBtn');
   if (b) { b.classList.toggle('on', !!on); b.title = on ? 'Shared with the phone' : 'Phone \u2014 share this document'; }
 }
+// through the gateway the Phone panel makes no sense — this session IS the
+// remote side. The button becomes a connection light instead: green, a
+// signal icon (desktop browsers join groups too, not just phones), and a
+// click says what you are connected to.
+function wireRemoteBadge() {
+  const b = $('#gatewayBtn');
+  if (!b) return;
+  const nb = b.cloneNode(false); // drops the desktop panel click handler
+  b.replaceWith(nb);
+  nb.innerHTML = iconHTML('wifi');
+  nb.classList.add('remote');
+  nb.title = 'Connected remotely';
+  nb.addEventListener('click', () => {
+    const g = PREFS.group;
+    const esc2 = s => String(s || '').replace(/[<>&]/g, '');
+    toast('ok', g
+      ? '<b>Connected remotely</b> — group ' + esc2(g.name) + (g.owner ? ', shared by ' + esc2(g.owner) : '')
+      : '<b>Connected remotely</b> — this device reads the host over the gateway.');
+  });
+}
 function gatewayProbe() {
-  if (!S.path) return;
+  if (PREFS.gateway || !S.path) return;
   fetch('/api/gateway?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN).then(r => r.json())
     .then(st => gatewayButtonState(st && st.running && st.shared)).catch(() => {});
 }
@@ -3740,6 +3760,9 @@ document.addEventListener('click', e => {
   }
   if (/^(https?:|mailto:)/i.test(href)) {
     e.preventDefault();
+    // remotely the HOST must not open windows — the reader's own browser
+    // handles the link (openurl is refused through the gateway anyway)
+    if (PREFS.gateway) { window.open(href, '_blank', 'noopener'); return; }
     fetch('/api/openurl?u=' + encodeURIComponent(href) + '&t=' + TOKEN);
   } else if (href.startsWith('/?') || href.startsWith('?') ||
              href.startsWith(location.origin + '/?')) {
@@ -3748,6 +3771,10 @@ document.addEventListener('click', e => {
     // a relative link: markdown opens in a second remark window, any other
     // local file in its default app — this window itself never navigates
     e.preventDefault();
+    if (PREFS.gateway) {
+      toast('warn', 'That link points at a file on the host — only shared documents are reachable remotely.');
+      return;
+    }
     if (!S.path) return;
     fetch('/api/openfile?path=' + encodeURIComponent(S.path) +
           '&href=' + encodeURIComponent(href) + '&t=' + TOKEN)
@@ -3807,6 +3834,7 @@ function dismissSplash() {
 
 async function init() {
   await loadPrefs();
+  if (PREFS.gateway) wireRemoteBadge();
   // a group member without a name yet picks one first — nothing else works
   // until the comments they will write can be signed
   if (PREFS.group && !(PREFS.me || '').trim()) {

@@ -270,7 +270,7 @@ func gatewayGroupServe(mux http.Handler, grp gatewayGroup, w http.ResponseWriter
 	p := r.URL.Path
 	apiAllowed := map[string]bool{
 		"/api/file": true, "/api/events": true, "/api/uiready": true,
-		"/api/presence": true, "/api/asset": true,
+		"/api/presence": true, "/api/asset": true, "/api/image": true,
 		"/api/group": true, "/api/group/join": true,
 	}
 	if strings.HasPrefix(p, "/api/") && !apiAllowed[p] &&

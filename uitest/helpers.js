@@ -96,4 +96,4 @@ function assertEq(got, want, msg) {
   if (got !== want) throw new Error(`${msg}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
 }
 
-module.exports = { start, assert, assertEq };
+module.exports = { start, assert, assertEq, remarkExe };

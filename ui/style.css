@@ -138,6 +138,12 @@ button { font-family: var(--font-ui); }
 }
 #filename b { color: var(--fg); font-weight: 600; }
 #filename .fnfile { color: var(--muted); }
+/* the remote connection light: you are on the gateway, link is up */
+#gatewayBtn.remote {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--border));
+}
 #topbar .spacer { flex: 1; }
 
 /* caption buttons — the toolbar is the title bar inside the native window.
