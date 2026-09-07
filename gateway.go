@@ -363,7 +363,10 @@ func runGateway(args []string) {
 	}
 	fmt.Println("remark gateway listening on", gatewayURL(rec))
 	fmt.Println("pair a phone with the QR in any window's Gateway panel, or open that URL on it")
-	if err := http.Serve(ln, gatewayHandler(newMux())); err != nil {
+	// idle keep-alive connections are reaped: a phone that drops off a VPN
+	// must not leave sessions stuck open (some VPN servers cap them per client)
+	srv := &http.Server{Handler: gatewayHandler(newMux()), IdleTimeout: 20 * time.Second, ReadHeaderTimeout: 15 * time.Second}
+	if err := srv.Serve(ln); err != nil {
 		fmt.Fprintln(os.Stderr, "remark gateway: server stopped:", err)
 	}
 	os.Remove(gatewayRecordPath())

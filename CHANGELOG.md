@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
+### Gateway reaps idle connections
+Keep-alive connections idle for 20 seconds are closed, so a phone that drops off the VPN leaves nothing stuck open on the PC.
+
 ### Phone: the Document tab is lit from the start
 On first load the tab bar was built after the current tab was set, so no tab was highlighted until you switched.
 
