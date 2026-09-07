@@ -457,6 +457,36 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 #gwpanel .gwurl { text-align: center; font: 11px var(--font-mono); color: var(--faint); word-break: break-all; margin-bottom: 4px; }
 #gwpanel .gwnote { color: var(--muted); font-size: 12px; margin: 6px 0 2px; }
 #gwpanel .gwdoc { font-size: 12.5px; padding: 2px 0; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* group sharing ----------------------------------------------------------- */
+#gwpanel .glabel { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); margin: 12px 0 4px; }
+#gwpanel .ggroup { border: 1px solid var(--border-soft); border-radius: 10px; padding: 6px 10px; margin: 4px 0; }
+#gwpanel .ggroup .ghead { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+#gwpanel .ggroup .ghead b { font-size: 13px; }
+#gwpanel .ggroup .gcount { color: var(--muted); font-size: 12px; margin-left: auto; }
+#gwpanel .ggroup .gdet { padding: 2px 0 4px; }
+#gwpanel .ggroup .gwdoc { display: flex; align-items: center; gap: 6px; }
+#gwpanel .ggroup .gwdoc .gx { margin-left: auto; padding: 0 6px; line-height: 1.2; }
+#gwpanel .gnew { display: flex; gap: 8px; margin: 6px 0 2px; }
+#gwpanel .gnew input {
+  flex: 1; min-width: 0; padding: 5px 9px; font-size: 13px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--fg);
+}
+
+/* group member landing: join screen and the "you are" row */
+.gjoin { display: flex; gap: 8px; margin-top: 12px; }
+.gjoin input {
+  flex: 1; min-width: 0; padding: 8px 12px; font-size: 15px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--fg);
+}
+.gyou { color: var(--muted); font-size: 13px; margin: 2px 0 10px; }
+.gyou b { color: var(--fg); }
+.gyou .gchange {
+  margin-left: 8px; border: 0; background: none; color: var(--accent);
+  font-size: 12px; cursor: pointer; padding: 0;
+}
 #gwpanel .wnclose { border: 0; background: none; color: var(--faint); font-size: 18px; cursor: pointer; padding: 0 4px; }
 #gwpanel .gwhead .ic { color: var(--accent); }
 /* primary: the share switch for this document */

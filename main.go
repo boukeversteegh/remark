@@ -92,7 +92,12 @@ Usage:
                                 inspect from its Gateway button.
                                 Subcommands: status, stop, add <file>,
                                 remove <file>, qr (pairing URL), rotate
-                                (new code; paired phones scan again)
+                                (new code; paired phones scan again).
+                                Groups (sharing documents with OTHER
+                                people, each group with its own key, QR
+                                and member list) are managed from the
+                                window's Phone panel; members pick their
+                                own name on their phone.
   remark changelog              print the changelog embedded in this build
                                 (the window's "What's new" diffs a newer
                                 binary's list against the running one's)

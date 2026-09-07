@@ -156,26 +156,35 @@ let PREFS = {};
 // but not its screen: the layout keys live on the device, and the PC's
 // values for them are ignored, so neither side rearranges the other
 const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct'];
-const isDevicePref = k => DEVICE_PREFS.includes(k);
+// a group member's EVERYTHING lives on their device: name included, and
+// nothing is ever posted back to the owner's prefs (the gateway refuses it)
+const isDevicePref = k => DEVICE_PREFS.includes(k) || !!(PREFS && PREFS.group);
 function devicePrefs() {
-  try { return JSON.parse(localStorage.getItem('remark:prefs:phone') || '{}'); } catch (e) { return {}; }
+  const key = PREFS && PREFS.group ? 'remark:prefs:group:' + PREFS.group.id : 'remark:prefs:phone';
+  try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { return {}; }
 }
 async function loadPrefs() {
   const r = await api('GET', '/api/prefs');
   PREFS = r.json || {};
   if (PREFS.gateway) {
+    // keys the server injected are the session's identity, not layout —
+    // restore them BEFORE merging device prefs, because isDevicePref()
+    // depends on PREFS.group being present
+    const keep = { gateway: true, group: PREFS.group, recents: PREFS.recents };
     const d = devicePrefs();
     for (const k of Object.keys(PREFS)) if (isDevicePref(k)) delete PREFS[k];
-    for (const k of Object.keys(d)) if (isDevicePref(k)) PREFS[k] = d[k];
+    for (const k of Object.keys(keep)) if (keep[k] !== undefined) PREFS[k] = keep[k];
+    for (const k of Object.keys(d)) if (isDevicePref(k) && !(k in keep)) PREFS[k] = d[k];
   }
 }
 function setPref(k, v) {
   if (v === undefined) v = null;
   PREFS[k] = v;
   if (PREFS.gateway && isDevicePref(k)) {
+    const key = PREFS.group ? 'remark:prefs:group:' + PREFS.group.id : 'remark:prefs:phone';
     const d = devicePrefs();
     d[k] = v;
-    try { localStorage.setItem('remark:prefs:phone', JSON.stringify(d)); } catch (e) {}
+    try { localStorage.setItem(key, JSON.stringify(d)); } catch (e) {}
     return;
   }
   api('POST', '/api/prefs', { [k]: v });
@@ -1996,6 +2005,12 @@ function buildPresence() {
       walk(it.children);
     }
   })(S.parsed.items);
+  // in a group everyone sees everyone: registered members get a row even
+  // before their first comment
+  for (const m of (PREFS.group && PREFS.group.members) || []) {
+    const k = claim(m);
+    if (k && !rows.has(k)) rows.set(k, { online: false });
+  }
   // presence is per INSTANCE: the first live process of a name sits on the
   // name's row; every further live process of the same name gets a row of
   // its own right under it, so two "Claude"s show as two rows, not one
@@ -2082,7 +2097,7 @@ function buildPresence() {
     row.appendChild(st);
     // Message: open this instance's channel in its own window, addressed to
     // it (only that monitor is woken; the channel file is shared history)
-    if (r.online && r.sid && !r.isMe && !S.chat) {
+    if (r.online && r.sid && !r.isMe && !S.chat && !PREFS.group) {
       const msg = document.createElement('button');
       msg.className = 'pmore pmsg';
       msg.title = 'Message this instance directly';
@@ -2325,9 +2340,18 @@ function showGateway() {
   const q = '?path=' + encodeURIComponent(S.path || '') + '&t=' + TOKEN;
   const call = (ep, extra) => fetch('/api/gateway' + ep + q + (extra || ''), { method: ep ? 'POST' : 'GET' })
     .then(r => r.json()).then(render).catch(() => { panel.querySelector('.gwbody').textContent = 'Could not reach the server.'; });
+  // groups: sharing with other people — their registry rides along with
+  // every render so a change (join, new code) shows on the next refresh
+  let groups = [], openGid = null, lastSt = null;
+  const loadGroups = () => fetch('/api/groups?t=' + TOKEN).then(r => r.json())
+    .then(g => { groups = Array.isArray(g) ? g : []; }).catch(() => {});
+  const gpost = (ep, bodyObj) => fetch('/api/groups' + ep + '?t=' + TOKEN, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyObj),
+  }).then(r => r.json()).then(loadGroups).then(() => { if (lastSt) render(lastSt); });
   // the gateway itself is secondary: folded away unless asked for
   let manage = false;
   function render(st) {
+    lastSt = st;
     const body = panel.querySelector('.gwbody');
     body.innerHTML = '';
     if (st.error) { body.textContent = st.error; return; }
@@ -2356,6 +2380,81 @@ function showGateway() {
       : st.running ? 'Not on the phone. Flip the switch to share it.'
       : 'Not on the phone. Flipping the switch also starts the gateway.';
     body.appendChild(status);
+
+    // groups: each shares its own set of documents with other people under
+    // its own key and QR; members name themselves on their phones
+    body.appendChild(el('div', 'glabel', 'Groups'));
+    for (const g of groups) {
+      const grow = el('div', 'ggroup' + (openGid === g.id ? ' gopen' : ''));
+      const gh = el('div', 'ghead');
+      gh.appendChild(el('b', null, g.name));
+      gh.appendChild(el('span', 'gcount',
+        g.members.length + ' member' + (g.members.length === 1 ? '' : 's') +
+        ' · ' + g.docs.length + ' document' + (g.docs.length === 1 ? '' : 's')));
+      gh.addEventListener('click', () => { openGid = openGid === g.id ? null : g.id; render(st); });
+      grow.appendChild(gh);
+      if (openGid === g.id) {
+        const det = el('div', 'gdet');
+        det.appendChild(el('div', 'glabel', 'Documents'));
+        const here = p => S.path && p.replace(/\//g, '\\').toLowerCase() === S.path.replace(/\//g, '\\').toLowerCase();
+        for (const d of g.docs) {
+          const r2 = el('div', 'gwdoc', d.split(/[\\/]/).pop() + (here(d) ? ' — this one' : ''));
+          r2.title = d;
+          const x = btn('×', 'gx quiet', () => gpost('/doc', { id: g.id, path: d, on: false }));
+          x.title = 'Take out of the group';
+          r2.appendChild(x);
+          det.appendChild(r2);
+        }
+        if (S.path && !g.docs.some(here)) {
+          det.appendChild(btn('Share this document', 'quiet', () => gpost('/doc', { id: g.id, path: S.path, on: true })));
+        }
+        det.appendChild(el('div', 'glabel', 'Members'));
+        if (!g.members.length) det.appendChild(el('div', 'gwnote', 'Nobody yet — have them scan the code below.'));
+        for (const m of g.members) {
+          const r3 = el('div', 'gwdoc', m);
+          const x = btn('×', 'gx quiet', () => {
+            if (confirm('Remove ' + m + ' from ' + g.name + '? They can rejoin with the current code.')) {
+              gpost('/member/remove', { id: g.id, name: m });
+            }
+          });
+          x.title = 'Remove from the group';
+          r3.appendChild(x);
+          det.appendChild(r3);
+        }
+        det.appendChild(el('div', 'glabel', 'Invite'));
+        if (!st.running) det.appendChild(el('div', 'gwnote', 'Start the gateway below, or members cannot reach the group.'));
+        const img = el('img', 'gwqr');
+        img.src = '/api/groups/qr.png?id=' + encodeURIComponent(g.id) + '&t=' + TOKEN + '&r=' + Date.now();
+        img.alt = 'group QR';
+        det.appendChild(img);
+        det.appendChild(el('div', 'gwurl', g.url || ''));
+        const rr = el('div', 'gwrow');
+        rr.appendChild(el('span', null, 'Members scan once; a new code locks out everyone who scanned this one.'));
+        rr.appendChild(btn('New code', 'quiet', () => {
+          if (confirm('Issue a new code for ' + g.name + '? Every member must scan again.')) gpost('/rotate', { id: g.id });
+        }));
+        det.appendChild(rr);
+        const dr = el('div', 'gwrow');
+        dr.appendChild(el('span', null, ''));
+        dr.appendChild(btn('Delete group', 'quiet', () => {
+          if (confirm('Delete ' + g.name + '? Its code stops working at once.')) { openGid = null; gpost('/delete', { id: g.id }); }
+        }));
+        det.appendChild(dr);
+        grow.appendChild(det);
+      }
+      body.appendChild(grow);
+    }
+    const ng = el('div', 'gnew');
+    const ninp = el('input');
+    ninp.placeholder = 'New group…';
+    const nbtn = btn('Create', 'quiet', () => {
+      const n = ninp.value.trim();
+      if (n) gpost('/new', { name: n }).then(() => { openGid = (groups.find(x => x.name === n) || {}).id || openGid; if (lastSt) render(lastSt); });
+    });
+    ninp.addEventListener('keydown', ev => { if (ev.key === 'Enter') nbtn.click(); });
+    ng.appendChild(ninp);
+    ng.appendChild(nbtn);
+    body.appendChild(ng);
 
     // secondary: the gateway
     const more = el('button', 'gwmore');
@@ -2390,7 +2489,7 @@ function showGateway() {
       }
     }
   }
-  call('');
+  loadGroups().then(() => call(''));
 }
 // the toolbar button lights up while this document is on the phone
 function gatewayButtonState(on) {
@@ -3111,8 +3210,48 @@ function splitPath(p) {
   return { dir: i >= 0 ? p.slice(0, i + 1) : '', base: p.slice(i + 1) };
 }
 
+// first visit to a group: the join screen — the group's name, who shares
+// it, and a field for YOUR name; the name lives only on this phone and
+// signs your comments and read-marks
+function showGroupJoin() {
+  setAppTitle(PREFS.group.name + ' — remark');
+  document.body.classList.add('landing', 'gateway');
+  $('#brandmark').innerHTML = iconHTML('notebook-pen');
+  $('#landing').classList.remove('hidden');
+  $('#heroIcon').innerHTML = iconHTML('notebook-pen');
+  const g = PREFS.group;
+  const div = $('#recent');
+  div.innerHTML = '<h3></h3><p class="rempty"></p>';
+  div.querySelector('h3').textContent = g.name;
+  div.querySelector('.rempty').textContent =
+    (g.owner ? g.owner + ' shares documents with this group. ' : '') +
+    'Pick the name you will write under — it stays on this phone.';
+  const row = document.createElement('div');
+  row.className = 'gjoin';
+  const inp = document.createElement('input');
+  inp.placeholder = 'Your name';
+  const join = document.createElement('button');
+  join.className = 'tbtn';
+  join.textContent = 'Join';
+  const go = () => {
+    const name = inp.value.trim();
+    if (!name) { inp.focus(); return; }
+    api('POST', '/api/group/join', { name }).then(r => {
+      if (!r.json || r.json.error) { toast('warn', 'Could not join the group.'); return; }
+      setPref('me', name);
+      location.reload();
+    }).catch(() => toast('warn', 'Could not reach the gateway.'));
+  };
+  join.addEventListener('click', go);
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  row.appendChild(inp);
+  row.appendChild(join);
+  div.appendChild(row);
+  inp.focus();
+}
+
 function showLanding() {
-  setAppTitle('remark');
+  setAppTitle(PREFS.group ? PREFS.group.name + ' — remark' : 'remark');
   document.body.classList.add('landing');
   $('#brandmark').innerHTML = iconHTML('notebook-pen');
   $('#landing').classList.remove('hidden');
@@ -3125,14 +3264,36 @@ function showLanding() {
   // can only open what the PC shared, so no browsing, no pasted paths, and
   // nothing to remove; the list is the whole page
   const gw = !!PREFS.gateway;
+  const grp = PREFS.group;
   document.body.classList.toggle('gateway', gw);
   const list = recents();
   if (gw && !list.length) {
-    $('#recent').innerHTML = '<h3>Shared documents</h3><p class="rempty">Nothing shared yet. On the PC, open a document and choose "Put on the phone" under Gateway.</p>';
+    $('#recent').innerHTML = '<h3></h3><p class="rempty"></p>';
+    $('#recent h3').textContent = grp ? grp.name : 'Shared documents';
+    $('#recent .rempty').textContent = grp
+      ? 'Nothing shared with this group yet.'
+      : 'Nothing shared yet. On the PC, open a document and choose "Put on the phone" under Gateway.';
+  }
+  // inside a group the header names the group, and you can re-pick your name
+  if (grp) {
+    const yr = document.createElement('p');
+    yr.className = 'gyou';
+    yr.append('You are ');
+    const b = document.createElement('b');
+    b.textContent = PREFS.me || '';
+    yr.appendChild(b);
+    const ch = document.createElement('button');
+    ch.className = 'gchange';
+    ch.textContent = 'change';
+    ch.addEventListener('click', () => { setPref('me', ''); location.reload(); });
+    yr.appendChild(ch);
+    const rec = $('#recent');
+    rec.parentElement.insertBefore(yr, rec);
   }
   if (list.length) {
     const div = $('#recent');
-    div.innerHTML = '<h3>' + (gw ? 'Shared documents' : 'Recent files') + '</h3>';
+    div.innerHTML = '<h3></h3>';
+    div.querySelector('h3').textContent = grp ? grp.name : (gw ? 'Shared documents' : 'Recent files');
     for (const p of list) {
       const a = document.createElement('a');
       a.href = '/?t=' + TOKEN + '&f=' + encodeURIComponent(p);
@@ -3609,6 +3770,13 @@ function dismissSplash() {
 
 async function init() {
   await loadPrefs();
+  // a group member without a name yet picks one first — nothing else works
+  // until the comments they will write can be signed
+  if (PREFS.group && !(PREFS.me || '').trim()) {
+    showGroupJoin();
+    dismissSplash();
+    return;
+  }
   S.me = PREFS.me || 'Me';
   S.mode = PREFS.mode || 'inline';
   S.outline = PREFS.outline !== undefined ? PREFS.outline : true;
@@ -3643,7 +3811,7 @@ async function init() {
     $('#doc code').textContent = S.path + ' — ' + ((res.json && res.json.error) || res.status);
     return;
   }
-  addRecent(S.path);
+  if (!PREFS.gateway) addRecent(S.path); // behind the gateway the list is the shared docs, not history
   S.doc = { content: res.json.content, hash: res.json.hash };
   detectEol();
   render();
