@@ -940,6 +940,16 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   background: color-mix(in srgb, var(--fg) 4%, transparent);
   border-radius: inherit;
 }
+/* the caret and the strip are ONE control — the strip is the caret's
+   region extended downwards, so hovering either lights the caret and
+   tints the comment */
+.citem.railhot > .chead .twisty { color: var(--accent); background: var(--accent-soft); }
+/* the reply box is not part of the collapse control: the foot and an open
+   editor sit above the strip (later in source, positioned), so the gutter
+   beside them does nothing */
+.citem > .cfoot, .citem > .editor { position: relative; }
+/* collapsed, the header is the expand target (it always was) — show it */
+.citem.collapsed > .chead:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); border-radius: 8px; }
 .citem.collapsed { padding-bottom: 9px; }
 .citem.collapsed > .cbody,
 .citem.collapsed > .citem,

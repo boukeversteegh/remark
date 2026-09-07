@@ -14,7 +14,7 @@ Share documents with other people, not just your own phone. The Phone panel gets
 The overlay no longer covers the toolbar, so its close button cannot land on the window's own close caption.
 
 ### Collapse a thread from its gutter
-The empty column under a comment's caret is now a click target that folds the whole thread — no more scrolling back to the top from the end of a long one. Hovering it lights the column so you can see what will fold, and after folding the view lands on the thread's header.
+The empty column under a comment's caret is the caret's own region extended downwards: clicking it folds exactly the comment it belongs to (a flat reply folds alone, a parent alongside its indented subthread folds the subtree), hovering either the strip or the caret lights the caret and tints what will fold, and the view lands on the folded header. The gutter beside the reply box does nothing, and a collapsed header shows its click-to-expand on hover.
 
 ### The window is titled after the document
 Alt-tab and the taskbar now show the document's first heading with the filename after it, and the title updates when you open a file from the recents list.

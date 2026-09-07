@@ -1048,6 +1048,12 @@ function buildItem(item, opts) {
     persistCollapse(item.key, !collapsed);
     render();
   });
+  // caret and gutter strip are one control: hovering the caret previews
+  // the same fold the strip does
+  if (!collapsed) {
+    tw.addEventListener('mouseenter', () => el.classList.add('railhot'));
+    tw.addEventListener('mouseleave', () => el.classList.remove('railhot'));
+  }
   head.appendChild(tw);
 
   head.appendChild(avatarEl(item.author));

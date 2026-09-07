@@ -2436,6 +2436,8 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 12:16:32): Picking this up now (the mockup came from my colleague session on your other machine — same name, same plan). Building it as proposed: gateway-groups.json registry, per-group key and QR with /g/<group>?k=<key> links, the Groups section in the Phone panel, the join screen where members pick their own name (nothing synced from your desktop), and group-scoped documents and Authors. Everyone sees everyone within a group, and external members get no Message button toward desktop agents — DMs stay yours.
 
+  - 🤖 Claude (2026-09-07 12:31:21): Built, tested end to end, and installed. The Phone panel now has a Groups section: create a group, put documents in it (a one-click Share this document while you have it open), see who joined, remove members, show its QR, issue a New code (locks out everyone on the old one) or delete it — each group has its own key, so none of this ever touches your own pairing or another group. Scanning the code lands on the join screen: your name, the group name, and a field where the member picks the name they will write under — stored only on their phone, with none of your prefs leaking (verified: the synthetic prefs a member receives contain only the group and its documents). Verified headlessly as a member too: joined as Anna, saw only the group document, posted a comment signed Anna, and every probe outside the fence came back 403 — other paths, gateway controls, group management, prefs writes, and DMs to your desktop agents. Members appear in each other's Authors panel; the Message button is gone for them. If the gateway is stopped, the panel says so next to the invite.
+
 - [x] Me (2026-09-07 09:25:51): **Image popout with zoom** view image popout <!--thread--> <!--seen:🤖 Claude-->
   sometimes screenshots are small on my screen, i would like to be able to click them and see them large in an overlay with scroll to zoom (pinch on mobile)
 
@@ -2464,7 +2466,13 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     plus, the collapse affordance has its own blue line, while i would expect it to just be simply a bit more intense color of that particular comment. it also appears whenever i hover any comment at all on all parents, not just when hovering that affordance to the left. so not good as it is.
 
-  - 🤖 Claude (2026-09-07 12:16:17): Reworked to your model and installed. The strip now folds exactly the comment it belongs to: flat replies under a root fold individually, and a parent whose rail runs alongside its indented subthread folds that subtree — the root never grabs the whole column. The blue line is gone too: hovering the strip just makes that comment its own color a touch more intense, and only while you are on the strip itself, not when hovering the comment. Verified: hovering and clicking a flat reply touches only that reply; a subtree parent folds its subtree; the root stays put.
+  - 🤖 Claude (2026-09-07 12:16:17): Reworked to your model and installed. The strip now folds exactly the comment it belongs to: flat replies under a root fold individually, and a parent whose rail runs alongside its indented subthread folds that subtree — the root never grabs the whole column. The blue line is gone too: hovering the strip just makes that comment its own color a touch more intense, and only while you are on the strip itself, not when hovering the comment. Verified: hovering and clicking a flat reply touches only that reply; a subtree parent folds its subtree; the root stays put. <!--seen:Me-->
+
+  - Me (2026-09-07 12:54:58): can you make it also highlight the caret? so that the caret region basically is the thing that's extended downwards, and not two separate competing buttons? when its collapsed i now also have to pinpoint the caret, and the larger region is not available.
+
+    also, the reply box now also has a collapse region which collapse the whole thread, which is a bit confusing.
+
+  - 🤖 Claude (2026-09-07 12:59:34): All three, installed. The caret and the strip are one control now: hovering either lights the caret and tints the comment that will fold — no competing buttons. The gutter beside the reply box (and beside an open editor) does nothing anymore. And collapsed, the header row was already the expand target — clicking anywhere on it expands — it just never showed it; now it highlights on hover so you can see the whole row is clickable.
 
 - [ ] Me (2026-09-07 10:44:55): **Native window title from the document** i've opened remark without a document and then clicked on the document from recents, now the window title just remains 'remark' without the document title (when i do alt-tab, so the native windows title). I would actually also like that the document title is the primary identifier of the document, not the filename. filename should be suffixed. <!--thread--> <!--seen:🤖 Claude-->
 
@@ -2474,7 +2482,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Me (2026-09-07 12:13:37): please also do this in the header, i still see only discussion.md <!--seen:🤖 Claude-->
 
-  - 🤖 Claude (2026-09-07 12:16:20): The toolbar now shows it too: the document title in bold with the filename dimmed after it — Discussion Board — discussion.md — kept in sync on every render, full path still in the tooltip. Installed in your window.
+  - 🤖 Claude (2026-09-07 12:16:20): The toolbar now shows it too: the document title in bold with the filename dimmed after it — Discussion Board — discussion.md — kept in sync on every render, full path still in the tooltip. Installed in your window. <!--seen:Me-->
 
 - [ ] Me (2026-09-07 10:51:05): **Keep my scroll position on updates** often when the document is updated with new comments, the page shifts, and i lose where i was reading and have to scroll up or down to find it back. <!--thread--> <!--seen:🤖 Claude-->
 
