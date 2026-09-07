@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
+### Hide resolved keeps threads with open subthreads
+With Show resolved off, a thread now hides only when its root and every nested resolvable comment are resolved.
+
 ### Phone panel buttons match the app
 Start, Stop and New code in the gateway details use the app's pill buttons instead of the browser default.
 

@@ -710,7 +710,7 @@ function render() {
       // point at nothing; and never under a tag filter, which asks for
       // these threads by name
       if (S.hideResolved && !tagKeep && block.thread.resolvable && effChecked(block.thread) &&
-          threadStats(block.thread).unread === 0) continue;
+          threadStats(block.thread).unread === 0 && !hasOpenNested(block.thread)) continue;
       clusterThreads++;
       const card = buildThread(block);
       if (S.mode === 'margin') {
@@ -1880,6 +1880,11 @@ function collectUnread(item, out) {
 
 // a thread is "open" when it holds an unresolved resolvable item or
 // something you haven't read yet
+// a resolved root is not finished while any nested resolvable comment is
+// still open: the hide-resolved filter keeps such threads in view
+function hasOpenNested(item) {
+  return item.children.some(c => (c.resolvable && !effChecked(c)) || hasOpenNested(c));
+}
 function threadOpen(item) {
   if (item.resolvable && !effChecked(item)) return true;
   if (isUnread(item)) return true;
