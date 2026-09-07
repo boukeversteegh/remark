@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-07
 
+### Image popout with zoom
+Click an image in the document to see it large in an overlay: wheel or pinch zooms around the pointer, drag pans, double-click toggles 2x, Esc or a tap outside closes.
+
 ### Hide resolved keeps threads with open subthreads
 With Show resolved off, a thread now hides only when its root and every nested resolvable comment are resolved.
 

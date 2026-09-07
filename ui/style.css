@@ -1279,3 +1279,26 @@ body.mobile .chead .tagadd { opacity: .6; }
 body.mobile.tab-tags #outline { display: block !important; }
 body.mobile:not(.tab-tags) #outline .tagspanel { display: none; }
 body.mobile .trow { padding: 7px 6px; font-size: 14px; }
+
+/* image popout ----------------------------------------------------------- */
+#doc img, #rail img { cursor: zoom-in; }
+#lightbox { position: fixed; inset: 0; z-index: 300; background: rgba(0, 0, 0, .88); display: flex; }
+#lightbox .lbstage {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; touch-action: none; cursor: grab;
+}
+#lightbox .lbstage:active { cursor: grabbing; }
+#lightbox .lbstage img {
+  max-width: 92vw; max-height: 92vh; transform-origin: center; will-change: transform;
+  user-select: none; -webkit-user-drag: none; border-radius: 6px; box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+}
+#lightbox .lbclose {
+  position: fixed; top: 12px; right: 14px; z-index: 1; width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .25); background: rgba(0, 0, 0, .5); color: #fff;
+  font-size: 22px; line-height: 1; cursor: pointer;
+}
+#lightbox .lbhint {
+  position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+  color: rgba(255, 255, 255, .75); font: 600 12px var(--font-display);
+  background: rgba(0, 0, 0, .5); padding: 3px 10px; border-radius: 999px; pointer-events: none;
+}

@@ -2347,6 +2347,82 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(gatewayProbe, 1500);
 });
 
+// image popout: click an image to see it large; wheel or pinch zooms
+// around the pointer, drag pans, double-click toggles 2x, Esc / the x / a
+// tap on the backdrop closes
+function openLightbox(src, alt) {
+  if ($('#lightbox')) return;
+  const lb = document.createElement('div');
+  lb.id = 'lightbox';
+  lb.innerHTML = '<button class="lbclose" title="Close (Esc)">\u00d7</button><div class="lbstage"><img draggable="false"></div><div class="lbhint"></div>';
+  const img = lb.querySelector('img');
+  img.src = src;
+  img.alt = alt || '';
+  const stage = lb.querySelector('.lbstage');
+  const hint = lb.querySelector('.lbhint');
+  let scale = 1, tx = 0, ty = 0;
+  const apply = () => {
+    img.style.transform = 'translate(' + tx + 'px, ' + ty + 'px) scale(' + scale + ')';
+    hint.textContent = Math.round(scale * 100) + '%';
+  };
+  // zoom keeping the point under the pointer where it is
+  const zoomAt = (factor, cx, cy) => {
+    const r = stage.getBoundingClientRect();
+    const px = cx - r.left - r.width / 2, py = cy - r.top - r.height / 2;
+    const ns = Math.min(10, Math.max(0.25, scale * factor));
+    const k = ns / scale;
+    tx = px - (px - tx) * k;
+    ty = py - (py - ty) * k;
+    scale = ns;
+    apply();
+  };
+  stage.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY);
+  }, { passive: false });
+  // drag and pinch through pointer events (touch-action: none on the stage)
+  const pts = new Map();
+  let lastDist = 0, moved = false;
+  stage.addEventListener('pointerdown', e => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    stage.setPointerCapture(e.pointerId);
+    moved = false;
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; lastDist = Math.hypot(a.x - b.x, a.y - b.y); }
+  });
+  stage.addEventListener('pointermove', e => {
+    const p = pts.get(e.pointerId);
+    if (!p) return;
+    if (pts.size === 1) { tx += e.clientX - p.x; ty += e.clientY - p.y; moved = true; apply(); }
+    p.x = e.clientX; p.y = e.clientY;
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (lastDist) zoomAt(d / lastDist, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      lastDist = d;
+      moved = true;
+    }
+  });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) lastDist = 0; };
+  stage.addEventListener('pointerup', up);
+  stage.addEventListener('pointercancel', up);
+  const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
+  const close = () => { lb.remove(); document.removeEventListener('keydown', onKey, true); };
+  document.addEventListener('keydown', onKey, true);
+  lb.querySelector('.lbclose').addEventListener('click', close);
+  stage.addEventListener('click', e => { if (!moved && e.target === stage) close(); });
+  stage.addEventListener('dblclick', e => {
+    if (scale !== 1) { scale = 1; tx = 0; ty = 0; apply(); } else zoomAt(2, e.clientX, e.clientY);
+  });
+  document.body.appendChild(lb);
+  apply();
+}
+document.addEventListener('click', e => {
+  const im = e.target.closest && e.target.closest('#doc img, #rail img');
+  if (!im || e.target.closest('a')) return;
+  e.preventDefault();
+  openLightbox(im.currentSrc || im.src, im.alt);
+});
+
 // restart into the newer binary on the same document: the server spawns
 // it and exits; this window closes with the process
 function restartRemark() {
