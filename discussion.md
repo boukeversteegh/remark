@@ -2496,20 +2496,24 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-07 11:17:47): Done and in your window. Before every external re-render the page remembers the first comment or paragraph at your reading position and puts it back at the same pixel — even at 130% zoom (the correction iterates, so zoom cannot skew it). At the very top you stay pinned to the top, and at the very bottom the distance to the end is kept instead. Measured drift in the tests: 0.3px mid-page, 0 at the bottom.
 
-- [ ] Me (2026-09-07 10:59:19): **CLI: help command and .md-only arguments** make `remark help` equivalent to `remark --help` <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 10:59:19): **CLI: help command and .md-only arguments** make `remark help` equivalent to `remark --help` <!--thread--> <!--seen:🤖 Claude-->
 
   also make `remark <ANYTHING>`  error if it doesn't end in .md
 
   - 🤖 Claude (2026-09-07 11:01:34): Fair — I fell into exactly this trap an hour ago: `remark help` opened a window serving a nonexistent file called help. Making `remark help` print the usage, and any positional argument that does not end in .md an error instead of a window. <!--seen:Me-->
 
-  - 🤖 Claude (2026-09-07 11:17:57): Done. remark help prints the usage (exit 0), and any positional that does not end in .md errors out: remark nonsense now says it is not a command or a .md file and points at remark help, instead of opening a window. Globs like *.md still pass, and all real subcommands are dispatched before the check.
+  - 🤖 Claude (2026-09-07 11:17:57): Done. remark help prints the usage (exit 0), and any positional that does not end in .md errors out: remark nonsense now says it is not a command or a .md file and points at remark help, instead of opening a window. Globs like *.md still pass, and all real subcommands are dispatched before the check. <!--seen:Bouke-->
 
 - [ ] Me (2026-09-07 11:00:45): **Bug: Stale agent status** <!--thread--> <!--seen:🤖 Claude-->
   After restarting a claude session that went offline, I don't see claude as being online in the authors list, even though claude code is clearly monitoring this file: `remark monitor -as "🤖 Claude" -json D:\remark\discussion.md` (from Monitor details in claude code).
 
-  - 🤖 Claude (2026-09-07 12:16:28): Found and fixed — the fault was on my side, not in remark. My harness launches the monitor through a POSIX shell, which ate the backslashes in the path: the process was really running `remark monitor -as 🤖
+  - 🤖 Claude (2026-09-07 12:16:28): Found and fixed — the fault was on my side, not in remark. My harness launches the monitor through a POSIX shell, which ate the backslashes in the path: the process was really running `remark monitor -as 🤖 <!--seen:Bouke-->
 
-- [ ] Me (2026-09-07 14:51:42): I see several times now that my comments end up somewhere I dont expect, for example, as a interjection rather than a followup reply on an existing comment. <!--thread--> <!--seen:🤖 Claude-->
+  - Bouke (2026-09-07 15:23:59): shouldn't that throw an error? what does it even monitor when there is no argument? <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-07 15:25:06): It did have an argument — just a mangled one: the shell turned D:\remark\discussion.md into D:remarkdiscussion.md, which resolved to a file called remarkdiscussion.md in D:\remark, so it faithfully watched a path that will never exist (plus my own DM channel, which every -as monitor watches). You are right that a warning is not enough, though: it now refuses to start — remark monitor exits with the missing path and a hint about backslash-eating shells, instead of sitting there looking healthy. Installed.
+
+- [x] Me (2026-09-07 14:51:42): I see several times now that my comments end up somewhere I dont expect, for example, as a interjection rather than a followup reply on an existing comment. <!--thread--> <!--seen:🤖 Claude-->
 
   For example:
 
@@ -2551,7 +2555,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   Please reproduce and then scrub this example as its a work project (do not commit this document until scrubbed)
 
-  - 🤖 Claude (2026-09-07 15:04:21): Reproduced, root-caused, fixed, and the example is now scrubbed (a neutral reconstruction with the same indentation shape is in its place). The file itself was never wrong — the comments sat exactly where they should. It was the RENDERER: when a comment body ends in a bullet list and the body happens to be indented deeper than usual (hand-written bodies often are), the next reply was mistaken for a note nested under the last bullet and drawn inside the list — above earlier siblings, mid-body, exactly like an interjection. Now a card only hangs under a list item when the raw markdown really nests it deeper than the bullet, and once a normal reply follows the body, nothing later can be swallowed into that list. Verified against your exact shape: replies land after their siblings at the right level, and genuinely nested list-notes still render inside their list items.
+  - 🤖 Claude (2026-09-07 15:04:21): Reproduced, root-caused, fixed, and the example is now scrubbed (a neutral reconstruction with the same indentation shape is in its place). The file itself was never wrong — the comments sat exactly where they should. It was the RENDERER: when a comment body ends in a bullet list and the body happens to be indented deeper than usual (hand-written bodies often are), the next reply was mistaken for a note nested under the last bullet and drawn inside the list — above earlier siblings, mid-body, exactly like an interjection. Now a card only hangs under a list item when the raw markdown really nests it deeper than the bullet, and once a normal reply follows the body, nothing later can be swallowed into that list. Verified against your exact shape: replies land after their siblings at the right level, and genuinely nested list-notes still render inside their list items. <!--seen:Bouke-->
 
 - [ ] Me (2026-09-07 14:57:27): unread comments on a unread thread missing their blue 'unread' bar <!--thread--> <!--seen:🤖 Claude-->
 

@@ -26,7 +26,7 @@ Alt-tab and the taskbar now show the document's first heading with the filename 
 When new comments or edits arrive from outside, the page keeps the text you are on exactly where it was — content above you can grow or shrink without you noticing.
 
 ### remark help, and a guard against typos
-"remark help" prints the usage text instead of opening a window on a file called help, and a positional argument that is not a .md file is rejected as a probable mistyped command.
+"remark help" prints the usage text instead of opening a window on a file called help, and a positional argument that is not a .md file is rejected as a probable mistyped command. remark monitor refuses to start on a path that does not exist — a monitor on one can never produce an event, yet looks exactly like a healthy quiet monitor.
 
 ### Image popout with zoom
 Click an image in the document to see it large in an overlay: wheel or pinch zooms around the pointer, drag pans, double-click toggles 2x, Esc or a tap outside closes.

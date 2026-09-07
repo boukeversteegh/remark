@@ -658,13 +658,23 @@ func runMonitor(args []string) {
 		fmt.Fprintln(os.Stderr, "remark monitor: no files matched")
 		os.Exit(1)
 	}
-	// a watched path that does not exist produces no events, ever — say so
-	// loudly instead of sitting silent (a shell that ate backslashes looks
-	// exactly like a healthy quiet monitor otherwise)
+	// a watched path that does not exist produces no events, ever, and a
+	// monitor on one is indistinguishable from a healthy quiet monitor —
+	// refuse to start instead (the classic cause: a POSIX shell ate the
+	// backslashes of a Windows path)
+	missing := false
 	for _, f := range files {
-		if _, err := os.Stat(f); err != nil {
-			fmt.Fprintf(os.Stderr, "remark monitor: WARNING: %s does not exist — no events until it does\n", f)
+		if presenceNormPath(f) == dmFile {
+			continue // the agent's own channel is created on first use
 		}
+		if _, err := os.Stat(f); err != nil {
+			fmt.Fprintf(os.Stderr, "remark monitor: %s does not exist\n", f)
+			missing = true
+		}
+	}
+	if missing {
+		fmt.Fprintln(os.Stderr, "create the file first, or fix the path (quote backslashes in POSIX shells, or use forward slashes)")
+		os.Exit(1)
 	}
 
 	ignored := map[string]bool{}
