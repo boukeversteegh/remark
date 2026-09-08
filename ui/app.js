@@ -780,6 +780,23 @@ function render() {
   }
   endCluster();
 
+  // a tag filter hides the paragraphs — and with them every new-thread
+  // affordance. Keep one: a new thread at the end of the document.
+  if (tagKeep && S.mode !== 'margin' && parsed.blocks.length) {
+    const target = parsed.blocks[parsed.blocks.length - 1];
+    const nkey = 'new:' + target.key;
+    if (S.editorsOpen.has(nkey)) {
+      doc.appendChild(buildEditor(nkey, target));
+    } else {
+      const nb = document.createElement('button');
+      nb.className = 'newthreadbtn';
+      nb.innerHTML = iconHTML('message-square-plus');
+      nb.appendChild(document.createTextNode('New thread at the end of the document'));
+      nb.addEventListener('click', () => toggleEditor(nkey));
+      doc.appendChild(nb);
+    }
+  }
+
   renderConflicts();
   updateUnreadUI();
   buildOutline();
@@ -922,6 +939,17 @@ function buildThread(block) {
     card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   rail2.appendChild(topBtn);
+  // …and its mirror: jump to the start of the LAST message in the thread
+  const endBtn = document.createElement('button');
+  endBtn.className = 'ttop tend';
+  endBtn.title = 'Scroll to the last message of this thread';
+  endBtn.innerHTML = iconHTML('chevron-down');
+  endBtn.addEventListener('click', () => {
+    const heads = card.querySelectorAll('.citem > .chead');
+    const last = heads[heads.length - 1];
+    (last || card).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  rail2.appendChild(endBtn);
   // the card clips its contents (overflow: hidden for the rounded corners),
   // so the gutter rail must live OUTSIDE it — a positioning wrapper carries
   // both. Margin mode has no gutter rail and keeps the bare card.

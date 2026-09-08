@@ -879,7 +879,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 /* inside the wrapper the rail sits in the reserved right gutter */
 #doc .twrap .tsticky { right: -38px; }
 .ttop {
-  position: sticky; top: 64px;
+  /* the page area is the scroller (it starts below the toolbar), so the
+     sticky offset is from ITS top, not the window's */
+  position: sticky; top: 10px;
   display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 26px; font-size: 13px;
   border: 1px solid var(--border); border-radius: 8px;
@@ -888,7 +890,11 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   box-shadow: var(--shadow-card);
 }
 .ttop .ic svg { transform: rotate(180deg); }
+.ttop.tend { margin-top: 4px; }
+.ttop.tend .ic svg { transform: none; }
+.tsticky { display: flex; flex-direction: column; align-items: center; }
 .ttop:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
+.chead { scroll-margin-top: 56px; }
 #rail .tsticky { display: none; }
 .mode-margin #doc .thread { display: none; }
 #rail .thread { position: absolute; left: 0; right: 0; margin: 0; transition: top .18s ease-out; }

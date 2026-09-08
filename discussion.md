@@ -2690,7 +2690,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     `- [ ]` means this thread needs resolution (open/close), its not about whether an answer is needed. agents are expected to answer in general.
 
-    - 🤖 Claude (2026-09-08 09:07:22): All three, installed. The example speaks as Alice now, the topic is remark help format (convention still answers quietly for old habits), and the guidance leads with (now): sign Name (now) and remark inserts the real unique stamp itself, bumping included — a hand-written timestamp is only for edits made while no remark is running. The checkbox line reads as you framed it in both places: the box is the thread's open/closed resolution, settled by its author, not an
+    - 🤖 Claude (2026-09-08 09:07:22): All three, installed. The example speaks as Alice now, the topic is remark help format (convention still answers quietly for old habits), and the guidance leads with (now): sign Name (now) and remark inserts the real unique stamp itself, bumping included — a hand-written timestamp is only for edits made while no remark is running. The checkbox line reads as you framed it in both places: the box is the thread's open/closed resolution, settled by its author, not an <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-08 09:08:41): **Sharing button: no phone framing** <!--thread--> <!--seen:🤖 Claude-->
   lets make the sharing button not a phone anywhere. the phone-framing has to go. this is about sharing.
@@ -2704,3 +2704,15 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     ![Sharing icon options](discussion-20260908-shareicons.png)
 
     My recommendation is share-2 (the three connected nodes): it is the one glyph people read as sharing without thinking, it stays legible at 17px, and it says nothing about devices — the state colors tell the gateway story. Second pick would be rss if you want the serving-outward feel. Pick one and I will rewire it everywhere: the toolbar button, the panel header (with the QR and a copy-link button as equals), and the remote connection light — no phone icon or Phone wording left anywhere.
+
+- [ ] Bouke (2026-09-08 09:12:40): **New thread blocked by tag filter** <!--thread--> <!--seen:🤖 Claude-->
+  I cannot create a new thread while tag filtering is on
+
+  - 🤖 Claude (2026-09-08 09:16:20): Fixed and installed. The filter hides the paragraphs, and every new-thread affordance hung off them — so while filtering there is now a New thread at the end of the document button below the filtered list; the composer works as usual and the thread lands at the file's end. Verified end to end under an active filter (test added).
+
+- [ ] Bouke (2026-09-08 09:13:02): **Thread gutter: jump to start and end** <!--thread--> <!--seen:🤖 Claude-->
+  we have a button to 'go to start of thread', lets also have one for 'go to end' (start of last message)
+
+  - Bouke (2026-09-08 09:13:55): the up button has moved down too much since refactoring the header, please look at original requirements
+
+  - 🤖 Claude (2026-09-08 09:16:24): Both in the gutter now: the up arrow to the thread's top, and a down arrow beneath it that jumps to the start of the LAST message. And you were right about the drift — the sticky offset still assumed the window was the scroller; since the toolbar became the title bar, the page area scrolls on its own, so the pair now sits just below the visible top as originally intended. Test covers both jumps.
