@@ -670,34 +670,46 @@ function render() {
     }
   };
 
-  // focus: one thread alone (the phone opens a thread from Notifications
-  // this way) — its section heading, the thread, and a bar back to the
-  // whole document
+  // focus: one thread has the stage. On the phone that means the thread
+  // alone (a notification opens it this way); on the desktop everything
+  // stays visible and the OTHER threads dim, so the board keeps its shape.
   let focusKeep = null;
   if (S.focusThread) {
-    focusKeep = new Set();
-    let lastHeading = null;
-    for (const b of parsed.blocks) {
-      if (b.type === 'heading') lastHeading = b;
-      if (b.type === 'thread' && b.thread.time === S.focusThread) {
-        if (lastHeading) focusKeep.add(lastHeading);
-        focusKeep.add(b);
+    const froot = parsed.blocks.find(b => b.type === 'thread' && b.thread.time === S.focusThread);
+    if (!froot) {
+      S.focusThread = null; // the thread is gone
+    } else {
+      if (S.mobile) {
+        focusKeep = new Set();
+        let lastHeading = null;
+        for (const b of parsed.blocks) {
+          if (b.type === 'heading') lastHeading = b;
+          if (b === froot) {
+            if (lastHeading) focusKeep.add(lastHeading);
+            focusKeep.add(b);
+          }
+        }
       }
-    }
-    if (!focusKeep.size) { S.focusThread = null; focusKeep = null; } // the thread is gone
-    else {
       const back = document.createElement('button');
       back.className = 'focusback';
       back.innerHTML = iconHTML('corner-down-right');
       back.appendChild(document.createTextNode('Whole document'));
-      back.addEventListener('click', () => { S.focusThread = null; render(); });
+      back.addEventListener('click', () => exitFocus());
       doc.appendChild(back);
+      if (froot.thread.title) {
+        const lbl = document.createElement('span');
+        lbl.className = 'focuslabel';
+        lbl.textContent = froot.thread.title;
+        doc.appendChild(lbl);
+      }
     }
   }
   // tag filter: only the threads carrying every active tag, under their
-  // section headings, with a bar naming the tags and a way back
+  // section headings, with a bar naming the tags and a way back — a
+  // FOCUS wins over it while active, so a focused thread never vanishes
+  // for lacking the filtered tag
   let tagKeep = null;
-  if (S.tagFilter.size) {
+  if (S.tagFilter.size && !S.focusThread) {
     tagKeep = new Set();
     let lastHeading = null;
     for (const b of parsed.blocks) {
@@ -735,6 +747,14 @@ function render() {
           threadStats(block.thread).unread === 0 && !hasOpenNested(block.thread)) continue;
       clusterThreads++;
       const card = buildThread(block);
+      // double-click gives a thread the stage; the same gesture (or Esc,
+      // or the bar) gives it back. Others dim, nothing hides.
+      if (S.focusThread && block.thread.time !== S.focusThread) card.classList.add('dimfocus');
+      card.addEventListener('dblclick', e => {
+        if (e.target.closest('textarea, input, button, a')) return;
+        S.focusThread = S.focusThread === block.thread.time ? null : block.thread.time;
+        render();
+      });
       if (S.mode === 'margin') {
         rail.appendChild(card);
         railEntries.push({ card, anchorEl: lastBlockEl, root: block.thread });
@@ -1141,6 +1161,20 @@ function buildItem(item, opts) {
         () => toast('warn', 'Could not access the clipboard'));
     });
     head.appendChild(cp);
+
+    // roots can be focused: only this thread on screen, like a filter
+    if (!item.parent) {
+      const fc = document.createElement('button');
+      fc.className = 'crefbtn focusbtn';
+      fc.innerHTML = iconHTML('focus');
+      fc.title = 'Focus — show only this thread';
+      fc.addEventListener('click', e => {
+        e.stopPropagation();
+        S.focusThread = S.focusThread === item.time ? null : item.time;
+        render();
+      });
+      head.appendChild(fc);
+    }
 
     // bookmark: a private, per-file, per-window mark (local storage keyed
     // by the comment's timestamp — never written to the file); bookmarked
@@ -2459,7 +2493,7 @@ function showGateway() {
     // Myself (your own phone) and each group. No dependencies between them;
     // turning any of them on also starts the gateway (a UX courtesy —
     // stopping the gateway never clears the sharing itself)
-    body.appendChild(el('div', 'gwname', S.path ? S.path.split(/[\\/]/).pop() : 'No document open'));
+    if (!S.path) body.appendChild(el('div', 'gwname', 'No document open'));
     const startIfOff = () => { if (!st.running) call('/start'); };
     const shareRow = (label, on, toggle) => {
       const row = el('div', 'gwshare');
@@ -2471,7 +2505,7 @@ function showGateway() {
       row.appendChild(sw);
       body.appendChild(row);
     };
-    shareRow('Myself', shared, on => {
+    shareRow('My devices', shared, on => {
       call('/share', '&on=' + (on ? '1' : '0')).then(() => { if (on) startIfOff(); });
     });
     for (const g of groups) {
@@ -2951,6 +2985,61 @@ function buildNotifications() {
   return wrap;
 }
 
+// leaving a focus puts you back at the thread's place in the document
+function exitFocus() {
+  const t = S.focusThread;
+  S.focusThread = null;
+  render();
+  const el = t && document.getElementById('r' + t.replace(/\D/g, ''));
+  if (el) el.scrollIntoView({ block: 'center' });
+}
+// Esc leaves a focused thread — unless you are typing somewhere
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !S.focusThread) return;
+  if (e.target.closest && e.target.closest('textarea, input, [contenteditable]')) return;
+  e.preventDefault();
+  exitFocus();
+});
+
+// the outline's per-thread ⋯ menu
+function openThreadMenu(anchor, th) {
+  const old = $('#omenupop');
+  if (old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'omenupop';
+  const add = (label, fn) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.addEventListener('click', () => { m.remove(); fn(); });
+    m.appendChild(b);
+  };
+  add('Focus this thread', () => {
+    S.focusThread = th.time;
+    render();
+    const el = th.time && document.getElementById('r' + th.time.replace(/\D/g, ''));
+    if (el) el.scrollIntoView({ block: 'start' });
+  });
+  if (th.time) {
+    add('Copy reference', () => {
+      const ref = '#r' + th.time.replace(/\D/g, '');
+      navigator.clipboard.writeText(ref).then(
+        () => toast('ok', 'Copied <code>' + ref + '</code>'),
+        () => toast('warn', 'Could not access the clipboard'));
+    });
+  }
+  // fixed-position coordinates must be de-zoomed: the rect is visual px,
+  // the style is CSS px inside the zoomed body
+  const z = S.zoom || 1;
+  const r = anchor.getBoundingClientRect();
+  m.style.left = Math.round(Math.min(r.left, innerWidth - 200) / z) + 'px';
+  m.style.top = Math.round((r.bottom + 4) / z) + 'px';
+  document.body.appendChild(m);
+  const away = ev => {
+    if (!m.contains(ev.target)) { m.remove(); document.removeEventListener('mousedown', away); }
+  };
+  setTimeout(() => document.addEventListener('mousedown', away), 0);
+}
+
 function buildOutline() {
   const nav = $('#outline');
   nav.innerHTML = '';
@@ -3120,6 +3209,16 @@ function buildOutline() {
           : marks.length + ' bookmarked comments';
         trow.appendChild(ic);
       }
+      // ⋯: a small home for per-thread actions
+      const dots = document.createElement('button');
+      dots.className = 'omenu';
+      dots.textContent = '⋯';
+      dots.title = 'Thread actions';
+      dots.addEventListener('click', e => {
+        e.stopPropagation();
+        openThreadMenu(dots, th);
+      });
+      trow.appendChild(dots);
       trow.addEventListener('click', () => {
         const unreadHere = [];
         collectUnread(th, unreadHere);

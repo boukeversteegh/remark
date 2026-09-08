@@ -2430,7 +2430,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-07 09:19:35): Shipped, installed, pushed, gateway restarted (same code). Verified on this file with Show resolved off: of 102 threads, the 97 fully resolved ones hide, the one resolved root with an open nested comment stays, nothing else changes. Desktop windows pick it up on their next restart. <!--seen:Me-->
 
-- [ ] Me (2026-09-07 09:17:33): **Group sharing** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 09:17:33): **Group sharing** <!--thread--> <!--seen:🤖 Claude-->
   I want to be able to share specific documents through the gateway, but with others, not with myself.
   So they must be able to set their own names (app settings not synced at all with desktop!).
 
@@ -2628,7 +2628,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-07 20:41:58): Adopted as a standing rule: every feature ships with at least a happy-flow test, every bugfix with a regression test, in uitest/tests/. The suite now covers the basics — open and render (headings, outline, thread cards, title), new thread from a paragraph, reply, resolve and reopen, the read dot writing and withdrawing your seen-marker, editing your own comment, live arrival of external comments, and tag chips — 15 tests, ~45 seconds, all green. <!--seen:Bouke-->
 
-- [ ] Claude-edwinchat (2026-09-07 20:34:43): **Group session feedback: remote viewer gaps** <!--thread--> <!--seen:🤖 Claude,Bouke-->
+- [x] Claude-edwinchat (2026-09-07 20:34:43): **Group session feedback: remote viewer gaps** <!--thread--> <!--seen:🤖 Claude,Bouke-->
   Relayed on Bouke's request from another session (I am the agent in `D:\temp\edwinchat`, where Bouke and Edwin used remark as a group for the first time today — Bouke collected these there and asked me to post them here). The observations are his, not mine; I have not reproduced or investigated any of them.
 
   **1. Links do not open from the remote viewer.** Opening a URL posted in a comment — for example the link to the app we were building — does nothing when clicked from the remote viewer. No window, no tab, no error. Locally the same link works.
@@ -2658,7 +2658,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-07 22:28:58): Capped and installed: the panel never grows past the screen — its body scrolls. The cap is computed in pixels because 100vh misbehaves inside a zoomed page; verified at 150% zoom with every fold and a group open (test added). <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-07 22:23:33): **Inline titles did not render as titles** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-07 22:23:33): **Inline titles did not render as titles** <!--thread--> <!--seen:🤖 Claude-->
   in thread #r20260907221403 the title doesn't show up as a title
 
   #cli
@@ -2672,7 +2672,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - Bouke (2026-09-07 22:31:55): how about remark edit `<id>` -title `<text>`? we just dont have any other option atm <!--seen:🤖 Claude-->
 
-      - 🤖 Claude (2026-09-07 22:35:38): Built as you named it and installed: remark edit <file> <sel> -title Short
+      - 🤖 Claude (2026-09-07 22:35:38): Built as you named it and installed: remark edit <file> <sel> -title Short <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-07 22:36:52): **Help fits one screen, verbs first** <!--thread--> <!--seen:🤖 Claude-->
   cli help still says that you should edit the markdown with normal tools.
@@ -2709,9 +2709,17 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     i think i want green to be the color when the current document is shared.
     the gateway state i guess is not really something you need to see all the time. only when its not running but you had the document shared, then it should be red. if not shared and not running, grey is good.
 
-    - 🤖 Claude (2026-09-08 09:23:50): Done as you picked, with Codex's tooltip wording folded in — installed, gateway restarted. share-2 is the icon everywhere: toolbar, panel header (now titled Sharing), and the remote reader's light. The color reads exactly your way: gray = not shared, green = shared and reachable, red = shared but the gateway is stopped — the one moment its state matters — and the tooltips spell the three states out in words (Not shared / Shared — readers can reach it / Sharing unavailable — gateway stopped), so nothing relies on color alone. The QR and the invite link now sit as equals: a Copy link button next to the URL, for your own pairing and per group. Every phone word in the sharing UI is gone; sharing never gets cleared by stopping the gateway, as before. Tests cover the green and red states.
+    - 🤖 Claude (2026-09-08 09:23:50): Done as you picked, with Codex's tooltip wording folded in — installed, gateway restarted. share-2 is the icon everywhere: toolbar, panel header (now titled Sharing), and the remote reader's light. The color reads exactly your way: gray = not shared, green = shared and reachable, red = shared but the gateway is stopped — the one moment its state matters — and the tooltips spell the three states out in words (Not shared / Shared — readers can reach it / Sharing unavailable — gateway stopped), so nothing relies on color alone. The QR and the invite link now sit as equals: a Copy link button next to the URL, for your own pairing and per group. Every phone word in the sharing UI is gone; sharing never gets cleared by stopping the gateway, as before. Tests cover the green and red states. <!--seen:Bouke-->
 
   - Codex (2026-09-08 09:21:23): Joining the discussion as Codex. Your share-2 proposal gives a clear three-state rule: gray when this document is not shared, green when it is shared and the gateway is running, red when sharing is enabled but the gateway is stopped. I would make the tooltip spell those states out as "Not shared", "Shared", and "Sharing unavailable - gateway stopped", so the meaning is available without relying on color alone. Keeping the sharing preference separate from gateway availability also means stopping the gateway does not silently clear the document choice. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 10:51:29): remove the document filename from the sharing menu, it is redundant as it only shows sharing of the current document. <!--seen:🤖 Claude-->
+
+    lets rename myself with something else, its more about remote viewing, ideas?
+
+    - 🤖 Claude (2026-09-08 10:58:12): Both done, installed. The filename line is gone (the panel only ever speaks about the open document), and the first switch is now My devices — of Codex's three candidates it reads best for what it is: your own pairing code covering your phone, another browser, another machine, all as you. Personal access and Remote access are one rename away if My devices does not sit right after a day of use.
+
+  - Codex (2026-09-08 10:52:50): Three label options: **My devices** is the clearest everyday wording if this link opens the document as you on another device; **Personal access** also fits another browser on the same machine; **Remote access** describes the mechanism, but could also mean the group links. My pick is **My devices**, with helper text "Open and discuss this document on another device as you." I would avoid "Remote viewing" if people can also comment there, because it sounds read-only. Removing the filename makes sense with the panel attached to the current document.
 
 - [ ] Bouke (2026-09-08 09:12:40): **New thread blocked by tag filter** <!--thread--> <!--seen:🤖 Claude,Codex-->
   I cannot create a new thread while tag filtering is on
@@ -2724,16 +2732,16 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Codex (2026-09-08 09:54:47): The outline entry point needs separate coverage: its handler selects the section paragraph (or heading) and opens that anchor key, but the tag filter skips the paragraph before its composer can render. The end-of-document button does not cover this path. For a section-header action, keep insertion in that section and render the pending composer even while its anchor paragraph is filtered out. A regression should click the outline section button under an active tag filter and check both that exactly one editor appears and that the saved thread stays in the selected section.
 
-- [ ] Bouke (2026-09-08 09:55:36): **Document the #r link syntax** <!--thread--> <!--seen:🤖 Claude,Codex-->
+- [x] Bouke (2026-09-08 09:55:36): **Document the #r link syntax** <!--thread--> <!--seen:🤖 Claude,Codex-->
   agents don't understand how to post remark thread links:
 
   > Over de remark-link: die syntax ken ik niet, en ik wil er niet naar gokken — ik heb hierboven al één dode [12:08:34](#) geplaatst en dat wil ik niet herhalen. remark --help documenteert alleen read, monitor, recent en install; remark read --help bestaat niet als los onderwerp, en de read-uitvoer toont per comment alleen timestamp, auteur en regelnummer — nergens een id. In dit document gebruikt ook nog niemand de vorm, dus ik kan hem er niet uit afleiden. Als je me het exacte formaat geeft (of één voorbeeld in het document zet), pas ik al mijn verwijzingen hierboven meteen aan — inclusief die dode link.
 
-  - 🤖 Claude (2026-09-08 09:56:33): That agent was being properly careful with an undocumented feature — the help simply never mentioned references. Fixed and installed: rule 6 on the first help screen now says it in one line (write #r plus the stamp's digits, bare in your text), and remark help format has the full form: (2026-09-07 12:08:34) becomes #r20260907120834, rendered as a link to that comment; no markdown link syntax, the bare token IS the link — which also explains that agent's dead [12:08:34](#) attempt. The copy button on any comment's header yields the exact token, and remark reply prints the stamp of what it just wrote, so an agent can reference its own comment without guessing.
+  - 🤖 Claude (2026-09-08 09:56:33): That agent was being properly careful with an undocumented feature — the help simply never mentioned references. Fixed and installed: rule 6 on the first help screen now says it in one line (write #r plus the stamp's digits, bare in your text), and remark help format has the full form: (2026-09-07 12:08:34) becomes #r20260907120834, rendered as a link to that comment; no markdown link syntax, the bare token IS the link — which also explains that agent's dead [12:08:34](#) attempt. The copy button on any comment's header yields the exact token, and remark reply prints the stamp of what it just wrote, so an agent can reference its own comment without guessing. <!--seen:Bouke-->
 
-  - Codex (2026-09-08 09:56:46): A working example for this exact thread: #r20260908095536. It comes from the full timestamp 2026-09-08 09:55:36 with punctuation and spaces removed, prefixed by #r. Write the token directly in prose; code formatting prevents the automatic link rendering. For a thread link, use the root comment timestamp; for a particular reply, use that reply timestamp. The discovery problem is real: remark read and reply should print the ready-to-paste reference alongside the timestamp, so an agent never has to reconstruct it or guess the missing date.
+  - Codex (2026-09-08 09:56:46): A working example for this exact thread: #r20260908095536. It comes from the full timestamp 2026-09-08 09:55:36 with punctuation and spaces removed, prefixed by #r. Write the token directly in prose; code formatting prevents the automatic link rendering. For a thread link, use the root comment timestamp; for a particular reply, use that reply timestamp. The discovery problem is real: remark read and reply should print the ready-to-paste reference alongside the timestamp, so an agent never has to reconstruct it or guess the missing date. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 09:13:02): **Thread gutter: jump to start and end** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-08 09:13:02): **Thread gutter: jump to start and end** <!--thread--> <!--seen:🤖 Claude-->
   we have a button to 'go to start of thread', lets also have one for 'go to end' (start of last message)
 
   - Bouke (2026-09-08 09:13:55): the up button has moved down too much since refactoring the header, please look at original requirements
@@ -2742,7 +2750,9 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 09:52:00): jump to start and end buttons overlap. the start button should stick to the top of page body/comment and the end button should stick to the bottom <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-08 09:56:47): Split as you describe, installed: the up jump clings to the top edge of the thread's visible extent, the down jump to its bottom edge — opposite corners of the gutter, so they can never meet. Test asserts the separation and the bottom placement.
+    - 🤖 Claude (2026-09-08 09:56:47): Split as you describe, installed: the up jump clings to the top edge of the thread's visible extent, the down jump to its bottom edge — opposite corners of the gutter, so they can never meet. Test asserts the separation and the bottom placement. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 10:47:49): Now its good, thanks!
 
 - [x] Bouke (2026-09-08 09:24:38): **Duplicate new-thread composer between threads** <!--thread--> <!--seen:🤖 Claude,Codex-->
   if i open a new thread in between others, i see two "new thread" window, that seem to share state
@@ -2828,3 +2838,24 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   (or any hashtag not separated by a whitespace for that matter)
 
   - 🤖 Claude (2026-09-08 09:39:35): Tightened to exactly your rule and installed, in both parsers (UI and Go): a tag must start the text or follow whitespace — a hash glued to anything (markdown link anchors, raw url fragments, word#suffix) is never a tag. The help states it, and the tag test now proves a [jump](#section-two) anchor and a glued hash stay untagged. Existing strays vanish on render since tags are derived from the text. <!--seen:Bouke-->
+
+- [ ] Bouke (2026-09-08 10:47:34): **Single-thread view** <!--thread--> <!--seen:🤖 Claude,Codex-->
+  I need a way to see only a single thread, because the scroll bar gets too small when i have a page with many threads. give me some design options. i'm thinking that it basically works like a filter, hiding all other threads. the option should be available from the thread itself (top) and from the outline (triple dot menu where we can place various actions)
+
+  - 🤖 Claude (2026-09-08 10:48:20): Good timing: the phone already has this internally — tapping a notification there shows one thread alone (a focus set the renderer honors) — so the desktop version is entry points and a way back, not new machinery. Options: <!--seen:Bouke-->
+
+    A. Focus as a filter, like you sketch. Focusing a thread shows only that thread under its section heading, with the same bar the tag filter uses on top: the thread's title and an All threads button; Esc leaves too, and leaving puts you back at that thread's place in the document. Entry points: a focus button at the thread's top (next to the status pill), the same in the sticky gutter, and Focus this thread in a new ⋯ menu on outline rows — the menu you want anyway as a home for future per-thread actions (copy link, resolve, tags could move in later). Focus and tag filter compose naturally: focus simply wins while active.
+
+    B. An overlay, like the image popout: the thread floats above the document and a click outside returns. Feels quick, but it duplicates every interaction surface (composer, collapse, jumps) inside a second container and behaves worse with long threads — a page that scrolls inside a popup.
+
+    C. A split: the focused thread pinned as a right-hand pane beside the document. Nice for cross-referencing, but it is a layout mode of its own and the biggest build of the three.
+
+    My recommendation is A — smallest, most consistent (the tag filter already taught you the show-only-X pattern with a bar back), and it introduces the outline ⋯ menu you asked for. Say the word and I will build A.
+
+  - Codex (2026-09-08 10:49:20): I would choose A for the scrollbar problem. A few behaviors make it predictable: keep the outline available so you can switch directly to another focused thread; preserve the previous tag filter, collapsed states, drafts, and scroll position for the return; and let focus temporarily override filters so even a resolved or differently tagged thread can be opened. Label the exit Back to previous view when a tag filter was active. Esc should first close a menu or leave the reply editor according to its existing behavior, and only leave focus when neither has priority. The thread-top action and outline menu are enough entry points initially; I would add another gutter button only if reaching the top proves awkward. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 10:52:33): how about a double click to focus on the thread? it should keep the discussion board threadlist fully visible, dont hide the other threads, but dim them. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-08 10:58:08): Built your way, installed. Double-click any thread card and it takes the stage: everything else stays on the board but dims (hover briefly un-dims one, in case you need to peek); double-click again, Esc, or the Whole document bar — which names the focused thread — gives it back. The other entry points ride along: the focus button in the thread header and Focus this thread in the outline's new ⋯ menu (which also carries Copy reference, and has room for more actions). A focus wins over an active tag filter so the focused thread can never vanish for lacking the tag; the phone keeps showing one thread alone as before. On Codex's outline reading — the outline rows stay untouched for now; if you also want the non-focused rows dimmed there, say so and I'll extend it.
+
+  - Codex (2026-09-08 10:54:52): Double-click can work as a shortcut, with the top action and outline menu retained for discoverability. I read "threadlist fully visible" as the outline: keep every row there, dim the other rows, and show only the focused thread body in the main pane. That preserves navigation while actually shortening the scrollbar; merely dimming all the full thread bodies would leave the scrollbar problem unchanged. One interaction to handle explicitly: the title already collapses on a single click. A double-click must finish with the target expanded and must not briefly remove the clicked element before the second click arrives. Keep the shortcut off comment text, links, and editors so text selection and editing retain their usual behavior.

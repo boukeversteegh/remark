@@ -605,6 +605,29 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
   transition: opacity .12s, color .12s;
 }
 #recent a:hover .rremove { opacity: .7; }
+
+/* focus bar: names what you are looking at, next to Whole document */
+.focuslabel { margin-left: 10px; font: 650 14px var(--font-display); color: var(--fg); }
+/* the rest of the board steps back while one thread has the stage */
+#doc .dimfocus, #rail .dimfocus { opacity: .35; transition: opacity .15s; }
+#doc .dimfocus:hover, #rail .dimfocus:hover { opacity: .7; }
+/* outline row ⋯ menu */
+.otrow .omenu {
+  border: 0; background: none; color: var(--faint); cursor: pointer;
+  padding: 0 4px; border-radius: 6px; opacity: 0; flex: none; font-size: 14px; line-height: 1;
+}
+.otrow:hover .omenu { opacity: .8; }
+.otrow .omenu:hover { color: var(--accent); background: var(--accent-soft); opacity: 1; }
+#omenupop {
+  position: fixed; z-index: 80; min-width: 180px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow-card); padding: 4px; display: flex; flex-direction: column;
+}
+#omenupop button {
+  border: 0; background: none; color: var(--fg); cursor: pointer; text-align: left;
+  padding: 7px 10px; border-radius: 7px; font-size: 13px;
+}
+#omenupop button:hover { background: var(--surface); }
 .rremove:hover { opacity: 1 !important; color: var(--danger); }
 
 /* chat mode: a DM channel is a linear list with a pinned message box — no

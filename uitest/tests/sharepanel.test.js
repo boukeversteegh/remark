@@ -19,7 +19,7 @@ module.exports = async ctx => {
   await page.waitForSelector('#gwpanel .gwshare', { timeout: 6000 });
   const rows = await page.evaluate(() =>
     [...document.querySelectorAll('#gwpanel .gwshare .gwlabel')].map(x => x.textContent));
-  assert(rows[0] === 'Myself', 'first toggle is Myself, got ' + JSON.stringify(rows));
+  assert(rows[0] === 'My devices', 'first toggle is My devices, got ' + JSON.stringify(rows));
   assert(rows.includes('Panelists'), 'each group has its own toggle');
 
   // flipping the group toggle registers the document with the group
