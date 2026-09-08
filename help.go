@@ -62,6 +62,8 @@ The five rules that matter (the long form: remark help format):
   4. Read state: append your name to the <!--seen:...--> marker on a
      comment's first line once processed; never remove other names.
   5. Threads stay FLAT: answer at the level you were addressed.
+  6. Link to a comment by writing #r plus its stamp's digits in your
+     text: (2026-09-07 12:08:34) becomes #r20260907120834.
 `
 
 const helpFormat = `The markdown format — a complete exchange:
@@ -116,6 +118,11 @@ The rules, in full — for when you must hand-edit after all:
     "#r..." references). A reply
     whose whole body is tags is a READER TAG on its parent, not a
     comment — that is what remark tag writes.
+  * Link to a comment by writing #r plus the digits of its timestamp,
+    bare in your text: "(2026-09-07 12:08:34)" becomes #r20260907120834
+    and renders as a link to that comment. remark reply prints the stamp
+    of what it wrote; the copy button on a comment's header yields the
+    exact token. No markdown link syntax — the bare token IS the link.
   * Concurrent edits are normal: the human's window writes this file
     too. Re-read right before each hand edit, replace only your lines,
     never rewrite the file from a stale copy.

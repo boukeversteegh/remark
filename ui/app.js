@@ -797,6 +797,18 @@ function render() {
       doc.appendChild(nb);
     }
   }
+  // an open composer whose anchor block did not render (its paragraph is
+  // hidden by a tag filter or focus view) still needs a home: it appears
+  // at the end, and its ops keep targeting the anchor, so the thread
+  // lands where it was asked for — the outline's per-section + works
+  // whatever is on screen
+  for (const k of S.editorsOpen) {
+    if (!k.startsWith('new:')) continue;
+    if (doc.querySelector('.editor[data-key="' + CSS.escape(k) + '"]')) continue;
+    const target = parsed.blocks.find(b =>
+      'new:' + (b.type === 'thread' ? b.thread.key : b.key) === k);
+    if (target) doc.appendChild(buildEditor(k, target));
+  }
 
   renderConflicts();
   updateUnreadUI();
@@ -3466,13 +3478,21 @@ function showLanding() {
       // status load below has the content), filename and folder under it
       const main = document.createElement('span');
       main.className = 'rmain';
+      // headline: the title with the filename inline after it; the path
+      // gets its own line below — paths are long and would clip inline
+      const line = document.createElement('span');
+      line.className = 'rline';
       const name = document.createElement('span');
       name.className = 'rname';
       name.textContent = base;
+      const fname = document.createElement('span');
+      fname.className = 'rfname';
+      line.appendChild(name);
+      line.appendChild(fname);
       const dd = document.createElement('span');
       dd.className = 'rfile';
       dd.textContent = dir.replace(/[\\/]+$/, '');
-      main.appendChild(name);
+      main.appendChild(line);
       main.appendChild(dd);
       a.appendChild(main);
       const stat = document.createElement('span');
@@ -3501,7 +3521,7 @@ function showLanding() {
           const h1 = /^#\s+(.+?)\s*$/m.exec(st.content);
           if (h1 && h1[1].trim() && h1[1].trim() !== base) {
             name.textContent = h1[1].trim();
-            dd.textContent = base + ' \u00b7 ' + dir.replace(/[\\/]+$/, '');
+            fname.textContent = base;
           }
           const doc2 = RvParser.parse(st.content.replace(/\r\n/g, '\n'));
           const me = PREFS.me || 'Me';

@@ -301,13 +301,24 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 }
 #recent a:hover { background: var(--surface); border-color: var(--border); }
 #recent a .ic { color: var(--muted); font-size: 15px; }
-/* one row per entry: the title leads, the file trails dimly beside it */
-#recent a .rmain { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
-#recent a .rname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; max-width: 65%; }
+/* per entry: a headline (title, filename inline after it) and the path
+   on its own dim line below — paths are long and would clip inline */
+#recent a .rmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+#recent a .rline { display: flex; align-items: baseline; gap: 8px; min-width: 0; overflow: hidden; }
+#recent a .rname {
+  font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 0 1 auto; min-width: 0;
+}
+#recent a .rfname {
+  color: var(--faint); font-size: 12px; white-space: nowrap;
+  flex: 0 1 auto; min-width: 36px; overflow: hidden; text-overflow: ellipsis;
+}
+#recent a .rfname:empty { display: none; }
 #recent a .rfile {
   color: var(--faint); font-size: 12px; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; flex: 1; min-width: 0;
+  white-space: nowrap;
 }
+#recent a .rstatus { flex: none; }
 
 .rempty { color: var(--muted); font-size: 13.5px; margin: 8px 4px; line-height: 1.5; }
 /* behind the gateway: a document picker, not a launcher */
@@ -323,9 +334,6 @@ body.gateway .tagline { margin-bottom: 18px; }
   .tagline { font-size: 13px; margin-bottom: 18px; }
   #openForm { flex-direction: column; }
   #recent { max-width: none; grid-template-columns: 1fr; }
-  /* small screens keep the two-line entry: a row would clip everything */
-  #recent a .rmain { flex-direction: column; gap: 1px; }
-  #recent a .rname { max-width: none; }
   #recent a { flex-wrap: wrap; padding: 11px 12px; border-color: var(--border-soft); margin-bottom: 6px; font-size: 15px; gap: 8px 10px; }
   /* badges on their own line: the name keeps the full width */
   #recent a .rstatus { width: 100%; order: 3; margin-left: 0; padding-left: 25px; box-sizing: border-box; }
@@ -920,7 +928,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   box-shadow: var(--shadow-card);
 }
 .ttop .ic svg { transform: rotate(180deg); }
-.ttop.tend { margin-top: 4px; }
+/* the pair splits the gutter: start clings to the top edge of the
+   thread's visible extent, end to the bottom — they can never overlap */
+.ttop.tend { margin-top: auto; top: auto; bottom: 10px; }
 .ttop.tend .ic svg { transform: none; }
 .tsticky { display: flex; flex-direction: column; align-items: center; }
 .ttop:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }

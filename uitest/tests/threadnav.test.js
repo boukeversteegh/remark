@@ -12,11 +12,20 @@ module.exports = async ctx => {
     filler,
   ].join('\n'));
   const page = await ctx.open(doc);
-  const btns = await page.evaluate(() => ({
-    top: !!document.querySelector('.tsticky .ttop:not(.tend)'),
-    end: !!document.querySelector('.tsticky .tend'),
-  }));
-  assert(btns.top && btns.end, 'both gutter jumps exist');
+  const btns = await page.evaluate(() => {
+    const t = document.querySelector('.tsticky .ttop:not(.tend)');
+    const e = document.querySelector('.tsticky .tend');
+    const tr = t && t.getBoundingClientRect();
+    const er = e && e.getBoundingClientRect();
+    return {
+      both: !!(t && e),
+      apart: tr && er && er.top >= tr.bottom + 8,
+      endNearBottom: er && Math.abs(er.bottom - Math.min(innerHeight, document.querySelector('.thread').getBoundingClientRect().bottom)) < 60,
+    };
+  });
+  assert(btns.both, 'both gutter jumps exist');
+  assert(btns.apart, 'the two jumps never overlap');
+  assert(btns.endNearBottom, 'the end jump clings to the bottom of the visible extent');
 
   await page.evaluate(() => document.querySelector('.tsticky .tend').click());
   await page.waitForTimeout(800);

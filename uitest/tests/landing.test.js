@@ -30,6 +30,48 @@ module.exports = async ctx => {
   assert(r.sideBySide, 'branding sits beside the list on wide screens');
   const rowH = await page.evaluate(() =>
     Math.round(document.querySelector('#recent a').getBoundingClientRect().height));
-  assert(rowH < 44, 'one row per entry, got ' + rowH + 'px');
+  assert(rowH < 72, 'a compact headline + path entry, got ' + rowH + 'px');
   await page.close();
+
+  // the edge Codex asked about: a long title and a deep path just above
+  // the breakpoint — the title ellipsizes, the badge stays on screen
+  const longDoc = ctx.fixture('landing-long.md',
+    '# A Considerably Long Document Title That Keeps Going Well Past Reasonable Length\n\ncontent.\n\n' +
+    '- [ ] Alice (2026-09-01 10:00:00): **Q** open one <!--thread-->\n');
+  await fetch(`http://127.0.0.1:7461/api/prefs?t=${ctx.token}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recents: [longDoc] }),
+  });
+  const p2 = await ctx.browser.newPage({ viewportSize: { width: 990, height: 600 } });
+  await p2.goto(`http://127.0.0.1:7461/?t=${ctx.token}`, { waitUntil: 'networkidle' });
+  await p2.waitForSelector('#recent a .rbadge', { timeout: 8000 });
+  const edge = await p2.evaluate(() => {
+    const a = document.querySelector('#recent a');
+    const name = a.querySelector('.rname');
+    const badge = a.querySelector('.rbadge').getBoundingClientRect();
+    const line = a.querySelector('.rline').getBoundingClientRect();
+    const pathEl = a.querySelector('.rfile').getBoundingClientRect();
+    return {
+      ellipsized: name.scrollWidth > name.clientWidth,
+      nameW: Math.round(name.getBoundingClientRect().width),
+      badgeOn: badge.width > 0 && badge.right <= innerWidth,
+      pathBelow: pathEl.top >= line.bottom - 2,
+      hOverflow: document.documentElement.scrollWidth > innerWidth,
+    };
+  });
+  assert(edge.badgeOn, 'the badge stays on screen beside a long title');
+  assert(edge.ellipsized && edge.nameW > 150, 'the long title ellipsizes but stays readable, got ' + edge.nameW + 'px');
+  assert(edge.pathBelow, 'the path sits on its own line below the headline');
+  assert(!edge.hOverflow, 'no horizontal overflow at the breakpoint');
+
+  // small windows: nothing clips, everything ellipsizes
+  await p2.setViewportSize({ width: 500, height: 600 });
+  await p2.waitForTimeout(200);
+  const small = await p2.evaluate(() => ({
+    hOverflow: document.documentElement.scrollWidth > innerWidth,
+    badgeOn: (b => b.width > 0 && b.right <= innerWidth)(document.querySelector('#recent a .rbadge').getBoundingClientRect()),
+  }));
+  assert(!small.hOverflow, 'no horizontal overflow in a small window');
+  assert(small.badgeOn, 'the badge stays on screen in a small window');
+  await p2.close();
 };

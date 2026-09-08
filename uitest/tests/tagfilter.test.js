@@ -30,5 +30,16 @@ module.exports = async ctx => {
   const md = ctx.read(doc);
   const line = md.split(/\r?\n/).find(l => l.includes('BORN-UNDER-FILTER'));
   assert(line && /^- \[ \] Me \(\d{4}/.test(line), 'thread written while filtered: ' + JSON.stringify(line));
+
+  // the outline's per-section + also works while filtering: the composer
+  // appears even though the section's paragraph is hidden
+  await page.evaluate(() => document.querySelector('#outline .onew').click());
+  await page.waitForSelector('.editor[data-key^="new:"] textarea', { timeout: 4000 });
+  await page.fill('.editor[data-key^="new:"] textarea', 'FROM-THE-OUTLINE');
+  await page.click('.editor[data-key^="new:"] button.send');
+  await page.waitForTimeout(1500);
+  const md2 = ctx.read(doc);
+  const line2 = md2.split(/\r?\n/).find(l => l.includes('FROM-THE-OUTLINE'));
+  assert(line2 && /^- \[ \] Me \(\d{4}/.test(line2), 'outline + writes while filtered: ' + JSON.stringify(line2));
   await page.close();
 };

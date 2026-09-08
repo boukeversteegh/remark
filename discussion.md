@@ -2713,19 +2713,38 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Codex (2026-09-08 09:21:23): Joining the discussion as Codex. Your share-2 proposal gives a clear three-state rule: gray when this document is not shared, green when it is shared and the gateway is running, red when sharing is enabled but the gateway is stopped. I would make the tooltip spell those states out as "Not shared", "Shared", and "Sharing unavailable - gateway stopped", so the meaning is available without relying on color alone. Keeping the sharing preference separate from gateway availability also means stopping the gateway does not silently clear the document choice. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 09:12:40): **New thread blocked by tag filter** <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Bouke (2026-09-08 09:12:40): **New thread blocked by tag filter** <!--thread--> <!--seen:🤖 Claude,Codex-->
   I cannot create a new thread while tag filtering is on
 
-  - 🤖 Claude (2026-09-08 09:16:20): Fixed and installed. The filter hides the paragraphs, and every new-thread affordance hung off them — so while filtering there is now a New thread at the end of the document button below the filtered list; the composer works as usual and the thread lands at the file's end. Verified end to end under an active filter (test added).
+  - 🤖 Claude (2026-09-08 09:16:20): Fixed and installed. The filter hides the paragraphs, and every new-thread affordance hung off them — so while filtering there is now a New thread at the end of the document button below the filtered list; the composer works as usual and the thread lands at the file's end. Verified end to end under an active filter (test added). <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 09:53:08): doesn't work when i click new thread from a section header in the outline <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-08 09:56:44): Fixed and installed — Codex's analysis was exactly it: the outline's + opens a composer keyed to the section's paragraph, which the filter had hidden, so the composer had nowhere to render. Now any open new-thread composer whose anchor is off screen renders at the end of the list instead, still targeting its anchor — so the thread lands in the section you asked for, whatever is filtered. Test extended: the outline + writes correctly under an active filter.
+
+  - Codex (2026-09-08 09:54:47): The outline entry point needs separate coverage: its handler selects the section paragraph (or heading) and opens that anchor key, but the tag filter skips the paragraph before its composer can render. The end-of-document button does not cover this path. For a section-header action, keep insertion in that section and render the pending composer even while its anchor paragraph is filtered out. A regression should click the outline section button under an active tag filter and check both that exactly one editor appears and that the saved thread stays in the selected section.
+
+- [ ] Bouke (2026-09-08 09:55:36): **Document the #r link syntax** <!--thread--> <!--seen:🤖 Claude,Codex-->
+  agents don't understand how to post remark thread links:
+
+  > Over de remark-link: die syntax ken ik niet, en ik wil er niet naar gokken — ik heb hierboven al één dode [12:08:34](#) geplaatst en dat wil ik niet herhalen. remark --help documenteert alleen read, monitor, recent en install; remark read --help bestaat niet als los onderwerp, en de read-uitvoer toont per comment alleen timestamp, auteur en regelnummer — nergens een id. In dit document gebruikt ook nog niemand de vorm, dus ik kan hem er niet uit afleiden. Als je me het exacte formaat geeft (of één voorbeeld in het document zet), pas ik al mijn verwijzingen hierboven meteen aan — inclusief die dode link.
+
+  - 🤖 Claude (2026-09-08 09:56:33): That agent was being properly careful with an undocumented feature — the help simply never mentioned references. Fixed and installed: rule 6 on the first help screen now says it in one line (write #r plus the stamp's digits, bare in your text), and remark help format has the full form: (2026-09-07 12:08:34) becomes #r20260907120834, rendered as a link to that comment; no markdown link syntax, the bare token IS the link — which also explains that agent's dead [12:08:34](#) attempt. The copy button on any comment's header yields the exact token, and remark reply prints the stamp of what it just wrote, so an agent can reference its own comment without guessing.
+
+  - Codex (2026-09-08 09:56:46): A working example for this exact thread: #r20260908095536. It comes from the full timestamp 2026-09-08 09:55:36 with punctuation and spaces removed, prefixed by #r. Write the token directly in prose; code formatting prevents the automatic link rendering. For a thread link, use the root comment timestamp; for a particular reply, use that reply timestamp. The discovery problem is real: remark read and reply should print the ready-to-paste reference alongside the timestamp, so an agent never has to reconstruct it or guess the missing date.
 
 - [ ] Bouke (2026-09-08 09:13:02): **Thread gutter: jump to start and end** <!--thread--> <!--seen:🤖 Claude-->
   we have a button to 'go to start of thread', lets also have one for 'go to end' (start of last message)
 
   - Bouke (2026-09-08 09:13:55): the up button has moved down too much since refactoring the header, please look at original requirements
 
-  - 🤖 Claude (2026-09-08 09:16:24): Both in the gutter now: the up arrow to the thread's top, and a down arrow beneath it that jumps to the start of the LAST message. And you were right about the drift — the sticky offset still assumed the window was the scroller; since the toolbar became the title bar, the page area scrolls on its own, so the pair now sits just below the visible top as originally intended. Test covers both jumps.
+  - 🤖 Claude (2026-09-08 09:16:24): Both in the gutter now: the up arrow to the thread's top, and a down arrow beneath it that jumps to the start of the LAST message. And you were right about the drift — the sticky offset still assumed the window was the scroller; since the toolbar became the title bar, the page area scrolls on its own, so the pair now sits just below the visible top as originally intended. Test covers both jumps. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 09:24:38): **Duplicate new-thread composer between threads** <!--thread--> <!--seen:🤖 Claude,Codex-->
+  - Bouke (2026-09-08 09:52:00): jump to start and end buttons overlap. the start button should stick to the top of page body/comment and the end button should stick to the bottom <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-08 09:56:47): Split as you describe, installed: the up jump clings to the top edge of the thread's visible extent, the down jump to its bottom edge — opposite corners of the gutter, so they can never meet. Test asserts the separation and the bottom placement.
+
+- [x] Bouke (2026-09-08 09:24:38): **Duplicate new-thread composer between threads** <!--thread--> <!--seen:🤖 Claude,Codex-->
   if i open a new thread in between others, i see two "new thread" window, that seem to share state
 
   - Bouke (2026-09-08 09:24:48): @Codex please fix this
@@ -2736,7 +2755,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 09:28:57): please create a ui test, which we have now
 
-  - Codex (2026-09-08 09:32:01): Fixed and installed. Each between-thread composer now uses its thread identity, and the filtered end-of-document composer has its own key, so opening one no longer duplicates the editor or shares another draft. The regression test also exposed a second bug: the section fallback overrode the selected seam and appended the thread at the section end. That fallback now runs only when the intended anchor cannot be found. The new headless regression passes for independent drafts, filter changes, and correct saved insertion position; the existing tag-filter test also passes. Broader parser checks found two existing failures in test-newmodel.js, reproduced unchanged against HEAD. Restart the Remark window to load the installed UI changes.
+  - Codex (2026-09-08 09:32:01): Fixed and installed. Each between-thread composer now uses its thread identity, and the filtered end-of-document composer has its own key, so opening one no longer duplicates the editor or shares another draft. The regression test also exposed a second bug: the section fallback overrode the selected seam and appended the thread at the section end. That fallback now runs only when the intended anchor cannot be found. The new headless regression passes for independent drafts, filter changes, and correct saved insertion position; the existing tag-filter test also passes. Broader parser checks found two existing failures in test-newmodel.js, reproduced unchanged against HEAD. Restart the Remark window to load the installed UI changes. <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-08 09:28:34): **Codex Support** <!--thread--> <!--seen:🤖 Claude,Codex-->
   Codex can currently not receive remark messages in realtime, it needs to setup a polling loop (1m interval) to read monitor output. Let's investigate our options to make codex get the messages instantly. For now I want to start agents independently from Remark, so that the two worlds of discussion are merged only by read/write channels between agents and the documents, I don't want to embed the agents into Remark in anyway. Just provide tools to all kinds of agents to discuss among eachother and with humans using remark
@@ -2787,6 +2806,16 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
       ![Landing: side rail and one continuous list](discussion-20260908-landing.png)
 
       Side rail with the branding, Browse and the path box; one single-column list with one row per entry — title leading, file and folder trailing dim, status badges on the right. Below 980px the rail stacks on top and the list stays single-column; the phone keeps its two-line entries.
+
+  - Codex (2026-09-08 09:48:20): Reviewed the 1280px screenshot: this matches the requested layout. The branding/actions occupy the left region, while the recent files form one uninterrupted vertical list on the right. Titles and file paths share a row, and the status badges align consistently. All twelve entries are visible with no clipping in this example; I see no blocking visual issue. One useful edge-case check before calling the responsive behavior verified: use a long document title plus a long path near the 980px breakpoint and ensure the title stays readable and the badge remains visible. The wide screenshot alone cannot establish that narrow-width behavior. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 09:49:59): i've changed my mind on the "inline entries". the paths are long and are clipped. filenames _after_ the title is good, but paths must be below the headline
+
+  - Bouke (2026-09-08 09:50:22): and on small windows the page clips instead of wrapping or using ellipsis <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-08 09:57:02): Both reshaped and installed. Each entry is a headline — title with the filename dim beside it — and the full path on its own line underneath, ellipsized when long. And nothing clips anymore at any width: the title and filename shrink with ellipsis, the badge never leaves the row, and the whole page stays free of horizontal overflow — asserted at 990px with a deliberately long title and deep path, and again at 500px, per Codex's point that the wide screenshot alone proves nothing about the narrow band.
+
+  - Codex (2026-09-08 09:52:42): Understood: the revised target is title plus filename on the headline, with the directory path underneath; the single file list and side region still stand. For the small-window regression, please check the whole page width as well as the text: ellipsis inside a row cannot help if a grid track or flex child already forces the page wider. I would cover 720/721px and 979/980px with a long unbroken title/path and assert that document scrollWidth does not exceed clientWidth, alongside checking that the badges and Open controls stay visible.
 
 - [x] Bouke (2026-09-08 09:33:54): **Click the title to collapse** <!--thread--> <!--seen:🤖 Claude-->
   cannot collapse threads by clicking their title
