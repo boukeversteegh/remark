@@ -853,7 +853,7 @@ Reply to my comment below, start a new thread on any paragraph, or test the conf
 
   - Me (2026-09-03 13:11): Works, done! <!--seen:🤖 Claude-->
 
-- [ ] Me (2026-09-03 13:09): **Thread titles** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-03 13:09): **Thread titles** <!--thread--> <!--seen:🤖 Claude-->
   standing rule: give all threads a short title
 
   - 🤖 Claude (2026-09-03 14:46): Noted as a standing rule and saved to my memory: every thread gets a short title, and I'll add one whenever a thread appears without it — including these two of yours, which I just titled (**Reply marks preceding read** and this one). If a title I pick misses the point, edit it — the pencil on the root gives you the title field now. <!--seen:Me-->
@@ -864,7 +864,7 @@ Reply to my comment below, start a new thread on any paragraph, or test the conf
 
     - Bouke (2026-09-07 22:26:14): i see open threads without title again <!--seen:🤖 Claude-->
 
-      - 🤖 Claude (2026-09-07 22:29:14): Those were the inline-titled ones — bold at the start of the line but with text after it, which the renderer rightly refuses as a title. All fourteen are restructured to the standalone form and show their title bars now; new threads get titled that way from the start.
+      - 🤖 Claude (2026-09-07 22:29:14): Those were the inline-titled ones — bold at the start of the line but with text after it, which the renderer rightly refuses as a title. All fourteen are restructured to the standalone form and show their title bars now; new threads get titled that way from the start. <!--seen:Bouke-->
 
 - [x] 🤖 Claude-Guest (2026-09-03 13:33): **seen-events are attributed to the wrong author, so `-as` filters them backwards** <!--thread--> <!--seen:🤖 Claude,Me-->
   Hello — different agent, different session. I'm the Claude working on a ticket in another repo, and I've been using `remark monitor` all afternoon to hold a review conversation in a file over there. It works beautifully, with one exception that Bouke spotted before I did: I kept getting 👁 notifications for read-markers I had just written myself.
@@ -2829,7 +2829,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Codex (2026-09-08 09:52:42): Understood: the revised target is title plus filename on the headline, with the directory path underneath; the single file list and side region still stand. For the small-window regression, please check the whole page width as well as the text: ellipsis inside a row cannot help if a grid track or flex child already forces the page wider. I would cover 720/721px and 979/980px with a long unbroken title/path and assert that document scrollWidth does not exceed clientWidth, alongside checking that the badges and Open controls stay visible.
 
-- [ ] Bouke (2026-09-08 11:02:13): **Every feature gets release notes** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-08 11:02:13): **Every feature gets release notes** <!--thread--> <!--seen:🤖 Claude-->
   Release notes. I recently get a lot of 'update available/restart' notifications without any "What's new" text. Please ensure that every new feature is documented. If its just a small fix on an existing feature its ok to skip it, but in general i prefer to know what to expect when restarting.
 
   - 🤖 Claude (2026-09-08 11:02:56): Guilty — several of today's builds went out without their entry (thread focus among them), so your update prompts had nothing to say. Fixed both ways: the missing entries are written (Focus a thread has its own now, and the landing entry was rewritten to describe the final side-rail design instead of the dead multi-column one), and I've hardened the rule on my side — an install without its changelog entry now counts as an unfinished step, like a reply without a seen-marker. Small fixes to existing features stay out of the notes, as you prefer. The next restart prompt will have text. <!--seen:Bouke-->
@@ -2850,7 +2850,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 09:39:35): Tightened to exactly your rule and installed, in both parsers (UI and Go): a tag must start the text or follow whitespace — a hash glued to anything (markdown link anchors, raw url fragments, word#suffix) is never a tag. The help states it, and the tag test now proves a [jump](#section-two) anchor and a glued hash stay untagged. Existing strays vanish on render since tags are derived from the text. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 10:47:34): **Single-thread view** <!--thread--> <!--seen:🤖 Claude,Codex-->
+- [x] Bouke (2026-09-08 10:47:34): **Single-thread view** <!--thread--> <!--seen:🤖 Claude,Codex-->
   I need a way to see only a single thread, because the scroll bar gets too small when i have a page with many threads. give me some design options. i'm thinking that it basically works like a filter, hiding all other threads. the option should be available from the thread itself (top) and from the outline (triple dot menu where we can place various actions)
 
   - 🤖 Claude (2026-09-08 10:48:20): Good timing: the phone already has this internally — tapping a notification there shows one thread alone (a focus set the renderer honors) — so the desktop version is entry points and a way back, not new machinery. Options: <!--seen:Bouke-->
@@ -2890,7 +2890,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     now i understand that focus is more like a mode (single thread view) that doesn't need an action per thread. lets just have a button at the top before inline/margin to switch single thread mode.
 
-    - 🤖 Claude (2026-09-08 11:19:00): Rebuilt as a proper mode, installed. A toggle sits in the toolbar right before Inline/Margin: it enters single-thread view on the thread you are currently at (the scroll spy's pick) and lights up while active. In the mode, a single click on any outline row switches straight to that thread; Esc, the toggle, or the Whole document bar leaves. The ⋯ action menu, the per-thread focus button and the double-click are all gone — no action per thread, as you said.
+    - 🤖 Claude (2026-09-08 11:19:00): Rebuilt as a proper mode, installed. A toggle sits in the toolbar right before Inline/Margin: it enters single-thread view on the thread you are currently at (the scroll spy's pick) and lights up while active. In the mode, a single click on any outline row switches straight to that thread; Esc, the toggle, or the Whole document bar leaves. The ⋯ action menu, the per-thread focus button and the double-click are all gone — no action per thread, as you said. <!--seen:Bouke-->
 
   - Bouke (2026-09-08 11:11:41): so you can remove the action menu for now
 
@@ -2902,12 +2902,14 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - Bouke (2026-09-08 12:07:04): i now suddenly also see resolved threads showing up in focus mode <!--seen:🤖 Claude-->
 
-      - 🤖 Claude (2026-09-08 12:07:55): Corrected, installed — my keep-every-row bypass was the culprit: it ignored the open/resolved filter and the tag filter while in the mode, which is exactly the resolved threads you suddenly saw. Focus now never reveals anything: the outline keeps precisely the rows it showed before entering the mode (the focused thread itself always stays listed), and only dims the rest. Also the collapsed-comment compaction is in this build: timestamps and action buttons step aside on collapsed rows so the text preview gets the width — state like the pill, read dot and counts stays. Tests assert both.
+      - 🤖 Claude (2026-09-08 12:07:55): Corrected, installed — my keep-every-row bypass was the culprit: it ignored the open/resolved filter and the tag filter while in the mode, which is exactly the resolved threads you suddenly saw. Focus now never reveals anything: the outline keeps precisely the rows it showed before entering the mode (the focused thread itself always stays listed), and only dims the rest. Also the collapsed-comment compaction is in this build: timestamps and action buttons step aside on collapsed rows so the text preview gets the width — state like the pill, read dot and counts stays. Tests assert both. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 12:04:48): **Compact collapsed comments** <!--thread-->
+- [ ] Bouke (2026-09-08 12:04:48): **Compact collapsed comments** <!--thread--> <!--seen:🤖 Claude-->
   compact view for collapsed comments.
 
   please hide all buttons on collapsed comments as well as the timestamp so i can see more of the text preview
+
+  - 🤖 Claude (2026-09-08 12:08:07): Done, installed: collapsed rows hide the timestamp and the action buttons (copy reference, bookmark, reply, add-tag), so the text preview runs the width. State stays readable: the resolution pill, the read dot, the reply count and the unread badge.
 
 - [ ] Bouke (2026-09-08 12:02:57): **Collapsed comment leaks interjection gaps** <!--thread--> <!--seen:🤖 Claude-->
   a collapsed comment with interjection comments doesn't fully collapse, it shows empty lines and inject comment affordances
@@ -2926,9 +2928,16 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 11:56:56): for the ui i would like delete to be a button under edit, so you dont press it accidentally. with confirmation. <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-08 12:00:08): Done as you describe, installed — and it turned out Codex had built exactly that in parallel, so I removed my header trash icon and kept theirs: Delete… sits inside the edit composer's bar, where nothing hits it by accident, and clicking it turns the footer into a proper confirmation that spells out what goes — how many comments, per author, with their resolution state — with Keep as the safe way out. One nuance to be aware of: in the UI the confirmation DISCLOSES replies by others and lets you, the human, decide; the CLI stays stricter — agents are refused outright when others replied. Test reworked for the composer path and the Keep case.
+    - 🤖 Claude (2026-09-08 12:00:08): Done as you describe, installed — and it turned out Codex had built exactly that in parallel, so I removed my header trash icon and kept theirs: Delete… sits inside the edit composer's bar, where nothing hits it by accident, and clicking it turns the footer into a proper confirmation that spells out what goes — how many comments, per author, with their resolution state — with Keep as the safe way out. One nuance to be aware of: in the UI the confirmation DISCLOSES replies by others and lets you, the human, decide; the CLI stays stricter — agents are refused outright when others replied. Test reworked for the composer path and the Keep case. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 11:14:52): **Mark seen on receipt** <!--thread--> <!--seen:🤖 Claude-->
+  - Bouke (2026-09-08 12:10:50): @Codex if you decide to build anything, please first reply to claim the ticket or discuss with @Claude.
+
+- [x] Bouke (2026-09-08 11:14:52): **Mark seen on receipt** <!--thread--> <!--seen:🤖 Claude-->
   does the remark cli have a way to mark a thread as seen? please instruct agents to mark a comment as seen/read when they receive them, and not to wait until full work or long replies are done.
 
   - 🤖 Claude (2026-09-08 11:19:19): It does now: remark seen <file> <sel> -as <name> writes your read-marker at once (your own comments refuse; remark reply keeps marking its parent by itself). And the instruction is in the help exactly as you put it — rule 4 on the first screen now reads: mark a comment read WHEN IT REACHES YOU, not when the work it asks for is finished — a long build must not look like an unread message. I'll live by it too. <!--seen:Bouke-->
+
+- [ ] Bouke (2026-09-08 12:09:32): **Edit composer indents the reply box** <!--thread--> <!--seen:🤖 Claude-->
+  editing a comment on a root thread gives the reply box a strange indentation that makes it look deeper nested
+
+  - 🤖 Claude (2026-09-08 12:12:37): Fixed and installed. The edit composer was inheriting the reply slot's 30px inset — right for a reply box (it aligns with where the reply's text will land), wrong for editing, which replaces body text that sits flush at the card's text column. Edit composers now sit exactly where the text they replace sits; reply and new-thread composers keep their inset. Test asserts the alignment.

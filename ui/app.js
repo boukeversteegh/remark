@@ -1568,7 +1568,7 @@ function buildEditor(key, target) {
   const isNewThread = !isReply && !isInterject && !isEdit;
   const tKey = key + ':title';
   const wrap = document.createElement('div');
-  wrap.className = 'editor' + (isNewThread ? ' newthread' : '');
+  wrap.className = 'editor' + (isNewThread ? ' newthread' : '') + (isEdit ? ' editedit' : '');
   wrap.dataset.key = key;
 
   // new threads get an optional title line (never auto-focused); editing a

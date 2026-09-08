@@ -1191,6 +1191,12 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .citem > .editor .epreview, .citem > .editor .ebar {
   margin-left: 30px; width: calc(100% - 30px);
 }
+/* EDITING is different from replying: the composer replaces the body
+   text, so it sits at the text column, not at the reply inset */
+.citem > .editor.editedit textarea, .citem > .editor.editedit .etitle,
+.citem > .editor.editedit .epreview, .citem > .editor.editedit .ebar {
+  margin-left: 0; width: 100%;
+}
 /* when the slot is the last row, its border runs on through the parent's
    bottom padding to meet the next divider (gap stays close to the 8px top) */
 .citem .citem > .cfoot:last-child, .citem .citem > .editor:last-child {
