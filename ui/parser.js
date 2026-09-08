@@ -6,10 +6,10 @@
 //
 //     - Other: a nested reply (plain item, not resolvable)
 //
-// A checkbox item nested inside a thread is always a comment; a PLAIN "- "
-// item is a comment only when its text carries an author prefix or a
-// <!--thread-->/<!--rv--> marker — otherwise it is ordinary body list
-// content of the enclosing comment. A top-level item (either form) is a
+// A nested item of EITHER form is a comment only when its text carries an
+// authored timestamp (or "(now)") or a <!--thread-->/<!--rv--> marker —
+// otherwise it is ordinary body list content of the enclosing comment
+// (bare "- [ ]" task boxes included). A top-level item (either form) is a
 // thread root when it carries the marker, or (for files written by hand)
 // when it starts with a short "Author:" prefix. Ordinary task lists (e.g.
 // an agent's task log) are left alone and rendered as plain markdown.
@@ -720,7 +720,7 @@
           var bi = doc.blocks.indexOf(anchor);
           while (bi + 1 < doc.blocks.length && doc.blocks[bi + 1].type === 'thread') bi++;
           insertLine = doc.blocks[bi].endLine + 1;
-        } else if (op.sectionHash) {
+        } else if (insertLine < 0 && op.sectionHash) {
           var sec = findByHash(doc.blocks.filter(function (b) { return b.type === 'heading'; }), op.sectionHash, 0);
           if (sec) {
             var si = doc.blocks.indexOf(sec);

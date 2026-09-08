@@ -744,14 +744,15 @@ function render() {
         // there in the file — same affordance as between paragraphs
         if (prevThreadBlock) {
           const pt = prevThreadBlock;
+          const nkey = 'new:' + pt.thread.key;
           const tgap = document.createElement('div');
           tgap.className = 'igap tgap';
           tgap.title = 'Insert a thread between these two';
           tgap.innerHTML = '<span class="iglabel">— insert thread —</span>';
-          tgap.addEventListener('click', () => toggleEditor('new:' + pt.key));
+          tgap.addEventListener('click', () => toggleEditor(nkey));
           doc.appendChild(tgap);
-          if (S.editorsOpen.has('new:' + pt.key)) {
-            doc.appendChild(buildEditor('new:' + pt.key, pt));
+          if (S.editorsOpen.has(nkey)) {
+            doc.appendChild(buildEditor(nkey, pt));
           }
         }
         doc.appendChild(card);
@@ -784,7 +785,7 @@ function render() {
   // affordance. Keep one: a new thread at the end of the document.
   if (tagKeep && S.mode !== 'margin' && parsed.blocks.length) {
     const target = parsed.blocks[parsed.blocks.length - 1];
-    const nkey = 'new:' + target.key;
+    const nkey = 'new:' + (target.type === 'thread' ? target.thread.key : target.key);
     if (S.editorsOpen.has(nkey)) {
       doc.appendChild(buildEditor(nkey, target));
     } else {

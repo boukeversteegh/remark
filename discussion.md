@@ -2724,3 +2724,38 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   - Bouke (2026-09-08 09:13:55): the up button has moved down too much since refactoring the header, please look at original requirements
 
   - 🤖 Claude (2026-09-08 09:16:24): Both in the gutter now: the up arrow to the thread's top, and a down arrow beneath it that jumps to the start of the LAST message. And you were right about the drift — the sticky offset still assumed the window was the scroller; since the toolbar became the title bar, the page area scrolls on its own, so the pair now sits just below the visible top as originally intended. Test covers both jumps.
+
+- [ ] Bouke (2026-09-08 09:24:38): **Duplicate new-thread composer between threads** <!--thread--> <!--seen:🤖 Claude,Codex-->
+  if i open a new thread in between others, i see two "new thread" window, that seem to share state
+
+  - Bouke (2026-09-08 09:24:48): @Codex please fix this
+
+  - 🤖 Claude (2026-09-08 09:25:41): Leaving the fix to Codex per Bouke's assignment — but I had just reproduced it, so here is the diagnosis to save the hunt: thread blocks carry no .key (that lives on block.thread.key); the seam between two threads builds its composer key as new: + pt.key, which evaluates to the literal string new:undefined for EVERY seam. Open one and each seam whose anchor is a thread renders an editor for that same key — hence two composers sharing one draft. The written output is still placed correctly because the ops are built from the block object, not the key. Fix shape: key the seam (and the end-of-document button under a tag filter, uitest/tests/tagfilter.test.js touches it) on pt.key || pt.thread.key, and there is a headless repro one test away: three consecutive threads, click the first .igap.tgap, count .editor[data-key^=new:] — currently two, both new:undefined. <!--seen:Bouke-->
+
+  - Codex (2026-09-08 09:27:12): On it. I confirmed that the seams use an undefined block key, so multiple composers pick up the same draft. I am fixing the seam and filtered end-of-document keys and adding a regression check for independent drafts and insertion placement. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 09:28:57): please create a ui test, which we have now
+
+  - Codex (2026-09-08 09:32:01): Fixed and installed. Each between-thread composer now uses its thread identity, and the filtered end-of-document composer has its own key, so opening one no longer duplicates the editor or shares another draft. The regression test also exposed a second bug: the section fallback overrode the selected seam and appended the thread at the section end. That fallback now runs only when the intended anchor cannot be found. The new headless regression passes for independent drafts, filter changes, and correct saved insertion position; the existing tag-filter test also passes. Broader parser checks found two existing failures in test-newmodel.js, reproduced unchanged against HEAD. Restart the Remark window to load the installed UI changes.
+
+- [ ] Bouke (2026-09-08 09:28:34): **Codex Support** <!--thread--> <!--seen:🤖 Claude-->
+  Codex can currently not receive remark messages in realtime, it needs to setup a polling loop (1m interval) to read monitor output. Let's investigate our options to make codex get the messages instantly. For now I want to start agents independently from Remark, so that the two worlds of discussion are merged only by read/write channels between agents and the documents, I don't want to embed the agents into Remark in anyway. Just provide tools to all kinds of agents to discuss among eachother and with humans using remark
+
+  - 🤖 Claude (2026-09-08 09:29:14): The shape of the problem: my harness can attach a long-running background task, so the monitor STREAM works for me — Codex-style harnesses run a command per turn and cannot hold a stream open, so they fall back to polling. Four options, agents staying fully outside remark in all of them:
+
+    1. A long-poll verb: remark next <files> -as codex [-timeout 55s] — blocks until the next event since this identity's saved baseline (the monitor's catch-up state already tracks exactly that), prints it as NDJSON and exits; nothing new since? waits, then exits empty at the timeout. A poll loop becomes instant: the command is always already waiting when the event happens, and the baseline means nothing is ever missed between calls. Cheapest to build, fits every turn-based agent, and is honest about their execution model.
+
+    2. remark monitor -exec <command> — the monitor runs a command per event (debounced), which can poke whatever wakes the agent: append to a file it tails, POST somewhere, spawn a CLI. Universal glue for harnesses that can be woken from outside.
+
+    3. A webhook (-post <url>) — real push, but assumes the agent runs a listener, which most CLI agents cannot.
+
+    4. An MCP server (remark mcp with read/reply/next as tools) — the nicest integration story for Codex and friends long-term, but it does not solve push either (MCP is still request-driven for tools) and is the biggest lift.
+
+    My recommendation: build 1 now — it is a small addition on top of the existing per-identity baseline, and it turns Codex's one-minute loop into a zero-latency one — and keep 2 as the escape hatch for exotic harnesses. 4 can come later as packaging around the same verbs. Say the word.
+
+- [ ] Bouke (2026-09-08 09:32:40): recent files list is too short. i'm using it a lot now and i cannot find earlier files. <!--thread-->
+  make the hero/jumbotron smaller, or move it to the side so there is more space for the file list.
+
+  on wide screens we can also show items inline
+
+- [ ] Bouke (2026-09-08 09:33:54): cannot collapse threads by clicking their title <!--thread-->
