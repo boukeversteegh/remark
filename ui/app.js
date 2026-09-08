@@ -1220,32 +1220,11 @@ function buildItem(item, opts) {
     head.appendChild(nc);
   }
 
-  // own comments get a hover-revealed edit pencil in the header corner —
-  // and a delete, guarded: a comment with replies by OTHERS stays
+  // own comments get a hover-revealed edit pencil in the header corner;
+  // deleting lives INSIDE the edit composer (a bare header button is too
+  // easy to hit) — see the Delete… in buildEditor's bar
   const editing = S.editorsOpen.has('edit:' + item.key) && isMe(item.author);
   if (!collapsed && isMe(item.author) && !editing) {
-    const db = document.createElement('button');
-    db.className = 'replybtn inhead delbtn';
-    db.innerHTML = iconHTML('trash-2');
-    db.title = 'Delete your comment';
-    db.addEventListener('click', () => {
-      let others = 0, mine = 0;
-      (function walk(kids) {
-        for (const c of kids || []) {
-          if (c.author && !isMe(c.author)) others++;
-          else if (c.author) mine++;
-          walk(c.children);
-        }
-      })(item.children);
-      if (others) {
-        toast('warn', 'It has ' + others + (others === 1 ? ' reply' : ' replies') + ' by others — their words stay; remove those first.');
-        return;
-      }
-      const n = mine;
-      if (!confirm('Delete this comment' + (n ? ' and its ' + n + (n === 1 ? ' reply' : ' replies') + ' of yours' : '') + '? This removes it from the file.')) return;
-      submitOps([{ type: 'delete', hash: item.hash, occ: item.occ }]);
-    });
-    head.appendChild(db);
     const eb = document.createElement('button');
     eb.className = 'replybtn inhead';
     eb.innerHTML = iconHTML('pencil');

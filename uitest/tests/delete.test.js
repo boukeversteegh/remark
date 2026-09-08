@@ -22,20 +22,37 @@ module.exports = async ctx => {
     '',
   ].join('\n'));
   const page = await ctx.open(doc);
-  page.on('dialog', d => d.accept());
 
-  // UI: my reply under Bob's root goes after the confirm
-  await page.evaluate(() => document.querySelector('#r20260901100100 .delbtn').click());
+  // UI: Delete lives inside the edit composer — open edit, confirm the box
+  await page.evaluate(() => document.querySelector('#r20260901100100 [title="Edit your comment"]').click());
+  await page.waitForSelector('.editor[data-key^="edit:"] .del', { timeout: 4000 });
+  await page.click('.editor[data-key^="edit:"] .del');
+  await page.waitForSelector('.delconfirm', { timeout: 3000 });
+  await page.evaluate(() => {
+    [...document.querySelectorAll('.delconfirm button')].find(b => b.textContent.startsWith('Delete')).click();
+  });
   await page.waitForTimeout(1500);
   let md = ctx.read(doc);
-  assert(!md.includes('my disposable reply'), 'own reply deleted from the file');
+  assert(!md.includes('my disposable reply'), 'own reply deleted through the composer');
 
-  // UI guard: my root with Bob's answer stays, with a warning
-  await page.evaluate(() => document.querySelector('#r20260901110000 .delbtn').click());
+  // the confirmation spells out replies by others before anything goes;
+  // Keep leaves everything untouched
+  await page.evaluate(() => document.querySelector('#r20260901110000 [title="Edit your comment"]').click());
+  await page.waitForSelector('.editor[data-key^="edit:"] .del', { timeout: 4000 });
+  await page.click('.editor[data-key^="edit:"] .del');
+  await page.waitForSelector('.delconfirm', { timeout: 3000 });
+  const box = await page.evaluate(() => document.querySelector('.delconfirm').textContent);
+  assert(box.includes('Bob'), 'the box names the other author: ' + box);
+  await page.evaluate(() => {
+    [...document.querySelectorAll('.delconfirm button')].find(b => b.textContent === 'Keep').click();
+  });
+  await page.evaluate(() => {
+    [...document.querySelectorAll('.editor .cancel')].find(b => b.textContent === 'Cancel').click();
+  });
   await page.waitForTimeout(800);
   md = ctx.read(doc);
-  assert(md.includes('an answer by someone else'), 'a thread with replies by others survives');
-  assert(md.includes('**Guarded**'), 'the guarded root survives');
+  assert(md.includes('an answer by someone else'), 'Keep leaves the thread untouched');
+  assert(md.includes('**Guarded**'), 'the root survives');
 
   // CLI: my own thread with my own reply goes; Bob's comment is refused
   execFileSync(remarkExe(), ['delete', doc, '12:00:00', '-as', 'Me']);

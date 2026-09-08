@@ -11,7 +11,7 @@ eye; nothing depends on them.
 remark seen <file> <sel> -as <name> writes your read-marker at once. The guidance for agents changed with it: mark a comment the moment it reaches you, not when the work it asks for is finished — a long build must not look like an unread message.
 
 ### Delete your own comment
-Your comments carry a delete next to the edit pencil: it removes the comment (with your own replies under it, after a confirmation) but never one that someone else has answered — their words stay. The CLI mirrors it as remark delete <file> <sel> -as <name>, with the same guard.
+Deleting lives inside the edit composer, where it cannot be hit by accident: Delete… turns the footer into a confirmation that spells out exactly what goes — how many comments, per author, with their resolution state — before one action removes the subtree. The CLI counterpart, remark delete <file> <sel> -as <name>, is stricter: agents may only remove their own comments and are refused when others replied.
 
 ### Single-thread mode
 A toolbar toggle (next to Inline/Margin) shows one thread at a time: the board holds just the focused thread under its section heading — the scrollbar breathes again — while the outline keeps every row, the others dimmed, and a single click there switches threads without leaving the mode. Esc, the toggle or the Whole document bar (named after the thread) returns, landing back at the thread's place. The mode wins over an active tag filter; the phone keeps its one-thread view.
