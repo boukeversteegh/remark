@@ -1306,6 +1306,32 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .cbody p { margin: .55em 0; }
 .cbody code { background: var(--code-bg); border-radius: 5px; padding: .12em .35em; font-size: .87em; font-family: var(--font-mono); }
 .cbody pre { background: var(--code-bg); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+/* syntax colors (highlight.js token classes), github-flavored for both
+   schemes; the block background stays the app's own --code-bg */
+.hljs-comment, .hljs-quote { color: #6a737d; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-type, .hljs-tag { color: #d73a49; }
+.hljs-string, .hljs-regexp { color: #032f62; }
+.hljs-number, .hljs-literal, .hljs-built_in, .hljs-builtin-name { color: #005cc5; }
+.hljs-title, .hljs-title.function_, .hljs-title.class_ { color: #6f42c1; }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-params { color: #e36209; }
+.hljs-section, .hljs-name, .hljs-symbol, .hljs-bullet { color: #22863a; }
+.hljs-meta, .hljs-doctag { color: #735c0f; }
+.hljs-addition { color: #22863a; background: rgba(52, 208, 88, .12); }
+.hljs-deletion { color: #b31d28; background: rgba(255, 88, 88, .12); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }
+@media (prefers-color-scheme: dark) {
+  .hljs-comment, .hljs-quote { color: #8b949e; }
+  .hljs-keyword, .hljs-selector-tag, .hljs-type, .hljs-tag { color: #ff7b72; }
+  .hljs-string, .hljs-regexp { color: #a5d6ff; }
+  .hljs-number, .hljs-literal, .hljs-built_in, .hljs-builtin-name { color: #79c0ff; }
+  .hljs-title, .hljs-title.function_, .hljs-title.class_ { color: #d2a8ff; }
+  .hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-params { color: #ffa657; }
+  .hljs-section, .hljs-name, .hljs-symbol, .hljs-bullet { color: #7ee787; }
+  .hljs-meta, .hljs-doctag { color: #d29922; }
+  .hljs-addition { color: #7ee787; background: rgba(46, 160, 67, .18); }
+  .hljs-deletion { color: #ffa198; background: rgba(248, 81, 73, .18); }
+}
 .cbody a { color: var(--accent); }
 .cbody ul, .cbody ol { padding-left: 1.4em; }
 

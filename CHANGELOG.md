@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-08
 
+### Code blocks get syntax colors
+Fenced code highlights now, in comment bodies, in the document's own prose and in the composer preview — the fence's language tag wins, detection covers untagged blocks. Bundled highlight.js (common languages) next to the other vendored libraries, so it works offline and on the phone; the colors follow the app's light and dark schemes.
+
 ### Files with a UTF-8 BOM parse right
 The byte-order mark glued itself to the first line, so "# Header" at the top of such a file did not render as a heading and CLI section names came out empty. The BOM is now handled like the line-ending style: stripped before parsing everywhere (window, CLI, monitor) and put back on every save, so the file keeps its signature byte-for-byte.
 

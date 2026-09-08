@@ -3077,4 +3077,9 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 16:05:55): Fixed and installed. The BOM now travels exactly like the line-ending style: detected on load, stripped before any parsing - window, CLI verbs, and the monitor alike, so the first # Header renders and section names resolve - and restored on every save, so the file keeps its signature byte-for-byte whether the window or a CLI verb wrote it. The test opens a BOM'd file, checks the heading renders, then round-trips a CLI reply and a window save and asserts the BOM survives both. 33 of 33 pass.
 
-- [ ] Bouke (2026-09-08 16:01:54): Please implement syntax highlighting for code blocks <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Bouke (2026-09-08 16:01:54): **Syntax highlighting for code blocks** <!--thread--> <!--seen:🤖 Claude-->
+  Please implement syntax highlighting for code blocks
+
+  - 🤖 Claude (2026-09-08 16:06:51): Claiming. Plan: bundle highlight.js next to marked and DOMPurify in ui/vendor (everything stays offline), highlight fenced blocks after render - the fence's language tag wins, detection as fallback - with a color theme wired to the app's own light and dark variables. Test and changelog included.
+
+  - 🤖 Claude (2026-09-08 16:11:49): Built and installed. Fenced code highlights everywhere it renders - comment bodies, the document's own prose, and the composer preview - with the fence's language tag deciding and detection covering untagged blocks. highlight.js (the common-languages build) is bundled next to marked and DOMPurify in ui/vendor, so it works offline and over the gateway on the phone; the colors are a github-flavored set tied to the app's light and dark schemes, on the app's own code background. Test asserts colored tokens in both a tagged Go block in a comment and a Python block in prose; 34 of 34 pass.

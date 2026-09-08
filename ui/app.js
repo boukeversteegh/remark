@@ -107,6 +107,16 @@ function mdChunks(mdText) {
 }
 function mdInline(text) { return DOMPurify.sanitize(marked.parseInline(text)); }
 
+// fenced code gets colors after render: the fence's language tag wins,
+// detection is the fallback; sanitized HTML goes in, hljs spans come out
+if (window.hljs) hljs.configure({ ignoreUnescapedHTML: true });
+function highlightIn(rootNode) {
+  if (!window.hljs) return;
+  for (const c of rootNode.querySelectorAll('pre code')) {
+    try { hljs.highlightElement(c); } catch (e) { /* an odd block stays plain */ }
+  }
+}
+
 // the BOM travels like the EOL style: stripped before parsing, restored on
 // save, so the file keeps its signature and "# Header" is line one's start
 function normEol(s) { return s.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n'); }
@@ -894,6 +904,7 @@ function render() {
     el.className = 'block';
     el.dataset.key = block.key;
     el.innerHTML = md(block.text);
+    highlightIn(el);
     const btn = document.createElement('button');
     btn.className = 'addbtn';
     btn.title = 'Comment on this part';
@@ -1478,6 +1489,7 @@ function buildItem(item, opts) {
         const pe = document.createElement('div');
         pe.className = 'cpara';
         pe.innerHTML = md(chunk);
+        highlightIn(pe);
         if (chunk.indexOf('#') !== -1) linkTags(pe);
         if (chunk.indexOf('@') !== -1) linkMentions(pe);
         body.appendChild(pe);
@@ -1819,6 +1831,7 @@ function buildEditor(key, target) {
     if (previewing) {
       const titleText = titleIn ? titleIn.value.trim() : '';
       preview.innerHTML = md((titleText ? '**' + titleText + '**\n\n' : '') + (ta.value || '*nothing to preview*'));
+      highlightIn(preview);
       preview.style.display = '';
       ta.style.display = 'none';
       previewBtn.textContent = 'Edit';
