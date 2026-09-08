@@ -608,9 +608,11 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 
 /* focus bar: names what you are looking at, next to Whole document */
 .focuslabel { margin-left: 10px; font: 650 14px var(--font-display); color: var(--fg); }
-/* the rest of the board steps back while one thread has the stage */
-#doc .dimfocus, #rail .dimfocus { opacity: .35; transition: opacity .15s; }
-#doc .dimfocus:hover, #rail .dimfocus:hover { opacity: .7; }
+/* while one thread has the board, the outline keeps every row: the
+   others dim, the focused one is marked */
+.otrow.dimfocus { opacity: .45; }
+.otrow.dimfocus:hover { opacity: 1; }
+.otrow.focused { background: var(--surface); border-radius: 8px; }
 /* outline row ⋯ menu */
 .otrow .omenu {
   border: 0; background: none; color: var(--faint); cursor: pointer;

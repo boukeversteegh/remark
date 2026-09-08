@@ -670,24 +670,22 @@ function render() {
     }
   };
 
-  // focus: one thread has the stage. On the phone that means the thread
-  // alone (a notification opens it this way); on the desktop everything
-  // stays visible and the OTHER threads dim, so the board keeps its shape.
+  // focus: the board shows ONE thread (under its section heading) — that
+  // is what rescues the scrollbar — while the outline keeps every row,
+  // the others dimmed, for switching. A bar on top is the way back.
   let focusKeep = null;
   if (S.focusThread) {
     const froot = parsed.blocks.find(b => b.type === 'thread' && b.thread.time === S.focusThread);
     if (!froot) {
       S.focusThread = null; // the thread is gone
     } else {
-      if (S.mobile) {
-        focusKeep = new Set();
-        let lastHeading = null;
-        for (const b of parsed.blocks) {
-          if (b.type === 'heading') lastHeading = b;
-          if (b === froot) {
-            if (lastHeading) focusKeep.add(lastHeading);
-            focusKeep.add(b);
-          }
+      focusKeep = new Set();
+      let lastHeading = null;
+      for (const b of parsed.blocks) {
+        if (b.type === 'heading') lastHeading = b;
+        if (b === froot) {
+          if (lastHeading) focusKeep.add(lastHeading);
+          focusKeep.add(b);
         }
       }
       const back = document.createElement('button');
@@ -747,14 +745,6 @@ function render() {
           threadStats(block.thread).unread === 0 && !hasOpenNested(block.thread)) continue;
       clusterThreads++;
       const card = buildThread(block);
-      // double-click gives a thread the stage; the same gesture (or Esc,
-      // or the bar) gives it back. Others dim, nothing hides.
-      if (S.focusThread && block.thread.time !== S.focusThread) card.classList.add('dimfocus');
-      card.addEventListener('dblclick', e => {
-        if (e.target.closest('textarea, input, button, a')) return;
-        S.focusThread = S.focusThread === block.thread.time ? null : block.thread.time;
-        render();
-      });
       if (S.mode === 'margin') {
         rail.appendChild(card);
         railEntries.push({ card, anchorEl: lastBlockEl, root: block.thread });
@@ -3013,12 +3003,16 @@ function openThreadMenu(anchor, th) {
     b.addEventListener('click', () => { m.remove(); fn(); });
     m.appendChild(b);
   };
-  add('Focus this thread', () => {
-    S.focusThread = th.time;
-    render();
-    const el = th.time && document.getElementById('r' + th.time.replace(/\D/g, ''));
-    if (el) el.scrollIntoView({ block: 'start' });
-  });
+  if (S.focusThread === th.time) {
+    add('Unfocus', () => exitFocus());
+  } else {
+    add('Focus this thread', () => {
+      S.focusThread = th.time;
+      render();
+      const el = th.time && document.getElementById('r' + th.time.replace(/\D/g, ''));
+      if (el) el.scrollIntoView({ block: 'start' });
+    });
+  }
   if (th.time) {
     add('Copy reference', () => {
       const ref = '#r' + th.time.replace(/\D/g, '');
@@ -3170,11 +3164,15 @@ function buildOutline() {
       const stats = threadStats(th);
       const open = threadOpen(th);
       const marks = bookmarkedIn(th);
-      // a bookmarked thread is always listed, whatever the filter says
-      if (!S.outlineAll && !open && !marks.length) continue;
-      if (!threadMatchesFilter(th)) continue; // the tag filter narrows the outline too
+      // a bookmarked thread is always listed, whatever the filter says —
+      // and during a focus the WHOLE list stays, for switching threads
+      if (!S.focusThread) {
+        if (!S.outlineAll && !open && !marks.length) continue;
+        if (!threadMatchesFilter(th)) continue; // the tag filter narrows the outline too
+      }
       const trow = document.createElement('div');
-      trow.className = 'otrow' + (marks.length ? ' bookmarked' : '');
+      trow.className = 'otrow' + (marks.length ? ' bookmarked' : '') +
+        (S.focusThread ? (th.time === S.focusThread ? ' focused' : ' dimfocus') : '');
       if (th.time) trow.dataset.spyTime = th.time.replace(/\D/g, ''); // scroll spy: the root's anchor
       const dot = document.createElement('span');
       dot.className = 'ostat ' + (stats.unread ? 'unread' : open ? 'open' : 'done');
@@ -3223,6 +3221,12 @@ function buildOutline() {
         const unreadHere = [];
         collectUnread(th, unreadHere);
         openFromPanel(unreadHere[0] || th, th);
+      });
+      // double-click an outline row toggles the focus on its thread
+      trow.addEventListener('dblclick', e => {
+        e.preventDefault();
+        S.focusThread = S.focusThread === th.time ? null : th.time;
+        render();
       });
       nav.appendChild(trow);
       // one line per bookmarked comment, nested under its thread

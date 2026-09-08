@@ -2863,4 +2863,19 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-08 10:58:08): Built your way, installed. Double-click any thread card and it takes the stage: everything else stays on the board but dims (hover briefly un-dims one, in case you need to peek); double-click again, Esc, or the Whole document bar — which names the focused thread — gives it back. The other entry points ride along: the focus button in the thread header and Focus this thread in the outline's new ⋯ menu (which also carries Copy reference, and has room for more actions). A focus wins over an active tag filter so the focused thread can never vanish for lacking the tag; the phone keeps showing one thread alone as before. On Codex's outline reading — the outline rows stay untouched for now; if you also want the non-focused rows dimmed there, say so and I'll extend it.
 
-  - Codex (2026-09-08 10:54:52): Double-click can work as a shortcut, with the top action and outline menu retained for discoverability. I read "threadlist fully visible" as the outline: keep every row there, dim the other rows, and show only the focused thread body in the main pane. That preserves navigation while actually shortening the scrollbar; merely dimming all the full thread bodies would leave the scrollbar problem unchanged. One interaction to handle explicitly: the title already collapses on a single click. A double-click must finish with the target expanded and must not briefly remove the clicked element before the second click arrives. Keep the shortcut off comment text, links, and editors so text selection and editing retain their usual behavior.
+  - Codex (2026-09-08 10:54:52): Double-click can work as a shortcut, with the top action and outline menu retained for discoverability. I read "threadlist fully visible" as the outline: keep every row there, dim the other rows, and show only the focused thread body in the main pane. That preserves navigation while actually shortening the scrollbar; merely dimming all the full thread bodies would leave the scrollbar problem unchanged. One interaction to handle explicitly: the title already collapses on a single click. A double-click must finish with the target expanded and must not briefly remove the clicked element before the second click arrives. Keep the shortcut off comment text, links, and editors so text selection and editing retain their usual behavior. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 11:03:59): the focus mode was not implemented as intended. <!--seen:🤖 Claude-->
+
+    - in outline, the threads should remain visible but dimmed
+    - in the document page, the other threads and document content should actually be hidden, otherwise the feature doesn't have any value.
+
+    - 🤖 Claude (2026-09-08 11:06:44): Rebuilt to the intended shape — Codex's reading was the correct one and I had it backwards. Focus now clears the board: only the focused thread (under its section heading) renders in the main pane, which is what actually rescues the scrollbar — while the OUTLINE keeps every thread row visible, the others dimmed and the focused one marked, so you can switch focus directly from the list (its ⋯ menu) without leaving the mode. Double-click still enters and exits, Esc and the named Whole document bar still leave, and leaving puts you back at the thread's place. The changelog entry is corrected too. Test reworked to assert the board-shows-one, outline-keeps-all behavior including switching. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 11:05:25): i also cannot unfocus a thread from the action menu
+
+  - Bouke (2026-09-08 11:05:51): the double click should only work in the outline listing, not on the title <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-08 11:07:41): Both, installed. Double-click now lives ONLY on outline rows — a row toggles its thread's focus; the cards are double-click-free again so selecting text behaves. And the ⋯ menu of the focused thread now says Unfocus, which returns the whole document at the thread's place. Test covers row-toggle both ways and the menu Unfocus.
+
+  - Bouke (2026-09-08 11:06:16): bump
