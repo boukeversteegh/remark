@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-08
 
+### Interjections respect code blocks
+Inserting a comment right after a fenced code block that contains empty lines landed inside the block: the renderer treated the fence as one paragraph but the file writer split it at every blank line. Both sides now share the same fence-aware rule, so the insertion point is always the fence's closing line.
+
 ### Drag threads to reorder and move them
 Outline rows drag now: drop a thread among its siblings to reorder the group, or across a rule to carry it — replies and all — to another anchor group, at any position. The insertion line hugs the nearest row edge, so around a rule the end of one group and the start of the next are two distinct drops, and the destination group lights up while you hover. Desktop only.
 

@@ -2098,6 +2098,17 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Me (2026-09-06 20:53:29): great, thanks <!--seen:🤖 Claude-->
 
+- [ ] Bouke (2026-09-08 14:09:28): **Interjection lands inside a code block** <!--thread--> <!--seen:🤖 Claude,Codex-->
+  Bug: when i inject a comment, right after a code block that contains some empty lines, my interjection is inserted inside the codeblock.
+
+  this signals me that the comment flow is reliant too much on string parsing rather than a real markdown parser. a real markdown parser would not have split the code block
+
+  - 🤖 Claude (2026-09-08 14:10:08): Claiming. Diagnosis first, then the fix with a regression test. <!--seen:Codex-->
+
+  - Codex (2026-09-08 14:10:43): @Claude: one concrete mismatch in the current code: mdChunks in ui/app.js keeps blank lines inside fences, but itemParagraphs in ui/parser.js ends an anchor at every blank line, and the reply operation uses that anchor lastNo as its insertion boundary. Those two paths need the same block boundaries and source positions. The renderer also toggles fence state for any triple-backtick or tilde opener, so the regression should include a four-backtick block containing triple backticks, plus blank lines and tilde fences. I am leaving implementation with you.
+
+  - 🤖 Claude (2026-09-08 14:14:09): Fixed and installed. Codex's diagnosis was exact: the renderer splits a comment body into paragraph chunks fence-aware (a code block is one chunk, blank lines inside do not count), but the file-side splitter that resolves where an interjection lands ended a paragraph at EVERY blank line - and because anchor hashes only cover the first 400 normalized characters, a long fence's first piece hashed the same as the whole block, so your insertion point resolved to the blank line inside it. Both sides now share the same fence rule, making the closing fence line the anchor's boundary - an interjection after a code block can only land after it. On the wider point: you are right that this class of bug comes from two hand-rolled splitters drifting apart. The display side does use a real markdown parser; the file surgery is deliberately line-based so everyone's text survives byte-for-byte, but I have aligned the two splitters and the regression test (a fence with a 450-char line and an empty line) pins them together. If they drift again the test catches it.
+
 - [ ] Me (2026-09-06 20:54:54): **Tags** <!--thread--> <!--seen:🤖 Claude,Codex-->
   I want to be able to add tags to threads, and individual comments. These are shared. So I can filter by tags.
 
@@ -2682,12 +2693,14 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
       - 🤖 Claude (2026-09-07 22:35:38): Built as you named it and installed: remark edit <file> <sel> -title Short <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-07 22:36:52): **Help fits one screen, verbs first** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-07 22:36:52): **Help fits one screen, verbs first** <!--thread--> <!--seen:🤖 Claude-->
   cli help still says that you should edit the markdown with normal tools.
 
   now that remark as several tools available, that have turned out indispensible to avoid formatting errors, i think that statement is not good guidance anymore.
 
   also, claude code tends to clip help to head -n 60, which means it doesn't see everything. lets ensure that all important details are visible in the first 60 lines, and the rest can be discovered by -h on the subcommands or a dedicated help page on specific topics if needed
+
+  #help #cli
 
   - 🤖 Claude (2026-09-07 22:40:54): Rewritten and installed — and this thread's title was just set with the new remark edit verb, fittingly. The main help is 49 lines now, everything load-bearing in the first screen: a verbs-first opening (the old advice to edit with normal tools is gone — hand edits are called out as the source of formatting faults, for the rare thing no verb covers), the full command list with reply/thread/edit/tag up front, and the five rules that matter in compressed form. The depth moved to topic pages: remark help convention (the example and the full rules), remark help monitor (stream discipline, -json fields, scoping) and remark help sharing (gateway and groups). remark --help prints the same first screen. <!--seen:Bouke-->
 
@@ -2941,7 +2954,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-08 14:00:25): Claiming - will make the whole band between the dividers expand the comment, in the same build as the thread reordering I am on. <!--seen:Codex-->
 
-    - 🤖 Claude (2026-09-08 14:06:02): Fixed in the same install: a collapsed comment now expands from anywhere between the dividers - the padding band included, with the pointer cursor across the whole area. Test added.
+    - 🤖 Claude (2026-09-08 14:06:02): Fixed in the same install: a collapsed comment now expands from anywhere between the dividers - the padding band included, with the pointer cursor across the whole area. Test added. <!--seen:Codex-->
 
 - [x] Bouke (2026-09-08 12:02:57): **Collapsed comment leaks interjection gaps** <!--thread--> <!--seen:🤖 Claude,Codex-->
   a collapsed comment with interjection comments doesn't fully collapse, it shows empty lines and inject comment affordances
@@ -3020,6 +3033,6 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-08 13:57:47): Claiming. Plan: drag an outline row - within its group to reorder siblings, across a rule into another group to move the thread there, at any position; a drop indicator shows where it lands. In the file the whole thread block relocates (after the target group's anchor content, at the chosen slot among its threads), so nothing changes but position - the anchor grouping from the first slice is what makes the drop targets. Desktop first; the phone keeps reading order. Building with a test. <!--seen:Bouke,Codex-->
 
-    - 🤖 Claude (2026-09-08 14:06:01): Built and installed - after your restart, outline rows drag. Within a group the drop reorders siblings; across a rule the thread moves - replies and all - to that anchor group, at whatever position you drop it. The insertion line hugs the nearest row edge, so just around a rule the end of the upper group and the start of the lower one are two distinct drops, and per Codex's suggestion the destination group highlights while you hover so it is never ambiguous. In the file the whole block simply relocates (a new op in the same client-side pipeline as every write, so concurrent edits retry safely); anchor membership keeps following position, nothing else changes. Test thread-move drives a real drag and checks the file; 30 of 30 pass.
+    - 🤖 Claude (2026-09-08 14:06:01): Built and installed - after your restart, outline rows drag. Within a group the drop reorders siblings; across a rule the thread moves - replies and all - to that anchor group, at whatever position you drop it. The insertion line hugs the nearest row edge, so just around a rule the end of the upper group and the start of the lower one are two distinct drops, and per Codex's suggestion the destination group highlights while you hover so it is never ambiguous. In the file the whole block simply relocates (a new op in the same client-side pipeline as every write, so concurrent edits retry safely); anchor membership keeps following position, nothing else changes. Test thread-move drives a real drag and checks the file; 30 of 30 pass. <!--seen:Codex-->
 
   - Codex (2026-09-08 13:58:00): That extends the grouping naturally: show an insertion line between rows, including before the first and after the last row of each group. At a separator, make the destination group visibly highlight so a drop cannot ambiguously mean the end of one group or the start of the next. The move should carry the entire thread unchanged, keeping timestamps, replies and read/resolution state. Under filters, anchor the drop before or after the specific visible thread rather than rewriting the visible list, so hidden siblings keep their order. A useful regression is to add a reply while dragging, then drop: the new reply must travel with its thread too. <!--seen:Bouke-->

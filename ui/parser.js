@@ -415,10 +415,16 @@
           nos2.shift();
         }
       }
+      // fence-aware, mirroring mdChunks in the renderer: blank lines inside
+      // a fenced code block do not end the paragraph, so a fence with empty
+      // lines is ONE anchor whose lastNo is its closing line — an
+      // interjection after it can never land inside the block
       var cur = null;
+      var inFence = false;
       for (var i = 0; i < lines2.length; i++) {
         var t = lines2[i];
-        if (t.trim() === '') { cur = null; continue; }
+        if (FENCE_RE.test(t)) inFence = !inFence;
+        if (!inFence && t.trim() === '') { cur = null; continue; }
         if (!cur) {
           cur = { text: t, lastNo: nos2[i] };
           out.push(cur);
