@@ -107,8 +107,13 @@ function mdChunks(mdText) {
 }
 function mdInline(text) { return DOMPurify.sanitize(marked.parseInline(text)); }
 
-function normEol(s) { return s.replace(/\r\n/g, '\n'); }
-function denormEol(s) { return S.eol === '\r\n' ? s.replace(/\n/g, '\r\n') : s; }
+// the BOM travels like the EOL style: stripped before parsing, restored on
+// save, so the file keeps its signature and "# Header" is line one's start
+function normEol(s) { return s.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n'); }
+function denormEol(s) {
+  const t = S.eol === '\r\n' ? s.replace(/\n/g, '\r\n') : s;
+  return S.bom ? '\uFEFF' + t : t;
+}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // local-time stamp embedded into new comments as plain text: "2026-09-02 14:32"
@@ -3635,7 +3640,10 @@ function wireDivider() {
 // ---------------------------------------------------------------------------
 // live updates
 // ---------------------------------------------------------------------------
-function detectEol() { S.eol = S.doc.content.includes('\r\n') ? '\r\n' : '\n'; }
+function detectEol() {
+  S.eol = S.doc.content.includes('\r\n') ? '\r\n' : '\n';
+  S.bom = S.doc.content.charCodeAt(0) === 0xFEFF;
+}
 
 // remark stamps hand-typed comments itself: a bare item gets the local
 // user's name + time, an authored-but-unstamped item gets the time — a

@@ -262,6 +262,11 @@ func writeWithRetry(file string, compute func(content string) (string, error)) {
 			fmt.Fprintln(os.Stderr, "remark:", err)
 			os.Exit(1)
 		}
+		// readParse strips a UTF-8 BOM for parsing; the file keeps its
+		// signature across every write
+		if strings.HasPrefix(string(b), "\ufeff") && !strings.HasPrefix(out, "\ufeff") {
+			out = "\ufeff" + out
+		}
 		again, err := os.ReadFile(file)
 		if err == nil && string(again) != string(b) {
 			time.Sleep(150 * time.Millisecond)

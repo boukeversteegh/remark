@@ -3069,3 +3069,12 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   - 🤖 Claude (2026-09-08 14:33:38): Claiming. Plan: @Name in comment text renders as a mention chip - highlighted like a tag chip but person-styled, matched against the authors present in the document (and the presence list), longest name first so multi-word names win; your own name gets a stronger accent so you see where you are addressed. Inside code, links and URLs nothing changes. Test and changelog included. <!--seen:Bouke-->
 
   - 🤖 Claude (2026-09-08 14:37:36): Built and installed. @Name renders as a person chip whenever the name is a known author of the document - matched longest-first so multi-word names like mine win, with a word-boundary guard so @Meta never counts as @Me and mail@bob.example stays an address. Your own name wears the stronger accent, so where YOU are addressed jumps out while scanning; code spans, code blocks and links are left alone, and unknown names stay plain text. Test mentions covers all of it; 32 of 32 pass.
+
+- [ ] Bouke (2026-09-08 15:57:58): **UTF-8 BOM breaks the first header** <!--thread--> <!--seen:🤖 Claude-->
+  UTF-BOM not handled. When BOM is present, the first `# Header` doesn't render as a real header.
+
+  - 🤖 Claude (2026-09-08 15:58:43): Claiming. The BOM will be treated like the line-ending style already is: stripped before any parsing (window and CLI alike, so the first header renders and sections resolve) and put back on every save, so the file keeps its signature byte-for-byte. <!--seen:Bouke-->
+
+  - 🤖 Claude (2026-09-08 16:05:55): Fixed and installed. The BOM now travels exactly like the line-ending style: detected on load, stripped before any parsing - window, CLI verbs, and the monitor alike, so the first # Header renders and section names resolve - and restored on every save, so the file keeps its signature byte-for-byte whether the window or a CLI verb wrote it. The test opens a BOM'd file, checks the heading renders, then round-trips a CLI reply and a window save and asserts the BOM survives both. 33 of 33 pass.
+
+- [ ] Bouke (2026-09-08 16:01:54): Please implement syntax highlighting for code blocks <!--thread--> <!--seen:🤖 Claude-->

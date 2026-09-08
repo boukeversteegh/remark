@@ -289,6 +289,7 @@ func monIsRoot(text string) bool {
 
 // monParse extracts all comment items with their context.
 func monParse(content string) []*monItem {
+	content = strings.TrimPrefix(content, "\ufeff") // a BOM must not hide the first heading
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 	var items []*monItem
 	section := ""

@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-08
 
+### Files with a UTF-8 BOM parse right
+The byte-order mark glued itself to the first line, so "# Header" at the top of such a file did not render as a heading and CLI section names came out empty. The BOM is now handled like the line-ending style: stripped before parsing everywhere (window, CLI, monitor) and put back on every save, so the file keeps its signature byte-for-byte.
+
 ### Mentions light up
 "@Name" in a comment renders as a person chip when the name is a known author of the document — and your own name wears the accent, so where you are addressed stands out while scanning. Multi-word names work (the longest match wins); code, links and unknown names stay plain text.
 
