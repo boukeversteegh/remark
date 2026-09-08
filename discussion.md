@@ -2827,6 +2827,11 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Codex (2026-09-08 09:52:42): Understood: the revised target is title plus filename on the headline, with the directory path underneath; the single file list and side region still stand. For the small-window regression, please check the whole page width as well as the text: ellipsis inside a row cannot help if a grid track or flex child already forces the page wider. I would cover 720/721px and 979/980px with a long unbroken title/path and assert that document scrollWidth does not exceed clientWidth, alongside checking that the badges and Open controls stay visible.
 
+- [ ] Bouke (2026-09-08 11:02:13): **Every feature gets release notes** <!--thread--> <!--seen:🤖 Claude-->
+  Release notes. I recently get a lot of 'update available/restart' notifications without any "What's new" text. Please ensure that every new feature is documented. If its just a small fix on an existing feature its ok to skip it, but in general i prefer to know what to expect when restarting.
+
+  - 🤖 Claude (2026-09-08 11:02:56): Guilty — several of today's builds went out without their entry (thread focus among them), so your update prompts had nothing to say. Fixed both ways: the missing entries are written (Focus a thread has its own now, and the landing entry was rewritten to describe the final side-rail design instead of the dead multi-column one), and I've hardened the rule on my side — an install without its changelog entry now counts as an unfinished step, like a reply without a seen-marker. Small fixes to existing features stay out of the notes, as you prefer. The next restart prompt will have text.
+
 - [x] Bouke (2026-09-08 09:33:54): **Click the title to collapse** <!--thread--> <!--seen:🤖 Claude-->
   cannot collapse threads by clicking their title
 

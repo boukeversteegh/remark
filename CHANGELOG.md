@@ -7,8 +7,11 @@ eye; nothing depends on them.
 
 ## 2026-09-08
 
+### Focus a thread
+Double-click a thread and it takes the stage: the rest of the board stays put but dims (hovering peeks one back). Esc, another double-click or the Whole document bar — which names the focused thread — returns. Also reachable from the focus button in a thread's header and from the outline rows' new ⋯ menu, which carries Copy reference too and has room for more actions. A focus wins over an active tag filter; the phone keeps showing one thread alone.
+
 ### The landing page is a file list first
-The branding shrinks to one compact row and the recent files get the room — in columns on a wide screen — with the history raised from 10 to 30 files. Clicking a thread's title now collapses it, same as the header row.
+The branding and actions move into a side rail on wide screens and the recent files get the room as one continuous list — each entry a headline (title, filename dim beside it) with the path underneath — with the history raised from 10 to 30 files. Clicking a thread's title now collapses it, same as the header row.
 
 ### Sharing sheds the phone framing
 The sharing button is the share glyph everywhere now — toolbar, panel and the remote reader's light — and tells the document's state at a glance: gray when not shared, green when shared and reachable, red when shared but the gateway is stopped (the one moment its state matters). The panel is called Sharing, the QR and the invite link sit side by side with a Copy link button, and the phone wording is gone.
