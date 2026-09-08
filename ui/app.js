@@ -406,19 +406,32 @@ function tagChip(e, item) {
   chip.title = (e.authored ? 'In the text' : 'Tagged by ' + (e.by || []).join(', ')) +
     (S.tagFilter.has(e.tag) ? ' — click to stop filtering by #' + e.tag : ' — click to show only threads with #' + e.tag);
   chip.addEventListener('click', ev => { ev.stopPropagation(); toggleTag(e.tag); });
-  if (item && !e.authored && (e.by || []).some(isMe)) {
+  // removable when it is YOURS: a reader tag you placed, or a tag written
+  // in your own text (removing edits your text, tidying the emptied line)
+  const removable = item && (
+    (!e.authored && (e.by || []).some(isMe)) ||
+    (e.authored && isMe(item.author)));
+  if (removable) {
     const x = document.createElement('span');
     x.className = 'tagx';
     x.textContent = '×';
     x.title = 'Remove your #' + e.tag + ' from this comment';
     x.addEventListener('click', ev => {
       ev.stopPropagation();
-      const mine = item.children.find(c => c.bare && isMe(c.author) && c.bareTags.includes(e.tag));
-      if (!mine) return;
-      const rest = mine.bareTags.filter(t => t !== e.tag);
-      submitOps([rest.length
-        ? { type: 'edit', hash: mine.hash, occ: mine.occ, text: rest.map(t => '#' + t).join(' ') }
-        : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
+      if (!e.authored) {
+        const mine = item.children.find(c => c.bare && isMe(c.author) && c.bareTags.includes(e.tag));
+        if (!mine) return;
+        const rest = mine.bareTags.filter(t => t !== e.tag);
+        submitOps([rest.length
+          ? { type: 'edit', hash: mine.hash, occ: mine.occ, text: rest.map(t => '#' + t).join(' ') }
+          : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
+        return;
+      }
+      const rx = new RegExp('(^|[^\\w&/#])#' + e.tag + '(?![\\w-])', 'gi');
+      let text = item.rawBody.replace(rx, '$1');
+      text = text.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n')
+        .replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+      submitOps([{ type: 'edit', hash: item.hash, occ: item.occ, text }]);
     });
     chip.appendChild(x);
   }

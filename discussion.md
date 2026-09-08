@@ -2189,9 +2189,11 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-07 22:24:42): rgb colors show up as hashtags, not intended. #r references still show up in the taglist. <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-07 22:29:11): Both excluded now, in the UI and the Go side alike: a hex color (3-8 hex characters with at least one digit, like #eaf3ff or #b2b) is not a tag, and neither is anything #r-shaped — the comment references and the bare #r your own message just got tagged with. Installed; existing stray tags disappear on the next render since tags are derived from the text, nothing stored.
+    - 🤖 Claude (2026-09-07 22:29:11): Both excluded now, in the UI and the Go side alike: a hex color (3-8 hex characters with at least one digit, like #eaf3ff or #b2b) is not a tag, and neither is anything #r-shaped — the comment references and the bare #r your own message just got tagged with. Installed; existing stray tags disappear on the next render since tags are derived from the text, nothing stored. <!--seen:Bouke-->
 
-  - Bouke (2026-09-08 09:10:13): seems there is no way to remove a tag
+  - Bouke (2026-09-08 09:10:13): seems there is no way to remove a tag <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-08 09:11:28): There is now — installed in your window. Every tag that is YOURS gets a small × on its chip: a reader tag you placed on someone's comment (removes your bare-tag reply, as before, that one existed but only there), and now also a tag written in your own text — the × edits the #tag token out of your comment, tidying the line it sat on. Tags in someone else's text stay theirs, as words should. Test added.
 
 - [x] Me (2026-09-06 22:03:29): **Mobile App** <!--thread--> <!--seen:🤖 Claude-->
   I now am using remark as my primary interface with AI, it works fantastically, but for mobile situations I'm still reliant on claude code remote, which drops be back to the linear experience. I desperately need a way to continue my work on mobile. I want to setup a gateway infrastructure which can run on my pc to which i can connect the app. The app needs a single connection, the gateway, and the other clients expose their documents to it. Once my remark client (the app) has a configured gateway, enabling remote access should just be a single toggle. ideally i can just run the gateway with remark gateway, and keep it on, and that's it. authentication is needed, and the app should require scanning a configuration code or something.
