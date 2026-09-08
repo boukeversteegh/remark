@@ -51,12 +51,15 @@ module.exports = async ctx => {
     const badge = a.querySelector('.rbadge').getBoundingClientRect();
     const line = a.querySelector('.rline').getBoundingClientRect();
     const pathEl = a.querySelector('.rfile').getBoundingClientRect();
+    const landing = document.getElementById('landing');
     return {
       ellipsized: name.scrollWidth > name.clientWidth,
       nameW: Math.round(name.getBoundingClientRect().width),
       badgeOn: badge.width > 0 && badge.right <= innerWidth,
       pathBelow: pathEl.top >= line.bottom - 2,
-      hOverflow: document.documentElement.scrollWidth > innerWidth,
+      // the landing scrolls in its own fixed container: measure THERE,
+      // not on the document, or overflow hides from the assertion
+      hOverflow: landing.scrollWidth > landing.clientWidth + 1,
     };
   });
   assert(edge.badgeOn, 'the badge stays on screen beside a long title');
@@ -68,7 +71,7 @@ module.exports = async ctx => {
   await p2.setViewportSize({ width: 500, height: 600 });
   await p2.waitForTimeout(200);
   const small = await p2.evaluate(() => ({
-    hOverflow: document.documentElement.scrollWidth > innerWidth,
+    hOverflow: (l => l.scrollWidth > l.clientWidth + 1)(document.getElementById('landing')),
     badgeOn: (b => b.width > 0 && b.right <= innerWidth)(document.querySelector('#recent a .rbadge').getBoundingClientRect()),
   }));
   assert(!small.hOverflow, 'no horizontal overflow in a small window');

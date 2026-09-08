@@ -49,6 +49,7 @@ module.exports = async ctx => {
 
     // the fences hold
     assertEq((await fetch(gu('/api/prefs'), { method: 'POST', body: '{}' })).status, 403, 'prefs stay read-only');
+    assertEq((await fetch(gu('/api/openwith?path=' + encodeURIComponent(doc)), { method: 'POST' })).status, 403, 'openwith refused remotely');
     assertEq((await fetch(gu('/api/file?path=' + encodeURIComponent(path.join(ctx.tmp, 'seed.md'))))).status, 403, 'foreign docs refused');
 
     // in the browser: connection light on, external links open locally

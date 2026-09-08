@@ -627,6 +627,25 @@ func newMux() *http.ServeMux {
 		}
 		jsonOut(w, http.StatusOK, map[string]any{"ok": true, "members": groupMemberNames(g)})
 	}))
+	// the native Open-with dialog for the current document: the system's
+	// own configured-apps list, nothing to scrape or cache
+	mux.HandleFunc("POST /api/openwith", authed(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Query().Get("path")
+		abs, err := filepath.Abs(p)
+		if p == "" || err != nil {
+			jsonOut(w, http.StatusBadRequest, map[string]string{"error": "path required"})
+			return
+		}
+		// owned by the window when there is one, so the dialog lands on the
+		// window's monitor; a bare -serve process falls back to the shell
+		if !openWithDialog(abs) {
+			if err := exec.Command("rundll32.exe", "shell32.dll,OpenAs_RunDLL", abs).Start(); err != nil {
+				jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+		}
+		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
+	}))
 	// direct messages: open <name>'s channel in its own window, addressed to
 	// one running instance (sid) — that window stamps what it sends with
 	// <!--to:sid--> so only that monitor's feed gets it

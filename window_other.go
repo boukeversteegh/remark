@@ -7,6 +7,9 @@ import (
 	"runtime"
 )
 
+// openWithDialog is Windows-only; elsewhere the endpoint falls back.
+func openWithDialog(path string) bool { return false }
+
 // runWindow opens the app in a chromium "--app" window (own window, no
 // browser chrome) when a chromium-family browser is available. Returns false
 // so the caller falls back to the default browser otherwise.

@@ -233,7 +233,7 @@ func gatewayHandler(mux http.Handler) http.Handler {
 			return
 		}
 		switch r.URL.Path {
-		case "/api/openfile", "/api/openurl", "/api/dm", "/api/restart", "/api/gateway/start", "/api/gateway/stop":
+		case "/api/openfile", "/api/openurl", "/api/openwith", "/api/dm", "/api/restart", "/api/gateway/start", "/api/gateway/stop":
 			http.Error(w, "not available through the gateway", http.StatusForbidden)
 			return
 		}

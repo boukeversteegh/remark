@@ -17,15 +17,14 @@ module.exports = async ctx => {
   await page.waitForTimeout(200);
   await page.evaluate(() => document.querySelector('#r20260901100000 [title="Edit your comment"]').click());
   await page.waitForSelector('.editor[data-key^="edit:"] textarea', { timeout: 4000 });
-  // the edit composer replaces the body: it sits at the text column, not
-  // at the reply inset — no phantom nesting while editing
+  // the edit composer keeps the body's text-column indent (30px inset)
   const align = await page.evaluate(() => {
     const ta = document.querySelector('.editor[data-key^="edit:"] textarea');
     const card = document.getElementById('r20260901100000');
     return Math.round(ta.getBoundingClientRect().left - card.getBoundingClientRect().left);
   });
   const { assert: assert2 } = require('../helpers');
-  assert2(align < 20, 'the edit composer aligns with the body, inset ' + align + 'px');
+  assert2(align >= 25 && align <= 60, 'the edit composer stays at the text column, inset ' + align + 'px');
   const pre = await page.inputValue('.editor[data-key^="edit:"] textarea');
   assert(pre.includes('the original text'), 'composer prefilled with the body');
   await page.fill('.editor[data-key^="edit:"] textarea', pre.replace('the original text', 'the corrected text'));

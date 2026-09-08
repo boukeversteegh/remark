@@ -677,8 +677,11 @@ function render() {
   if (S.focusThread) {
     const froot = parsed.blocks.find(b => b.type === 'thread' && b.thread.time === S.focusThread);
     if (!froot) {
-      S.focusThread = null; // the thread is gone
+      // gone — unless it is a just-created thread whose save has not
+      // landed yet; that one gets a grace until the next parse has it
+      if (!S.focusPending) S.focusThread = null;
     } else {
+      S.focusPending = false;
       focusKeep = new Set();
       let lastHeading = null;
       for (const b of parsed.blocks) {
@@ -1867,6 +1870,13 @@ function buildEditor(key, target) {
         ops.push({ type: 'seen', hash: sib.hash, occ: sib.occ, reader: S.me, on: true });
       }
     }
+    // in single-thread mode a freshly created thread is what you came to
+    // write: the focus follows it (pending until the save lands — the
+    // renderer must not mistake the not-yet-written thread for a deleted one)
+    if (S.focusThread && isNewThread && op && op.time) {
+      S.focusThread = op.time;
+      S.focusPending = true;
+    }
     submitOps(ops);
     render();
   }
@@ -2671,6 +2681,8 @@ function gatewayButtonState(shared, running) {
 // signal icon (desktop browsers join groups too, not just phones), and a
 // click says what you are connected to.
 function wireRemoteBadge() {
+  const ow = $('#openWithBtn');
+  if (ow) ow.remove(); // apps open on the HOST — nothing to offer remotely
   const b = $('#gatewayBtn');
   if (!b) return;
   const nb = b.cloneNode(false); // drops the desktop panel click handler
@@ -2692,6 +2704,18 @@ function gatewayProbe() {
     .then(st => gatewayButtonState(!!(st && (st.sharedAny || st.shared)), !!(st && st.running))).catch(() => {});
 }
 window.addEventListener('DOMContentLoaded', () => {
+  // Open in…: the native Open-with dialog — the system's own app list
+  const ow = $('#openWithBtn');
+  if (ow) {
+    ow.innerHTML = iconHTML('external-link');
+    ow.addEventListener('click', () => {
+      if (!S.path) return;
+      fetch('/api/openwith?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN, { method: 'POST' })
+        .then(r => r.json())
+        .then(j => { if (j && j.error) toast('warn', 'Could not open the dialog: ' + String(j.error).replace(/[<>&]/g, '')); })
+        .catch(() => toast('warn', 'Could not reach the server.'));
+    });
+  }
   const b = $('#gatewayBtn');
   if (b) { b.innerHTML = iconHTML('share-2'); b.addEventListener('click', showGateway); }
   setTimeout(gatewayProbe, 1500);
@@ -2982,6 +3006,7 @@ function buildNotifications() {
 function exitFocus() {
   const t = S.focusThread;
   S.focusThread = null;
+  S.focusPending = false;
   render();
   const el = t && document.getElementById('r' + t.replace(/\D/g, ''));
   if (el) el.scrollIntoView({ block: 'center' });
@@ -3099,14 +3124,20 @@ function buildOutline() {
   };
 
   let current = null;
+  let lastAnchor = null; // the block the following threads attach to
   const sections = [];
   for (const b of S.parsed.blocks) {
     if (b.type === 'heading') {
       current = { block: b, unread: [], threads: [] };
       sections.push(current);
+      lastAnchor = b.key;
     } else if (b.type === 'thread' && current) {
       collectUnread(b.thread, current.unread);
-      current.threads.push(b.thread);
+      // anchor from the FULL document: grouping stays true even when
+      // filters hide rows in between
+      current.threads.push({ th: b.thread, anchor: lastAnchor });
+    } else if (b.type !== 'thread') {
+      lastAnchor = b.key;
     }
   }
 
@@ -3175,8 +3206,12 @@ function buildOutline() {
     nav.appendChild(row);
 
     // the section's threads, jumpable, with a status dot; "open" filter
-    // hides fully-processed ones (upgrades to resolve-items once agreed)
-    for (const th of sec.threads) {
+    // hides fully-processed ones (upgrades to resolve-items once agreed).
+    // A thin rule separates anchor groups: threads on the SAME paragraph
+    // are direct siblings (reorderable among each other, later), threads
+    // across a rule attach to different content.
+    let prevAnchor;
+    for (const { th, anchor } of sec.threads) {
       const stats = threadStats(th);
       const open = threadOpen(th);
       const marks = bookmarkedIn(th);
@@ -3236,6 +3271,12 @@ function buildOutline() {
         collectUnread(th, unreadHere);
         openFromPanel(unreadHere[0] || th, th);
       });
+      if (prevAnchor !== undefined && anchor !== prevAnchor) {
+        const sep = document.createElement('div');
+        sep.className = 'osep';
+        nav.appendChild(sep);
+      }
+      prevAnchor = anchor;
       nav.appendChild(trow);
       // one line per bookmarked comment, nested under its thread
       for (const it of marks) {

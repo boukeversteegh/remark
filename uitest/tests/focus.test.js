@@ -73,5 +73,21 @@ module.exports = async ctx => {
   await page.waitForTimeout(300);
   s = await state();
   assert(s.alpha && s.beta && !s.btnOn, 'the toggle leaves the mode as well');
+
+  // creating a thread while focused moves the focus onto it
+  await page.evaluate(() => document.getElementById('focusModeBtn').click());
+  await page.waitForTimeout(300);
+  await page.evaluate(() => document.querySelector('#outline .onew').click());
+  await page.waitForSelector('.editor[data-key^="new:"] textarea', { timeout: 4000 });
+  await page.fill('.editor[data-key^="new:"] textarea', 'BORN-IN-FOCUS');
+  await page.click('.editor[data-key^="new:"] button.send');
+  await page.waitForTimeout(1500);
+  const born = await page.evaluate(() => ({
+    threads: document.querySelectorAll('#doc .thread').length,
+    text: [...document.querySelectorAll('#doc .thread')].some(t => t.textContent.includes('BORN-IN-FOCUS')),
+    bar: !!document.querySelector('.focusback'),
+  }));
+  assert(born.threads === 1 && born.text && born.bar,
+    'the new thread takes the focus: ' + JSON.stringify(born));
   await page.close();
 };

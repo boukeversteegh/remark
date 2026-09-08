@@ -298,6 +298,9 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
   display: flex; align-items: center; gap: 10px;
   padding: 9px 12px; border-radius: 10px; text-decoration: none;
   color: var(--fg); font-size: 13.5px; border: 1px solid transparent;
+  /* grid items refuse to shrink below content by default — without this
+     a long title pushes the badges past the window edge */
+  min-width: 0;
 }
 #recent a:hover { background: var(--surface); border-color: var(--border); }
 #recent a .ic { color: var(--muted); font-size: 15px; }
@@ -405,7 +408,7 @@ body.mobile #tabs button .i { font-size: 18px; }
 body.mobile #tabs button.on { color: var(--accent); }
 /* the top bar keeps the essentials */
 body.mobile #filename, body.mobile #modeSeg, body.mobile #focusModeBtn, body.mobile #outlineBtn, body.mobile #openBtn,
-body.mobile .me, body.mobile #gatewayBtn { display: none !important; }
+body.mobile .me, body.mobile #gatewayBtn, body.mobile #openWithBtn { display: none !important; }
 body.mobile #topbar { gap: 6px; padding: 0 8px; }
 body.mobile .tools { gap: 2px; }
 /* status chip: icon only unless something is wrong */
@@ -610,6 +613,9 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 .focuslabel { margin-left: 10px; font: 650 14px var(--font-display); color: var(--fg); }
 /* while one thread has the board, the outline keeps every row: the
    others dim, the focused one is marked */
+/* a thin rule between anchor groups: rows above and below it attach to
+   different content; rows without a rule between them are siblings */
+.osep { height: 1px; background: var(--border-soft); margin: 4px 10px 4px 22px; }
 .otrow.dimfocus { opacity: .45; }
 .otrow.dimfocus:hover { opacity: 1; }
 .otrow.focused { background: var(--surface); border-radius: 8px; }
@@ -1197,12 +1203,6 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .citem > .editor textarea, .citem > .editor .etitle,
 .citem > .editor .epreview, .citem > .editor .ebar {
   margin-left: 30px; width: calc(100% - 30px);
-}
-/* EDITING is different from replying: the composer replaces the body
-   text, so it sits at the text column, not at the reply inset */
-.citem > .editor.editedit textarea, .citem > .editor.editedit .etitle,
-.citem > .editor.editedit .epreview, .citem > .editor.editedit .ebar {
-  margin-left: 0; width: 100%;
 }
 /* when the slot is the last row, its border runs on through the parent's
    bottom padding to meet the next divider (gap stays close to the 8px top) */

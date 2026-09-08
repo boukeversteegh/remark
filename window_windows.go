@@ -26,6 +26,8 @@ var (
 	pSendMessageW          = user32.NewProc("SendMessageW")
 	kernel32               = syscall.NewLazyDLL("kernel32.dll")
 	pGetModuleHandleW      = kernel32.NewProc("GetModuleHandleW")
+	shell32dlg             = syscall.NewLazyDLL("shell32.dll")
+	pSHOpenWithDialog      = shell32dlg.NewProc("SHOpenWithDialog")
 	pGetWindowPlacement    = user32.NewProc("GetWindowPlacement")
 	pSetWindowPlacement    = user32.NewProc("SetWindowPlacement")
 	pGetSystemMetrics      = user32.NewProc("GetSystemMetrics")
@@ -101,6 +103,35 @@ func workAreaSize(x, y, r, b int32) (int32, int32, bool) {
 		return 0, 0, false
 	}
 	return mi.workR - mi.workL, mi.workB - mi.workT, true
+}
+
+// the window's handle and UI dispatcher, so dialogs opened by server
+// endpoints can be OWNED by the window — landing on its monitor instead
+// of wherever a detached process feels like
+var (
+	mainHwnd   uintptr
+	uiDispatch func(func())
+)
+
+// openWithDialog shows the native Open-with dialog owned by the window;
+// false when no window is up (a -serve process), so callers can fall back.
+func openWithDialog(path string) bool {
+	if uiDispatch == nil || mainHwnd == 0 {
+		return false
+	}
+	f, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return false
+	}
+	type openAsInfo struct {
+		file, class *uint16
+		flags       uint32
+	}
+	uiDispatch(func() {
+		info := openAsInfo{file: f, flags: 0x1 | 0x4} // OAIF_ALLOW_REGISTRATION | OAIF_EXEC
+		pSHOpenWithDialog.Call(mainHwnd, uintptr(unsafe.Pointer(&info)))
+	})
+	return true
 }
 
 func winGet(p *winPlacement) bool {
@@ -434,6 +465,8 @@ func runWindow(url, title string) bool {
 	}
 	defer w.Destroy()
 	hwnd := uintptr(w.Window())
+	mainHwnd = hwnd
+	uiDispatch = w.Dispatch
 	// the window stays VISIBLE but off-screen: WebView2 keeps rendering
 	// there, so the reveal is a pure move of already-painted content
 	styleTitleBar(hwnd)

@@ -10,6 +10,12 @@ eye; nothing depends on them.
 ### remark seen marks a comment read from the CLI
 remark seen <file> <sel> -as <name> writes your read-marker at once. The guidance for agents changed with it: mark a comment the moment it reaches you, not when the work it asks for is finished — a long build must not look like an unread message.
 
+### Open in another app
+A toolbar button next to Sharing summons Windows' own Open-with dialog for the current file — the system's configured app list, always current, owned by the remark window so it appears on the window's monitor. Desktop only; the gateway refuses it like everything that opens things on the host.
+
+### The outline groups threads by their anchor
+A thin rule in the outline separates threads that attach to different content; rows without a rule between them are direct siblings on the same paragraph — the shape that moving and reordering will build on. And creating a thread while in single-thread mode moves the focus onto it.
+
 ### Delete your own comment
 Deleting lives inside the edit composer, where it cannot be hit by accident: Delete… turns the footer into a confirmation that spells out exactly what goes — how many comments, per author, with their resolution state — before one action removes the subtree. The CLI counterpart, remark delete <file> <sel> -as <name>, is stricter: agents may only remove their own comments and are refused when others replied.
 
