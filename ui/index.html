@@ -48,18 +48,20 @@
 
 <div id="landing" class="hidden">
   <div class="landing-card">
-    <div class="lhead">
-      <div class="hero" id="heroIcon"></div>
-      <div class="lbrand">
-        <h1>remark</h1>
-        <p class="tagline">A discussion tool built on top of markdown — threads live in the file, conflict-free, in plain text.</p>
+    <div class="lside">
+      <div class="lhead">
+        <div class="hero" id="heroIcon"></div>
+        <div class="lbrand">
+          <h1>remark</h1>
+          <p class="tagline">A discussion tool built on top of markdown — threads live in the file, conflict-free, in plain text.</p>
+        </div>
+        <button id="browseBtn" type="button"></button>
       </div>
-      <button id="browseBtn" type="button"></button>
+      <form id="openForm">
+        <input id="pathInput" placeholder="…or paste a path: D:\path\to\review.md" spellcheck="false">
+        <button type="submit">Open</button>
+      </form>
     </div>
-    <form id="openForm">
-      <input id="pathInput" placeholder="…or paste a path: D:\path\to\review.md" spellcheck="false">
-      <button type="submit">Open</button>
-    </form>
     <div id="recent"></div>
   </div>
 </div>

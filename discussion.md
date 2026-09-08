@@ -2759,22 +2759,32 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     My preference is to keep the NDJSON stream as the common interface, add `next` for active-turn consumers if useful, and investigate a separate Codex adapter for actual wakeups. Remark would still only provide document read/write and event channels; agent startup and ownership stay outside it. Any adapter should retain a cursor and acknowledge after delivery, so reconnects can retry without silently losing comments.
 
-- [ ] Bouke (2026-09-08 09:32:40): **Landing: the file list gets the room** <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Bouke (2026-09-08 09:32:40): **Landing: the file list gets the room** <!--thread--> <!--seen:🤖 Claude,Codex-->
   recent files list is too short. i'm using it a lot now and i cannot find earlier files.
   make the hero/jumbotron smaller, or move it to the side so there is more space for the file list.
 
   on wide screens we can also show items inline
 
-  - 🤖 Claude (2026-09-08 09:37:29): Rebuilt and installed. The branding is one compact row now — small icon, name and tagline left, Browse on the right — and the list owns the page: up to 1080px wide, in columns on a wide screen (two or three, depending on width), single column on narrow ones and the phone. The history cap went from 10 to 30 files. Verified headlessly at 1280px: fourteen entries flow into columns under a sub-90px header.
+  - 🤖 Claude (2026-09-08 09:37:29): Rebuilt and installed. The branding is one compact row now — small icon, name and tagline left, Browse on the right — and the list owns the page: up to 1080px wide, in columns on a wide screen (two or three, depending on width), single column on narrow ones and the phone. The history cap went from 10 to 30 files. Verified headlessly at 1280px: fourteen entries flow into columns under a sub-90px header. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 09:33:54): **Click the title to collapse** <!--thread--> <!--seen:🤖 Claude-->
+  - Bouke (2026-09-08 09:41:12): thanks, but multicolumn layout is not pleasant tho. lets have a two column layout for wide screens and make it a single list <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-08 09:41:50): Toned down and installed: one list normally, exactly two columns from 980px up, never more. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 09:41:24): by inline i meant not to spend two rows per entry. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-08 09:42:36): Ah — inline entries. Done and installed: one row each on desktop, the title leading and the filename with its folder trailing dimly beside it; on the phone entries keep two lines so nothing clips. With two columns and single-row entries the wide-screen landing now shows about thirty files without scrolling. <!--seen:Bouke-->
+
+  - Codex (2026-09-08 09:42:28): I read the clarification as two page regions on wide screens (compact branding/actions beside one continuous recent-files list), with each file using a single row: name and path inline. That keeps the reading order vertical and saves height without splitting the files themselves into columns. On narrow screens the regions can stack, with long paths truncated or allowed to wrap.
+
+- [x] Bouke (2026-09-08 09:33:54): **Click the title to collapse** <!--thread--> <!--seen:🤖 Claude-->
   cannot collapse threads by clicking their title
 
-  - 🤖 Claude (2026-09-08 09:37:32): Fixed and installed — a leftover from moving titles onto their own line: the title bar sat outside the header row and never got its click handler. It now collapses and expands the thread exactly like the header row (buttons and links inside keep their own actions). Test added alongside the rail ones.
+  - 🤖 Claude (2026-09-08 09:37:32): Fixed and installed — a leftover from moving titles onto their own line: the title bar sat outside the header row and never got its click handler. It now collapses and expands the thread exactly like the header row (buttons and links inside keep their own actions). Test added alongside the rail ones. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 09:37:30): **Tags require a preceding space** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-08 09:37:30): **Tags require a preceding space** <!--thread--> <!--seen:🤖 Claude-->
   anchors within markdown links or raw urls should not be interpreted as tags.
 
   (or any hashtag not separated by a whitespace for that matter)
 
-  - 🤖 Claude (2026-09-08 09:39:35): Tightened to exactly your rule and installed, in both parsers (UI and Go): a tag must start the text or follow whitespace — a hash glued to anything (markdown link anchors, raw url fragments, word#suffix) is never a tag. The help states it, and the tag test now proves a [jump](#section-two) anchor and a glued hash stay untagged. Existing strays vanish on render since tags are derived from the text.
+  - 🤖 Claude (2026-09-08 09:39:35): Tightened to exactly your rule and installed, in both parsers (UI and Go): a tag must start the text or follow whitespace — a hash glued to anything (markdown link anchors, raw url fragments, word#suffix) is never a tag. The help states it, and the tag test now proves a [jump](#section-two) anchor and a glued hash stay untagged. Existing strays vanish on render since tags are derived from the text. <!--seen:Bouke-->

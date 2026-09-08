@@ -274,9 +274,18 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 #openForm button:hover { filter: brightness(1.08); }
 #recent {
   text-align: left; margin: 0 auto;
-  /* the list is what this page is for: columns when there is room */
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  display: grid; grid-template-columns: 1fr; /* ONE continuous list */
   gap: 2px 16px;
+}
+/* wide screens: two page regions — the branding and actions at the side,
+   the list keeping its single vertical reading order */
+@media (min-width: 980px) {
+  .landing-card { display: flex; gap: 40px; align-items: flex-start; }
+  .lside { width: 300px; flex: none; }
+  .lhead { flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+  #browseBtn { margin-left: 0; }
+  #openForm { flex-direction: column; }
+  #recent { flex: 1; min-width: 0; margin: 0; }
 }
 #recent h3, #recent .rempty {
   grid-column: 1 / -1;
@@ -292,11 +301,12 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 }
 #recent a:hover { background: var(--surface); border-color: var(--border); }
 #recent a .ic { color: var(--muted); font-size: 15px; }
-#recent a .rmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-#recent a .rname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* one row per entry: the title leads, the file trails dimly beside it */
+#recent a .rmain { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+#recent a .rname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; max-width: 65%; }
 #recent a .rfile {
   color: var(--faint); font-size: 12px; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: nowrap; flex: 1; min-width: 0;
 }
 
 .rempty { color: var(--muted); font-size: 13.5px; margin: 8px 4px; line-height: 1.5; }
@@ -313,6 +323,9 @@ body.gateway .tagline { margin-bottom: 18px; }
   .tagline { font-size: 13px; margin-bottom: 18px; }
   #openForm { flex-direction: column; }
   #recent { max-width: none; grid-template-columns: 1fr; }
+  /* small screens keep the two-line entry: a row would clip everything */
+  #recent a .rmain { flex-direction: column; gap: 1px; }
+  #recent a .rname { max-width: none; }
   #recent a { flex-wrap: wrap; padding: 11px 12px; border-color: var(--border-soft); margin-bottom: 6px; font-size: 15px; gap: 8px 10px; }
   /* badges on their own line: the name keeps the full width */
   #recent a .rstatus { width: 100%; order: 3; margin-left: 0; padding-left: 25px; box-sizing: border-box; }

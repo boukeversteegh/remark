@@ -17,15 +17,19 @@ module.exports = async ctx => {
   const r = await page.evaluate(() => {
     const items = [...document.querySelectorAll('#recent a')];
     const cols = new Set(items.map(a => Math.round(a.getBoundingClientRect().left)));
-    const head = document.querySelector('.lhead');
+    const side = document.querySelector('.lside').getBoundingClientRect();
+    const list = document.getElementById('recent').getBoundingClientRect();
     return {
       entries: items.length,
       columns: cols.size,
-      headHeight: head ? Math.round(head.getBoundingClientRect().height) : 0,
+      sideBySide: list.left >= side.right,
     };
   });
   assert(r.entries === 14, 'all recents listed, got ' + r.entries);
-  assert(r.columns >= 2, 'wide screens list in columns, got ' + r.columns);
-  assert(r.headHeight > 0 && r.headHeight < 90, 'branding is one compact row, got ' + r.headHeight);
+  assert(r.columns === 1, 'the list keeps one vertical reading order, got ' + r.columns);
+  assert(r.sideBySide, 'branding sits beside the list on wide screens');
+  const rowH = await page.evaluate(() =>
+    Math.round(document.querySelector('#recent a').getBoundingClientRect().height));
+  assert(rowH < 44, 'one row per entry, got ' + rowH + 'px');
   await page.close();
 };
