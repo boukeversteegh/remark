@@ -2191,6 +2191,8 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-07 22:29:11): Both excluded now, in the UI and the Go side alike: a hex color (3-8 hex characters with at least one digit, like #eaf3ff or #b2b) is not a tag, and neither is anything #r-shaped — the comment references and the bare #r your own message just got tagged with. Installed; existing stray tags disappear on the next render since tags are derived from the text, nothing stored.
 
+  - Bouke (2026-09-08 09:10:13): seems there is no way to remove a tag
+
 - [x] Me (2026-09-06 22:03:29): **Mobile App** <!--thread--> <!--seen:🤖 Claude-->
   I now am using remark as my primary interface with AI, it works fantastically, but for mobile situations I'm still reliant on claude code remote, which drops be back to the linear experience. I desperately need a way to continue my work on mobile. I want to setup a gateway infrastructure which can run on my pc to which i can connect the app. The app needs a single connection, the gateway, and the other clients expose their documents to it. Once my remark client (the app) has a configured gateway, enabling remote access should just be a single toggle. ideally i can just run the gateway with remark gateway, and keep it on, and that's it. authentication is needed, and the app should require scanning a configuration code or something.
 
@@ -2687,3 +2689,16 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     `- [ ]` means this thread needs resolution (open/close), its not about whether an answer is needed. agents are expected to answer in general.
 
     - 🤖 Claude (2026-09-08 09:07:22): All three, installed. The example speaks as Alice now, the topic is remark help format (convention still answers quietly for old habits), and the guidance leads with (now): sign Name (now) and remark inserts the real unique stamp itself, bumping included — a hand-written timestamp is only for edits made while no remark is running. The checkbox line reads as you framed it in both places: the box is the thread's open/closed resolution, settled by its author, not an
+
+- [ ] Bouke (2026-09-08 09:08:41): **Sharing button: no phone framing** <!--thread--> <!--seen:🤖 Claude-->
+  lets make the sharing button not a phone anywhere. the phone-framing has to go. this is about sharing.
+
+  the qr and url are equivalent, you can share the link (copy button) or show the QR (for mobile).
+
+  please show me icon options that will be used universally. i want to see in the icon whether or not the gateway is online, and whether the current document is shared.
+
+  - 🤖 Claude (2026-09-08 09:10:05): Agreed — sharing, not phones. Here are six candidates, each in the three states, with one encoding used everywhere (toolbar, panel header, and the remote reader's light): color carries the gateway (gray stopped, green running), and a small corner dot says THIS document is shared — so both facts are visible at a glance without opening the panel.
+
+    ![Sharing icon options](discussion-20260908-shareicons.png)
+
+    My recommendation is share-2 (the three connected nodes): it is the one glyph people read as sharing without thinking, it stays legible at 17px, and it says nothing about devices — the state colors tell the gateway story. Second pick would be rss if you want the serving-outward feel. Pick one and I will rewire it everywhere: the toolbar button, the panel header (with the QR and a copy-link button as equals), and the remote connection light — no phone icon or Phone wording left anywhere.
