@@ -24,6 +24,8 @@ module.exports = async ctx => {
     '',
     '  - Bob (2026-09-01 11:05:00): unread in beta.',
     '',
+    '- [x] Me (2026-09-01 12:00:00): **Settled** resolved and quiet <!--thread--> <!--seen:Me-->',
+    '',
   ].join('\n'));
   const page = await ctx.open(doc);
   const state = () => page.evaluate(() => ({
@@ -46,7 +48,9 @@ module.exports = async ctx => {
   assert(s.alpha && !s.beta && s.bar && s.btnOn, 'one thread on the board, button lit');
   assertEq(await pill(), '1 unread', 'the pill counts only the visible thread');
   assert(s.rows.includes('Alpha:focused') && s.rows.includes('Beta:dim'),
-    'the outline keeps every row: ' + JSON.stringify(s.rows));
+    'the outline keeps its visible rows: ' + JSON.stringify(s.rows));
+  assert(!s.rows.some(r => r.startsWith('Settled')),
+    'focus never reveals rows the filters hide: ' + JSON.stringify(s.rows));
 
   // a single click on another row switches the focus
   await page.evaluate(() => {

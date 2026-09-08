@@ -2896,14 +2896,23 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 12:00:23): in any filtered mode, including focus, the unread pill at the top should only count and cycle through replies within the visible threads <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-08 12:02:40): Done, installed. The unread pill now counts and cycles only what is on screen: in single-thread mode just the focused thread's unread, under a tag filter just the matching threads; whole document as before. Test asserts the count narrowing when the mode turns on.
+    - 🤖 Claude (2026-09-08 12:02:40): Done, installed. The unread pill now counts and cycles only what is on screen: in single-thread mode just the focused thread's unread, under a tag filter just the matching threads; whole document as before. Test asserts the count narrowing when the mode turns on. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 12:04:48): compact view for collapsed comments. <!--thread-->
+  - Bouke (2026-09-08 12:06:52): correction on expected behavior: focus mode should not reveal _more_ threads than without focus modes. i said it should show all threads, but i meant, all threads that were visible, so basically, don't hide anything, just dim.
+
+    - Bouke (2026-09-08 12:07:04): i now suddenly also see resolved threads showing up in focus mode <!--seen:🤖 Claude-->
+
+      - 🤖 Claude (2026-09-08 12:07:55): Corrected, installed — my keep-every-row bypass was the culprit: it ignored the open/resolved filter and the tag filter while in the mode, which is exactly the resolved threads you suddenly saw. Focus now never reveals anything: the outline keeps precisely the rows it showed before entering the mode (the focused thread itself always stays listed), and only dims the rest. Also the collapsed-comment compaction is in this build: timestamps and action buttons step aside on collapsed rows so the text preview gets the width — state like the pill, read dot and counts stays. Tests assert both.
+
+- [ ] Bouke (2026-09-08 12:04:48): **Compact collapsed comments** <!--thread-->
+  compact view for collapsed comments.
 
   please hide all buttons on collapsed comments as well as the timestamp so i can see more of the text preview
 
-- [ ] Bouke (2026-09-08 12:02:57): **Collapsed comment leaks interjection gaps** <!--thread-->
+- [ ] Bouke (2026-09-08 12:02:57): **Collapsed comment leaks interjection gaps** <!--thread--> <!--seen:🤖 Claude-->
   a collapsed comment with interjection comments doesn't fully collapse, it shows empty lines and inject comment affordances
+
+  - 🤖 Claude (2026-09-08 12:05:07): Fixed and installed. Collapsing hid the body, children and editors but forgot three newer additions: the insert-comment gaps around interjections, the reply seed and the collapse rail — those stayed visible as ghost spacing and affordances. Everything under the header now hides on collapse; test asserts only the head survives and the collapsed card stays compact.
 
 - [ ] Bouke (2026-09-08 11:11:44): **Resizable sidebar** <!--thread--> <!--seen:🤖 Claude-->
   allow me to resize the sidebar, i cannot read the thread titles well

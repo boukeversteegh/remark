@@ -3180,9 +3180,11 @@ function buildOutline() {
       const stats = threadStats(th);
       const open = threadOpen(th);
       const marks = bookmarkedIn(th);
-      // a bookmarked thread is always listed, whatever the filter says —
-      // and during a focus the WHOLE list stays, for switching threads
-      if (!S.focusThread) {
+      // a bookmarked thread is always listed, whatever the filter says.
+      // Focus mode never REVEALS rows the filters would hide — it only
+      // dims the ones already there (plus the focused thread itself).
+      const isFocused = S.focusThread && th.time === S.focusThread;
+      if (!isFocused) {
         if (!S.outlineAll && !open && !marks.length) continue;
         if (!threadMatchesFilter(th)) continue; // the tag filter narrows the outline too
       }

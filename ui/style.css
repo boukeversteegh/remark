@@ -1049,6 +1049,14 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   transition: transform .15s ease, color .12s, background .12s;
 }
 .citem.collapsed > .chead .twisty { transform: rotate(-90deg); }
+/* collapsed rows are for scanning: the stamp and action buttons step
+   aside so the text preview gets the width (state — the pill, the read
+   dot, the counts — stays) */
+.citem.collapsed > .chead .ctime,
+.citem.collapsed > .chead .crefbtn,
+.citem.collapsed > .chead .bmbtn,
+.citem.collapsed > .chead .tagadd,
+.citem.collapsed > .chead .replybtn { display: none; }
 .chead .twisty:hover { color: var(--accent); background: var(--accent-soft); }
 
 .avatar {
