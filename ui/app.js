@@ -1153,6 +1153,17 @@ function buildItem(item, opts) {
     el.appendChild(rail);
   }
 
+  // collapsed, the WHOLE band between the dividers expands — the padding
+  // around the compact head included, not just the head's own strip
+  if (collapsed) {
+    el.addEventListener('click', e => {
+      if (e.target.closest('button, input, a, .chead')) return;
+      S.collapsed.set(item.key, false);
+      persistCollapse(item.key, false);
+      render();
+    });
+  }
+
   const head = document.createElement('div');
   head.className = 'chead';
   // the whole header row toggles collapse; buttons inside keep their own action
@@ -3132,6 +3143,55 @@ window.addEventListener('DOMContentLoaded', () => {
   if (b) { b.innerHTML = iconHTML('focus'); b.addEventListener('click', toggleFocusMode); }
 });
 
+// drag & drop between outline rows: the insertion line sits on the edge of
+// the nearest row, so between two groups the two slots (end of the upper
+// group, start of the lower) are distinct — the rule between them is the
+// divide — and the destination group lights up so the drop is unambiguous
+function clearOutlineDrop() {
+  const nav = $('#outline');
+  if (!nav) return;
+  for (const el of nav.querySelectorAll('.dropbefore, .dropafter, .dropgroup')) {
+    el.classList.remove('dropbefore', 'dropafter', 'dropgroup');
+  }
+}
+function wireOutlineDrop(nav) {
+  nav.addEventListener('dragover', ev => {
+    if (!S.dragThread) return;
+    const rows = [...nav.querySelectorAll('.otrow[data-th-hash]')]
+      .filter(r => !r.classList.contains('dragging'));
+    if (!rows.length) return;
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'move';
+    let best = null, bestDist = Infinity, before = false;
+    for (const row of rows) {
+      const rc = row.getBoundingClientRect();
+      const dTop = Math.abs(ev.clientY - rc.top), dBot = Math.abs(ev.clientY - rc.bottom);
+      if (dTop < bestDist) { best = row; bestDist = dTop; before = true; }
+      if (dBot < bestDist) { best = row; bestDist = dBot; before = false; }
+    }
+    clearOutlineDrop();
+    if (!best) return;
+    best.classList.add(before ? 'dropbefore' : 'dropafter');
+    for (const row of rows) {
+      if (row.dataset.dgroup === best.dataset.dgroup) row.classList.add('dropgroup');
+    }
+    S.dropAt = { hash: best.dataset.thHash, occ: +best.dataset.thOcc || 0, before };
+  });
+  nav.addEventListener('drop', ev => {
+    if (!S.dragThread || !S.dropAt) return;
+    ev.preventDefault();
+    const src = S.dragThread, at = S.dropAt;
+    S.dragThread = null;
+    S.dropAt = null;
+    clearOutlineDrop();
+    if (src.hash === at.hash && src.occ === at.occ) return;
+    submitOps([{ type: 'move', hash: src.hash, occ: src.occ, refHash: at.hash, refOcc: at.occ, before: at.before }]);
+  });
+  nav.addEventListener('dragleave', ev => {
+    if (ev.target === nav) clearOutlineDrop();
+  });
+}
+
 function buildOutline() {
   const nav = $('#outline');
   nav.innerHTML = '';
@@ -3198,6 +3258,11 @@ function buildOutline() {
     }
   }
 
+  let dragGroup = 0; // visible anchor-group ids, for the drop highlight
+  if (!nav.dataset.dropWired) {
+    nav.dataset.dropWired = '1';
+    wireOutlineDrop(nav);
+  }
   for (const sec of sections) {
     const row = document.createElement('div');
     row.className = 'orow l' + sec.block.level;
@@ -3265,8 +3330,9 @@ function buildOutline() {
     // the section's threads, jumpable, with a status dot; "open" filter
     // hides fully-processed ones (upgrades to resolve-items once agreed).
     // A thin rule separates anchor groups: threads on the SAME paragraph
-    // are direct siblings (reorderable among each other, later), threads
-    // across a rule attach to different content.
+    // are direct siblings — drag a row to reorder among them or to carry
+    // the thread into another group; threads across a rule attach to
+    // different content.
     let prevAnchor;
     for (const { th, anchor } of sec.threads) {
       const stats = threadStats(th);
@@ -3328,12 +3394,34 @@ function buildOutline() {
         collectUnread(th, unreadHere);
         openFromPanel(unreadHere[0] || th, th);
       });
-      if (prevAnchor !== undefined && anchor !== prevAnchor) {
+      if (prevAnchor === undefined) {
+        dragGroup++; // a section starts its own first group
+      } else if (anchor !== prevAnchor) {
         const sep = document.createElement('div');
         sep.className = 'osep';
         nav.appendChild(sep);
+        dragGroup++;
       }
       prevAnchor = anchor;
+      // drag a thread row: within its group to reorder siblings, across a
+      // rule to move the thread to that anchor group, at any position
+      trow.dataset.thHash = th.hash;
+      trow.dataset.thOcc = String(th.occ || 0);
+      trow.dataset.dgroup = String(dragGroup);
+      if (!S.mobile && th.hash) {
+        trow.draggable = true;
+        trow.addEventListener('dragstart', ev => {
+          S.dragThread = { hash: th.hash, occ: th.occ || 0 };
+          trow.classList.add('dragging');
+          ev.dataTransfer.setData('text/plain', th.title || th.time || '');
+          ev.dataTransfer.effectAllowed = 'move';
+        });
+        trow.addEventListener('dragend', () => {
+          S.dragThread = null;
+          trow.classList.remove('dragging');
+          clearOutlineDrop();
+        });
+      }
       nav.appendChild(trow);
       // one line per bookmarked comment, nested under its thread
       for (const it of marks) {

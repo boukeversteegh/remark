@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-08
 
+### Drag threads to reorder and move them
+Outline rows drag now: drop a thread among its siblings to reorder the group, or across a rule to carry it — replies and all — to another anchor group, at any position. The insertion line hugs the nearest row edge, so around a rule the end of one group and the start of the next are two distinct drops, and the destination group lights up while you hover. Desktop only.
+
 ### Remove any tag with -#tag
 The × is on every tag chip now, not only your own. Removing a tag you do not own — one in someone else's text, or a reader tag placed by someone else — writes a small -#tag reply instead of touching their words: the tag stops counting for everyone (filters, the Tags panel, the outline, monitors), and the chip stays as a struck-through trace naming who removed it. The remover's ×, or simply adding the tag back, restores it. Bare-tag replies can mix additions and removals; grep still finds both.
 

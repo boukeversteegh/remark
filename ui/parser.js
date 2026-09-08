@@ -780,6 +780,32 @@
         text = lines.join('\n');
         r.ok = true;
 
+      } else if (op.type === 'move') {
+        // relocate a whole thread block (root + subtree) next to another
+        // thread: before its block (op.before true) or after it. Both are
+        // ROOT items — reordering siblings and moving into another anchor
+        // group are the same operation, the position says it all
+        var mit = findByHash(doc.items, op.hash, op.occ);
+        if (!mit || mit.parent) { r.reason = 'the thread being moved is gone from the file'; results.push(r); continue; }
+        var ref = findByHash(doc.items, op.refHash, op.refOcc || 0);
+        if (!ref || ref.parent) { r.reason = 'the drop target is gone from the file'; results.push(r); continue; }
+        if (mit === ref) { r.ok = true; results.push(r); continue; }
+        var ms = mit.startLine, me = subtreeEnd(mit);
+        var block = lines.slice(ms, me + 1);
+        // swallow the blank line that separated it, as delete does
+        var rs = ms;
+        if (rs > 0 && isBlank(lines[rs - 1]) && (me + 1 >= lines.length || isBlank(lines[me + 1]))) rs--;
+        var removedLen = me - rs + 1;
+        var insertAt = op.before ? ref.startLine : subtreeEnd(ref) + 1;
+        lines.splice(rs, removedLen);
+        if (insertAt > rs) insertAt -= removedLen;
+        var ins = block;
+        if (insertAt > 0 && !isBlank(lines[insertAt - 1])) ins = [''].concat(ins);
+        if (op.before || (insertAt < lines.length && !isBlank(lines[insertAt]))) ins = ins.concat(['']);
+        Array.prototype.splice.apply(lines, [insertAt, 0].concat(ins));
+        text = lines.join('\n');
+        r.ok = true;
+
       } else if (op.type === 'delete') {
         // removes the item and its whole subtree (replies, interjections);
         // hash/occ resolve against the current file, so a reply that landed

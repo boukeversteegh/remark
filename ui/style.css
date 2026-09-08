@@ -620,6 +620,18 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 /* a thin rule between anchor groups: rows above and below it attach to
    different content; rows without a rule between them are siblings */
 .osep { height: 1px; background: var(--border-soft); margin: 4px 10px 4px 22px; }
+/* dragging a thread row: the insertion line hugs the nearest row edge (the
+   two slots around a rule are distinct file positions) and the destination
+   anchor group lights up so the drop cannot be ambiguous */
+.otrow.dragging { opacity: .45; }
+.otrow.dropgroup { background: var(--accent-soft); }
+.otrow.dropbefore::after, .otrow.dropafter::after {
+  content: ''; position: absolute; left: 22px; right: 10px; height: 2px;
+  background: var(--accent); border-radius: 1px; pointer-events: none;
+}
+.otrow.dropbefore::after { top: -2px; }
+.otrow.dropafter::after { bottom: -2px; }
+.citem.collapsed { cursor: pointer; } /* the whole band expands */
 .otrow.dimfocus { opacity: .45; }
 .otrow.dimfocus:hover { opacity: 1; }
 .otrow.focused { background: var(--surface); border-radius: 8px; }
@@ -792,6 +804,7 @@ body.mobile #outlineDrag { display: none !important; }
   display: flex; align-items: center; gap: 7px;
   /* the dot sits in the section title's text column (8px pad + 20px slot
      + 7px gap); a hairline gap keeps adjacent highlight bands apart */
+  position: relative; /* anchors the drop insertion line */
   padding: 2px 8px 2px 35px; margin: 2px 0; border-radius: 7px; cursor: pointer;
   color: var(--muted); font-size: 12px; line-height: 1.5;
 }
