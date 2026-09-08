@@ -2,7 +2,7 @@ package main
 
 // The help an agent actually reads: harnesses tend to clip output around
 // 60 lines, so everything that matters lives in the first screen of
-// `remark help`, and the depth moved to topics (`remark help convention`,
+// `remark help`, and the depth moved to topics (`remark help format`,
 // `remark help monitor`, `remark help sharing`).
 
 import (
@@ -47,49 +47,56 @@ Sharing and the rest:
                                  access (groups: remark help sharing)
   remark changelog               what this build changed
   remark install                 put remark on your PATH
-  remark help [topic]            topics: convention, monitor, sharing
+  remark help [topic]            topics: format, monitor, sharing
 
-The five rules that matter (the long form: remark help convention):
-  1. Sign every comment "Name (YYYY-MM-DD HH:mm:ss): ". The timestamp IS
-     its identity — unique per file, bump a second if taken. Names match
-     byte for byte, everywhere. Unsure of the time? Write "(now)".
+The five rules that matter (the long form: remark help format):
+  1. Sign every comment "Name (now): " — remark replaces (now) with the
+     real, unique stamp by itself. That timestamp IS the comment's
+     identity; write one by hand only when no remark is running, and
+     never reuse one. Names match byte for byte, everywhere.
   2. A nested "- " line is a comment ONLY with an authored timestamp (or
      "(now)"); plain bullets and bare "- [ ]" boxes in a body stay body.
-  3. "- [ ]" is its AUTHOR's resolution — never tick another's box.
+  3. "- [ ]" is the thread's open/closed RESOLUTION, settled by its
+     author — not "needs an answer" (answering is expected anyway);
+     never tick another author's box.
   4. Read state: append your name to the <!--seen:...--> marker on a
      comment's first line once processed; never remove other names.
   5. Threads stay FLAT: answer at the level you were addressed.
 `
 
-const helpConvention = `The markdown convention — a complete exchange:
+const helpFormat = `The markdown format — a complete exchange:
 
   Some paragraph of the document under discussion.
 
-  - [ ] Bouke (2026-09-03 14:02): **Batch size** <!--thread--> <!--seen:agent-->
+  - [ ] Alice (2026-09-03 14:02): **Batch size** <!--thread--> <!--seen:agent-->
     Why 512? Feels arbitrary — did we measure this?
 
     - 🤖 Agent (2026-09-03 14:05): Measured, thinly: 256 and 1024 were
       within 3% on the sample corpus. I can add the benchmark to the PR.
 
-      - Bouke (2026-09-03 14:09): good, add it <!--seen:agent-->
+      - Alice (2026-09-03 14:09): good, add it <!--seen:agent-->
 
 The rules, in full — for when you must hand-edit after all:
   * Prefer the write verbs (reply, thread, edit, tag): every structural
     fault seen so far came from a hand-typed edit.
-  * Sign every comment: "Name (YYYY-MM-DD HH:mm:ss): ". Identity is the
-    LITERAL string — no case folding, no emoji stripping; your author
-    prefix, -as flag and seen-marker entries must be identical. Unsigned
-    TOP-LEVEL items are presumed to be the local human.
-  * Timestamps are comment IDENTITY: seconds precision, never two alike
-    in one file — bump forward a second if yours is taken. remark read
-    addresses comments by them. Don't know the time? Write "(now)" — a
-    window or "remark stamp" fills it in; never invent a stamp.
+  * Sign every comment: "Name (now): ..." — a remark window or "remark
+    stamp" replaces (now) with the real stamp, unique per file, bumping
+    past collisions by itself. Identity is the LITERAL string — no case
+    folding, no emoji stripping; your author prefix, -as flag and
+    seen-marker entries must be identical. Unsigned TOP-LEVEL items are
+    presumed to be the local human.
+  * The filled-in timestamp is the comment's IDENTITY: remark read and
+    the #r references address comments by it, so never edit or reuse
+    one. Write a literal timestamp yourself only when the edit happens
+    with no remark running to stamp it — then seconds precision, and
+    bump a second if yours is taken.
   * A nested "- " line becomes a comment through its authored timestamp
     (or "(now)") — nothing else. Ordinary bullets, "Word: text" lines
     and bare "- [ ]" task boxes inside a body stay body content.
   * New thread roots are top-level items under the paragraph they
-    discuss, marked <!--thread-->, usually opened "- [ ]" (an open box =
-    this needs an answer).
+    discuss, marked <!--thread-->, usually opened "- [ ]": the box is
+    the thread's open/closed resolution, not "an answer is needed" —
+    answering is expected regardless.
   * Replies are plain "- " items nested under their parent — no checkbox
     unless the reply genuinely needs its own resolution.
   * Keep threads FLAT, at the level you were addressed: answer a comment
@@ -184,14 +191,14 @@ func runHelp(args []string) {
 	switch topic {
 	case "":
 		fmt.Print(agentHelp)
-	case "convention":
-		fmt.Print(helpConvention)
+	case "format", "convention":
+		fmt.Print(helpFormat)
 	case "monitor":
 		fmt.Print(helpMonitor)
 	case "sharing":
 		fmt.Print(helpSharing)
 	default:
-		fmt.Fprintf(os.Stderr, "remark help: unknown topic %q — topics: convention, monitor, sharing\n", topic)
+		fmt.Fprintf(os.Stderr, "remark help: unknown topic %q — topics: format, monitor, sharing\n", topic)
 		os.Exit(2)
 	}
 }

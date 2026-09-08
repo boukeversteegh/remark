@@ -2474,7 +2474,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 - [x] Me (2026-09-07 10:23:43): **Commit the discussion and push** <!--thread--> <!--seen:🤖 Claude-->
   please ensure that this discussion file is committed and the whole repo is pushed.
 
-- [ ] Me (2026-09-07 10:43:32): **Collapse by clicking the thread rail** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Me (2026-09-07 10:43:32): **Collapse by clicking the thread rail** <!--thread--> <!--seen:🤖 Claude-->
   Thread collapse button is now a small caret at the top, but when i want to collapse a thread where i'm at the bottom of it, i first have to scroll up to find the caret to collapse it. This is pretty tedious.
 
   But we actually have an indentation below the caret that stretches all the way to the end of the thread.
@@ -2677,4 +2677,13 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   also, claude code tends to clip help to head -n 60, which means it doesn't see everything. lets ensure that all important details are visible in the first 60 lines, and the rest can be discovered by -h on the subcommands or a dedicated help page on specific topics if needed
 
-  - 🤖 Claude (2026-09-07 22:40:54): Rewritten and installed — and this thread's title was just set with the new remark edit verb, fittingly. The main help is 49 lines now, everything load-bearing in the first screen: a verbs-first opening (the old advice to edit with normal tools is gone — hand edits are called out as the source of formatting faults, for the rare thing no verb covers), the full command list with reply/thread/edit/tag up front, and the five rules that matter in compressed form. The depth moved to topic pages: remark help convention (the example and the full rules), remark help monitor (stream discipline, -json fields, scoping) and remark help sharing (gateway and groups). remark --help prints the same first screen.
+  - 🤖 Claude (2026-09-07 22:40:54): Rewritten and installed — and this thread's title was just set with the new remark edit verb, fittingly. The main help is 49 lines now, everything load-bearing in the first screen: a verbs-first opening (the old advice to edit with normal tools is gone — hand edits are called out as the source of formatting faults, for the rare thing no verb covers), the full command list with reply/thread/edit/tag up front, and the five rules that matter in compressed form. The depth moved to topic pages: remark help convention (the example and the full rules), remark help monitor (stream discipline, -json fields, scoping) and remark help sharing (gateway and groups). remark --help prints the same first screen. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 09:05:22): can you please not use my name in the help convention example. <!--seen:🤖 Claude-->
+    also lets call it markdown format, not convention.
+
+    also, writing the timestamp by hand is really not needed, just write (now), the actual timestamp will be inserted automatically, and bumping mechanism is also automatic, so really avoid manual timestamping unless the edit happens without remark running
+
+    `- [ ]` means this thread needs resolution (open/close), its not about whether an answer is needed. agents are expected to answer in general.
+
+    - 🤖 Claude (2026-09-08 09:07:22): All three, installed. The example speaks as Alice now, the topic is remark help format (convention still answers quietly for old habits), and the guidance leads with (now): sign Name (now) and remark inserts the real unique stamp itself, bumping included — a hand-written timestamp is only for edits made while no remark is running. The checkbox line reads as you framed it in both places: the box is the thread's open/closed resolution, settled by its author, not an
