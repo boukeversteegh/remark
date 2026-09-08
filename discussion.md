@@ -2919,7 +2919,9 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 - [ ] Bouke (2026-09-08 11:11:44): **Resizable sidebar** <!--thread--> <!--seen:🤖 Claude-->
   allow me to resize the sidebar, i cannot read the thread titles well
 
-  - 🤖 Claude (2026-09-08 11:19:01): Done, installed: drag the sidebar's right edge (it highlights on hover) anywhere between 180 and 520 pixels; the width is remembered per device, so your phone never inherits a monitor-sized sidebar.
+  - 🤖 Claude (2026-09-08 11:19:01): Done, installed: drag the sidebar's right edge (it highlights on hover) anywhere between 180 and 520 pixels; the width is remembered per device, so your phone never inherits a monitor-sized sidebar. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 13:00:03): great! somehow the latest install is missing this feature. weird
 
 - [ ] Bouke (2026-09-08 11:09:01): **Delete your own comment** <!--thread--> <!--seen:🤖 Claude-->
   please build a way to delete a comment, both in the ui (my own comments) and through the cli (own comments only)

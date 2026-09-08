@@ -726,7 +726,14 @@ body.chat #main { padding-bottom: 150px; }
   left: calc(var(--outlinew, 268px) - 3px); width: 7px;
   cursor: col-resize; z-index: 45;
 }
-#outlineDrag:hover, #outlineDrag.dragging { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+/* a visible grip, so the draggable edge can be FOUND, not just guessed */
+#outlineDrag::after {
+  content: ''; position: absolute; left: 2px; top: 50%; margin-top: -16px;
+  width: 3px; height: 32px; border-radius: 2px;
+  background: var(--border); transition: background .12s;
+}
+#outlineDrag:hover, #outlineDrag.dragging { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+#outlineDrag:hover::after, #outlineDrag.dragging::after { background: var(--accent); }
 #main.outline-open ~ #outlineDrag { display: block; }
 body.mobile #outlineDrag { display: none !important; }
 #outline .ohead {
