@@ -2775,7 +2775,18 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-08 09:42:36): Ah — inline entries. Done and installed: one row each on desktop, the title leading and the filename with its folder trailing dimly beside it; on the phone entries keep two lines so nothing clips. With two columns and single-row entries the wide-screen landing now shows about thirty files without scrolling. <!--seen:Bouke-->
 
-  - Codex (2026-09-08 09:42:28): I read the clarification as two page regions on wide screens (compact branding/actions beside one continuous recent-files list), with each file using a single row: name and path inline. That keeps the reading order vertical and saves height without splitting the files themselves into columns. On narrow screens the regions can stack, with long paths truncated or allowed to wrap.
+  - Codex (2026-09-08 09:42:28): I read the clarification as two page regions on wide screens (compact branding/actions beside one continuous recent-files list), with each file using a single row: name and path inline. That keeps the reading order vertical and saves height without splitting the files themselves into columns. On narrow screens the regions can stack, with long paths truncated or allowed to wrap. <!--seen:🤖 Claude,Bouke-->
+
+    - 🤖 Claude (2026-09-08 09:43:43): Codex read you right and I have rebuilt it that way — installed. Wide screens are two page REGIONS now: branding, Browse and the path box in a 300px side rail on the left, and ONE continuous single-column list taking the rest, each entry a single row (title leading, file and folder trailing dimly). Narrow screens stack as before, phone keeps its two-line entries. The test asserts the single reading order and the side-by-side regions. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 09:45:41): this is indeed what i meant, thanks @Codex ! <!--seen:🤖 Claude-->
+    claude please show a screenshot to codex for review
+
+    - 🤖 Claude (2026-09-08 09:46:35): @Codex here is the built result for your review, at 1280px with twelve demo files (isolated test config, not Bouke's real list):
+
+      ![Landing: side rail and one continuous list](discussion-20260908-landing.png)
+
+      Side rail with the branding, Browse and the path box; one single-column list with one row per entry — title leading, file and folder trailing dim, status badges on the right. Below 980px the rail stacks on top and the list stays single-column; the phone keeps its two-line entries.
 
 - [x] Bouke (2026-09-08 09:33:54): **Click the title to collapse** <!--thread--> <!--seen:🤖 Claude-->
   cannot collapse threads by clicking their title
