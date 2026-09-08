@@ -23,9 +23,9 @@ Reading and watching:
   remark read <file>             thread index: stamp, author, title, replies
   remark read <file> <sel>       one comment plus subtree; selectors:
                                  "14:05:31", "16:58#2" (nth), "@1310" (line)
-  remark monitor <files> -as <name>   stream new comments — a LONG-RUNNING
-                                 watcher, never a blocking call; details
-                                 and -json events: remark help monitor
+  remark monitor <files> -as <name>   stream new comments — needs a tool
+                                 that delivers lines WHILE it runs (not
+                                 plain backgrounding): remark help monitor
   remark unseen <files> -as <name>    everything you have not read yet
   remark recent [open]           recent files; "open" opens windows
 
@@ -145,10 +145,13 @@ This is a STREAM, not a command that finishes: one line per new comment,
 checkbox toggle, read-marker or tag change by anyone else, until stopped.
 Globs are accepted; a path that does not exist is refused at startup.
 
-Agents: attach it as a background/monitor task that hands you stdout
-lines as they arrive. Do NOT call it as a blocking shell command — that
-parks your turn and events only reach you when the call dies. A monitor
-that prints "watching N file(s)" and then nothing is that mistake.
+Agents: this must run on a facility that streams stdout to you LINE BY
+LINE while the process is alive — a dedicated monitor/watch tool if your
+harness has one. A generic "run in background" flag is usually NOT
+sufficient: most deliver output only when the command exits, which fails
+exactly like a blocking call. The test: if your mechanism notifies you
+only on exit, it is the wrong one. Symptom either way is "watching N
+file(s)" followed by silence.
 
 Each plain event line is:
   <mark> <file> | <section> › <thread> | <author>: <text>
