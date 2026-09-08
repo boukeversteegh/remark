@@ -6,7 +6,8 @@ module.exports = async ctx => {
   const doc = ctx.fixture('rail.md', [
     '# Rail',
     '',
-    '- [ ] Me (2026-09-01 10:00:00): **Thread** opening <!--thread-->',
+    '- [ ] Me (2026-09-01 10:00:00): **Thread** <!--thread-->',
+    '  opening',
     '',
     '  - Bob (2026-09-01 10:01:00): flat reply one.',
     '',
@@ -46,6 +47,15 @@ module.exports = async ctx => {
     root: document.getElementById('r20260901100000').classList.contains('collapsed'),
   }));
   assert(folded.parent && !folded.root, 'subtree folds, root stays');
+
+  // the title bar collapses the thread like the header row does
+  await page.evaluate(() => document.querySelector('#r20260901100000 > .ctitlebar').click());
+  await page.waitForTimeout(200);
+  const byTitle = await page.evaluate(() =>
+    document.getElementById('r20260901100000').classList.contains('collapsed'));
+  assert(byTitle, 'clicking the title collapses the thread');
+  await page.evaluate(() => document.querySelector('#r20260901100000 > .chead').click());
+  await page.waitForTimeout(200);
 
   // the strip beside the root's reply seed hits the foot, never the rail
   const footHit = await page.evaluate(() => {

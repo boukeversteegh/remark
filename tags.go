@@ -23,7 +23,9 @@ import (
 )
 
 var (
-	tagRe    = regexp.MustCompile(`(^|[^\w&/#])#([A-Za-z][\w-]*)`)
+	// a tag starts the text or follows whitespace — "#x" glued to anything
+	// (word chars, "(", link targets, url anchors) is not a tag
+	tagRe    = regexp.MustCompile(`(^|\s)#([A-Za-z][\w-]*)`)
 	tagRefRe = regexp.MustCompile(`^r\d*$`) // "#r…" comment references, and a bare "#r"
 	// hex colors ("#eaf3ff") are not tags: 3-8 hex chars, at least one digit
 	tagHexRe  = regexp.MustCompile(`^[a-f0-9]{3,8}$`)

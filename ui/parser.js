@@ -48,7 +48,9 @@
   // "#123" is not a tag and neither is a "#r<digits>" comment reference.
   // Tags are case-insensitive and canonicalised to lower case. The Go side
   // (tags.go) carries the same regex — keep the two in step.
-  var TAG_RE = /(^|[^\w&\/#])#([A-Za-z][\w-]*)/g;
+  // a tag starts the text or follows whitespace — "#x" glued to anything
+  // (word chars, "(", link targets, url anchors) is not a tag
+  var TAG_RE = /(^|\s)#([A-Za-z][\w-]*)/g;
   var TAG_REF_RE = /^r\d*$/; // "#r…" comment references, and a bare "#r"
   // hex colors ("#eaf3ff") are not tags: 3-8 hex chars with a digit in them
   var TAG_HEX_RE = /^(?=[a-f0-9]*\d)[a-f0-9]{3,8}$/;

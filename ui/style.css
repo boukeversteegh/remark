@@ -237,27 +237,31 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 #landing {
   display: flex; justify-content: center; align-items: flex-start;
   position: fixed; top: 45px; left: 0; right: 0; bottom: 0;
-  overflow-y: auto; padding: 11vh 0 40px;
+  overflow-y: auto; padding: 5vh 24px 40px;
 }
-.landing-card { max-width: 620px; width: 92%; text-align: center; }
+/* the file list is the point of this page: the branding is one compact
+   row and the list gets the room, in columns when the screen is wide */
+.landing-card { max-width: 1080px; width: 100%; text-align: left; }
+.lhead { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.lbrand { min-width: 0; }
 .hero {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 72px; height: 72px; border-radius: 22px; font-size: 36px;
+  width: 46px; height: 46px; border-radius: 14px; font-size: 23px; flex: none;
   background: var(--accent-soft); color: var(--accent);
   border: 1px solid var(--accent-border);
   box-shadow: var(--shadow-card);
 }
-.landing-card h1 { font: 650 30px/1.2 var(--font-display); letter-spacing: -.02em; margin: 18px 0 6px; }
-.tagline { color: var(--muted); margin: 0 0 26px; }
+.landing-card h1 { font: 650 20px/1.2 var(--font-display); letter-spacing: -.02em; margin: 0; }
+.tagline { color: var(--muted); margin: 2px 0 0; font-size: 13px; }
 #browseBtn {
-  display: inline-flex; align-items: center; gap: 9px;
-  margin: 0 auto 16px; padding: 11px 26px;
+  display: inline-flex; align-items: center; gap: 9px; flex: none;
+  margin-left: auto; padding: 9px 20px;
   border: 0; border-radius: 11px; background: var(--accent); color: var(--accent-fg);
   cursor: pointer; font-size: 15px; font-weight: 600; font-family: var(--font-display);
   box-shadow: 0 2px 8px rgba(9, 105, 218, .3);
 }
 #browseBtn:hover { filter: brightness(1.08); }
-#openForm { display: flex; gap: 10px; margin: 0 auto 30px; max-width: 520px; }
+#openForm { display: flex; gap: 10px; margin: 0 0 24px; max-width: 560px; }
 #openForm input {
   flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px;
   background: var(--surface); color: var(--fg); font-size: 14px; font-family: var(--font-mono);
@@ -268,7 +272,15 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
   color: var(--accent-fg); cursor: pointer; font-size: 14px; font-weight: 600;
 }
 #openForm button:hover { filter: brightness(1.08); }
-#recent { text-align: left; max-width: 520px; margin: 0 auto; }
+#recent {
+  text-align: left; margin: 0 auto;
+  /* the list is what this page is for: columns when there is room */
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 2px 16px;
+}
+#recent h3, #recent .rempty {
+  grid-column: 1 / -1;
+}
 #recent h3 {
   color: var(--faint); font-size: 11px; text-transform: uppercase;
   letter-spacing: .09em; margin: 0 0 6px 4px; font-weight: 650;
@@ -300,7 +312,7 @@ body.gateway .tagline { margin-bottom: 18px; }
   .landing-card h1 { font-size: 22px; margin: 10px 0 4px; }
   .tagline { font-size: 13px; margin-bottom: 18px; }
   #openForm { flex-direction: column; }
-  #recent { max-width: none; }
+  #recent { max-width: none; grid-template-columns: 1fr; }
   #recent a { flex-wrap: wrap; padding: 11px 12px; border-color: var(--border-soft); margin-bottom: 6px; font-size: 15px; gap: 8px 10px; }
   /* badges on their own line: the name keeps the full width */
   #recent a .rstatus { width: 100%; order: 3; margin-left: 0; padding-left: 25px; box-sizing: border-box; }

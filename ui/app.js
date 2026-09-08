@@ -427,7 +427,7 @@ function tagChip(e, item) {
           : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
         return;
       }
-      const rx = new RegExp('(^|[^\\w&/#])#' + e.tag + '(?![\\w-])', 'gi');
+      const rx = new RegExp('(^|\\s)#' + e.tag + '(?![\\w-])', 'gi');
       let text = item.rawBody.replace(rx, '$1');
       text = text.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n')
         .replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
@@ -1163,6 +1163,14 @@ function buildItem(item, opts) {
     tt.className = 'ctitlebar';
     tt.textContent = item.title;
     tt.title = item.title;
+    // the title is the biggest thing on the card — it collapses the
+    // thread just like the header row under it
+    tt.addEventListener('click', e => {
+      if (e.target.closest('button, input, a')) return;
+      S.collapsed.set(item.key, !collapsed);
+      persistCollapse(item.key, !collapsed);
+      render();
+    });
     el.appendChild(tt); // before the head, which is appended later
   } else if (collapsed) {
     const snip = document.createElement('span');
@@ -3346,7 +3354,8 @@ function recents() {
   return Array.isArray(PREFS.recents) ? PREFS.recents : [];
 }
 function addRecent(p) {
-  setPref('recents', [p].concat(recents().filter(x => x !== p)).slice(0, 10));
+  // the landing shows them in columns now, so history can be generous
+  setPref('recents', [p].concat(recents().filter(x => x !== p)).slice(0, 30));
 }
 function splitPath(p) {
   const i = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'));

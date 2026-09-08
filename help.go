@@ -111,8 +111,9 @@ The rules, in full — for when you must hand-edit after all:
   * The thread title is the first body line when it is ENTIRELY bold —
     inline after the colon or alone on the first continuation line, but
     nothing after the closing **. remark edit -title writes it right.
-  * Tags: "#word" anywhere in a comment (letter first; not in code,
-    URLs; not "#123", not hex colors, not "#r..." references). A reply
+  * Tags: "#word" in a comment, preceded by whitespace (letter first;
+    not in code, URLs or link anchors; not "#123", not hex colors, not
+    "#r..." references). A reply
     whose whole body is tags is a READER TAG on its parent, not a
     comment — that is what remark tag writes.
   * Concurrent edits are normal: the human's window writes this file
