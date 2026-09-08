@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-08
 
+### Mentions light up
+"@Name" in a comment renders as a person chip when the name is a known author of the document — and your own name wears the accent, so where you are addressed stands out while scanning. Multi-word names work (the longest match wins); code, links and unknown names stay plain text.
+
 ### Interjections respect code blocks
 Inserting a comment right after a fenced code block that contains empty lines landed inside the block: the renderer treated the fence as one paragraph but the file writer split it at every blank line. Both sides now share the same fence-aware rule, so the insertion point is always the fence's closing line.
 

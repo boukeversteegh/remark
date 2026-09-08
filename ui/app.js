@@ -587,6 +587,60 @@ function linkTags(rootNode) {
     n.parentNode.replaceChild(frag, n);
   }
 }
+// "@Name" in rendered comment text becomes a mention chip when the name is
+// a known author (longest name first, so multi-word names win); your own
+// name is accented so being addressed stands out. Code and links stay put.
+function docAuthors() {
+  const names = new Set();
+  for (const it of (S.parsed && S.parsed.items) || []) if (it.author) names.add(it.author);
+  if (S.me) names.add(S.me);
+  return [...names].sort((a, b) => b.length - a.length);
+}
+function linkMentions(rootNode) {
+  const names = docAuthors();
+  if (!names.length) return;
+  const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    if (n.parentElement && n.parentElement.closest('code, pre, a')) continue;
+    if (n.nodeValue.indexOf('@') !== -1) hits.push(n);
+  }
+  for (const n of hits) {
+    const s = n.nodeValue;
+    const frag = document.createDocumentFragment();
+    let last = 0, pos = 0, changed = false;
+    for (;;) {
+      const at = s.indexOf('@', pos);
+      if (at === -1) break;
+      const prev = at > 0 ? s[at - 1] : ' ';
+      let matched = null;
+      if (!/[\w@]/.test(prev)) {
+        for (const nm of names) {
+          if (!s.startsWith(nm, at + 1)) continue;
+          // a name ending in a word char must not continue into one:
+          // "@Me" inside "@Meta" is not a mention of Me
+          const after = s[at + 1 + nm.length];
+          if (after !== undefined && /\w/.test(after) && /\w$/.test(nm)) continue;
+          matched = nm;
+          break;
+        }
+      }
+      if (!matched) { pos = at + 1; continue; }
+      frag.appendChild(document.createTextNode(s.slice(last, at)));
+      const sp = document.createElement('span');
+      sp.className = 'mention' + (isMe(matched) ? ' me' : '');
+      sp.textContent = '@' + matched;
+      sp.title = isMe(matched) ? 'You are addressed here' : 'Mention of ' + matched;
+      frag.appendChild(sp);
+      last = pos = at + 1 + matched.length;
+      changed = true;
+    }
+    if (!changed) continue;
+    frag.appendChild(document.createTextNode(s.slice(last)));
+    n.parentNode.replaceChild(frag, n);
+  }
+}
 // the Tags panel: every tag in the file with its count, most used first;
 // tap one to filter the document (several combine: all must be present)
 function buildTagsPanel() {
@@ -1420,6 +1474,7 @@ function buildItem(item, opts) {
         pe.className = 'cpara';
         pe.innerHTML = md(chunk);
         if (chunk.indexOf('#') !== -1) linkTags(pe);
+        if (chunk.indexOf('@') !== -1) linkMentions(pe);
         body.appendChild(pe);
         // interject zone BETWEEN paragraphs only — a single-paragraph
         // comment has no in-between, so it gets none (reply covers it)

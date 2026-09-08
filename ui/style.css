@@ -1410,6 +1410,13 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .tagchip:hover { filter: brightness(1.04); border-color: var(--accent); }
 .tagchip.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
 .tagchip.reader { border-style: dashed; }
+/* "@Name" of a known author in comment text: a person chip; your own name
+   is accented so being addressed stands out while scanning */
+.mention {
+  background: var(--accent-soft); border-radius: 6px; padding: 0 4px;
+  font-weight: 600; white-space: nowrap;
+}
+.mention.me { background: var(--accent); color: var(--accent-fg); }
 /* a "-#tag" reply took the tag off: the chip stays as a struck-through
    trace (who removed it is in the tooltip) but no longer filters */
 .tagchip.negated { text-decoration: line-through; opacity: .5; cursor: default; }

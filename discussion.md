@@ -3067,3 +3067,5 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   ensure mentioned authors using "@" are visualized properly.
 
   - 🤖 Claude (2026-09-08 14:33:38): Claiming. Plan: @Name in comment text renders as a mention chip - highlighted like a tag chip but person-styled, matched against the authors present in the document (and the presence list), longest name first so multi-word names win; your own name gets a stronger accent so you see where you are addressed. Inside code, links and URLs nothing changes. Test and changelog included. <!--seen:Bouke-->
+
+  - 🤖 Claude (2026-09-08 14:37:36): Built and installed. @Name renders as a person chip whenever the name is a known author of the document - matched longest-first so multi-word names like mine win, with a word-boundary guard so @Meta never counts as @Me and mail@bob.example stays an address. Your own name wears the stronger accent, so where YOU are addressed jumps out while scanning; code spans, code blocks and links are left alone, and unknown names stay plain text. Test mentions covers all of it; 32 of 32 pass.
