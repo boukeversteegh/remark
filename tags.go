@@ -25,7 +25,11 @@ import (
 var (
 	// a tag starts the text or follows whitespace — "#x" glued to anything
 	// (word chars, "(", link targets, url anchors) is not a tag
-	tagRe    = regexp.MustCompile(`(^|\s)#([A-Za-z][\w-]*)`)
+	tagRe = regexp.MustCompile(`(^|\s)#([A-Za-z][\w-]*)`)
+	// "-#tag" in a bare-tag reply NEGATES the tag on the parent: it leaves
+	// the effective set without anyone's text being edited. The "-" also
+	// keeps tagRe from reading the token as a positive tag.
+	tagNegRe = regexp.MustCompile(`(^|\s)-#([A-Za-z][\w-]*)`)
 	tagRefRe = regexp.MustCompile(`^r\d*$`) // "#r…" comment references, and a bare "#r"
 	// hex colors ("#eaf3ff") are not tags: 3-8 hex chars, at least one digit
 	tagHexRe  = regexp.MustCompile(`^[a-f0-9]{3,8}$`)
@@ -69,13 +73,32 @@ func tagExtract(text string) []string {
 	return out
 }
 
-// tagIsBare reports whether text is nothing but tags.
+// tagExtractNeg returns the distinct "-#tag" negations in text, canonicalised
+// like tags.
+func tagExtractNeg(text string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, m := range tagNegRe.FindAllStringSubmatch(tagScannable(text), -1) {
+		t := strings.ToLower(strings.TrimRight(m[2], "-"))
+		if t == "" || tagRefRe.MatchString(t) || seen[t] ||
+			(tagHexRe.MatchString(t) && tagDigRe.MatchString(t)) {
+			continue
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	return out
+}
+
+// tagIsBare reports whether text is nothing but tags; "-#tag" negations
+// count, so one reply can mix additions and removals.
 func tagIsBare(text string) bool {
 	words := strings.Fields(text)
 	if len(words) == 0 {
 		return false
 	}
 	for _, w := range words {
+		w = strings.TrimPrefix(w, "-")
 		if !tagWordRe.MatchString(w) || tagRefRe.MatchString(w[1:]) {
 			return false
 		}
@@ -96,6 +119,24 @@ func tagUnion(lists ...[]string) []string {
 		}
 	}
 	return out
+}
+
+// tagSubtract returns a without the entries of negs, keeping order.
+func tagSubtract(a, negs []string) []string {
+	if len(negs) == 0 {
+		return a
+	}
+	out := map[string]bool{}
+	for _, t := range negs {
+		out[t] = true
+	}
+	var kept []string
+	for _, t := range a {
+		if !out[t] {
+			kept = append(kept, t)
+		}
+	}
+	return kept
 }
 
 // tagDiff returns the entries of b that are not in a.
@@ -144,12 +185,16 @@ func readNodeTags(lines []string, n *readNode) (tags []string, bare bool) {
 		return nil, true
 	}
 	tags = tagExtract(body)
+	var negs []string
 	for _, c := range n.children {
 		if _, cb := readNodeTags(lines, c); cb {
-			tags = tagUnion(tags, tagExtract(readNodeBody(lines, c)))
+			cbody := readNodeBody(lines, c)
+			tags = tagUnion(tags, tagExtract(cbody))
+			negs = append(negs, tagExtractNeg(cbody)...)
 		}
 	}
-	return tags, false
+	// negations win no matter which reply came first
+	return tagSubtract(tags, negs), false
 }
 
 // remark tag <file> <selector> #a #b -as <name>
@@ -214,8 +259,26 @@ func runTag(args []string) {
 				continue
 			}
 			add := tagDiff(tagExtract(body), tags)
-			if len(add) == 0 {
+			// a tag you took off with "-#tag" comes back: the negation
+			// token is dropped from your reply
+			var restore []string
+			negsHave := map[string]bool{}
+			for _, t := range tagExtractNeg(body) {
+				negsHave[t] = true
+			}
+			for _, t := range tags {
+				if negsHave[t] {
+					restore = append(restore, t)
+				}
+			}
+			if len(add) == 0 && len(restore) == 0 {
 				return "", fmt.Errorf("%s already carries #%s from you", sel, strings.Join(tags, " #"))
+			}
+			for _, t := range restore {
+				re := regexp.MustCompile(`(?i)[ \t]-#` + regexp.QuoteMeta(t) + `($|[^\w-])`)
+				for i := c.start; i < c.ownEnd && i < len(lines); i++ {
+					lines[i] = strings.TrimRight(re.ReplaceAllString(lines[i], "$1"), " \t")
+				}
 			}
 			// onto the reply's last text line (a body may sit on a
 			// continuation line), keeping a first-line seen-marker last
@@ -229,10 +292,21 @@ func runTag(args []string) {
 				marker = " " + l[m[0]:m[1]]
 				l = strings.TrimRight(l[:m[0]], " \t")
 			}
-			lines[end] = strings.TrimRight(l, " \t") + " #" + strings.Join(add, " #") + marker
+			suffix := ""
+			if len(add) > 0 {
+				suffix = " #" + strings.Join(add, " #")
+			}
+			lines[end] = strings.TrimRight(l, " \t") + suffix + marker
 			stamp = c.time
 			line = c.start + 1
-			what = "added #" + strings.Join(add, " #") + " to your tags"
+			switch {
+			case len(add) > 0 && len(restore) > 0:
+				what = "added #" + strings.Join(add, " #") + ", restored #" + strings.Join(restore, " #")
+			case len(restore) > 0:
+				what = "restored #" + strings.Join(restore, " #") + " (your -# removed)"
+			default:
+				what = "added #" + strings.Join(add, " #") + " to your tags"
+			}
 			return strings.Join(lines, "\n"), nil
 		}
 		stamp = writeUniqueStamp(content, time.Now())

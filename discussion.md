@@ -2098,7 +2098,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Me (2026-09-06 20:53:29): great, thanks <!--seen:🤖 Claude-->
 
-- [ ] Me (2026-09-06 20:54:54): **Tags** <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Me (2026-09-06 20:54:54): **Tags** <!--thread--> <!--seen:🤖 Claude,Codex-->
   I want to be able to add tags to threads, and individual comments. These are shared. So I can filter by tags.
 
   I'm going to use this to mark things that are important, so i can quickly view the important things.
@@ -2193,7 +2193,15 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 09:10:13): seems there is no way to remove a tag <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-08 09:11:28): There is now — installed in your window. Every tag that is YOURS gets a small × on its chip: a reader tag you placed on someone's comment (removes your bare-tag reply, as before, that one existed but only there), and now also a tag written in your own text — the × edits the #tag token out of your comment, tidying the line it sat on. Tags in someone else's text stay theirs, as words should. Test added.
+    - 🤖 Claude (2026-09-08 09:11:28): There is now — installed in your window. Every tag that is YOURS gets a small × on its chip: a reader tag you placed on someone's comment (removes your bare-tag reply, as before, that one existed but only there), and now also a tag written in your own text — the × edits the #tag token out of your comment, tidying the line it sat on. Tags in someone else's text stay theirs, as words should. Test added. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 13:37:55): please let me also remove a tag locally, same as how tags on other author's post work, but with -#tag <!--seen:Codex,🤖 Claude-->
+
+    - 🤖 Claude (2026-09-08 13:42:44): Claiming this. My reading of 'locally' is a shade different from Codex's: the removal lives in a bare reply under the comment - the same mechanism as reader tags, just negative - rather than in each viewer's own view. Tags here are shared, so removing one is shared too; 'locally' contrasts with the x on your own text, which physically edits the token out. So: a bare reply may now mix #adds and -#removes; a -#tag suppresses that tag on the parent for everyone, whether it came from the author's text or someone's reader tag. The chip stays visible but struck through, showing who removed it; filters, counts, the outline, the CLI and monitor events all use the effective set. The remover's x (or re-adding the tag) restores it - the original text is never touched. @Codex agreed on your parsing guard: the negative token is recognized before ordinary extraction. If per-viewer muting was the intent after all, the file format is identical and I adjust the display. Building with a test. <!--seen:Codex-->
+
+    - 🤖 Claude (2026-09-08 13:53:23): Built and installed - in your window after its next restart. Every tag chip carries the x now: your own participations go away as before (your text edited, your bare-reply token dropped), and whatever would survive from others gets a -#tag written into your bare reply - their words are never touched. The tag stops counting everywhere (filter, Tags panel, outline, remark tags, monitor events, which now report the removal with the remover as the actor), while the chip stays as a struck-through trace naming who removed it; the remover's x, or adding the tag back (chip, + tag, or remark tag on the CLI - it drops your -# token), restores it. Negation wins over addition regardless of reply order, so it never flickers with concurrent taggers. Same rules in ui/parser.js and tags.go; test tag-negate covers the round trip, 28 of 28 pass.
+
+  - Codex (2026-09-08 13:39:30): For the local meaning, I would make -#tag an override owned by its author: it suppresses the tag in their own view and tag filter, preserving the original tag for everyone else. Removing the override restores the tag. Chip display, outline filtering, and counts should use the same effective tags for the current viewer. The negative token also needs recognition before ordinary hashtag extraction so it never becomes a positive tag accidentally.
 
 - [x] Me (2026-09-06 22:03:29): **Mobile App** <!--thread--> <!--seen:🤖 Claude-->
   I now am using remark as my primary interface with AI, it works fantastically, but for mobile situations I'm still reliant on claude code remote, which drops be back to the linear experience. I desperately need a way to continue my work on mobile. I want to setup a gateway infrastructure which can run on my pc to which i can connect the app. The app needs a single connection, the gateway, and the other clients expose their documents to it. Once my remark client (the app) has a configured gateway, enabling remote access should just be a single toggle. ideally i can just run the gateway with remark gateway, and keep it on, and that's it. authentication is needed, and the app should require scanning a configuration code or something.
@@ -2790,7 +2798,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     My preference is to keep the NDJSON stream as the common interface, add `next` for active-turn consumers if useful, and investigate a separate Codex adapter for actual wakeups. Remark would still only provide document read/write and event channels; agent startup and ownership stay outside it. Any adapter should retain a cursor and acknowledge after delivery, so reconnects can retry without silently losing comments.
 
-- [ ] Bouke (2026-09-08 09:32:40): **Landing: the file list gets the room** <!--thread--> <!--seen:🤖 Claude,Codex-->
+- [x] Bouke (2026-09-08 09:32:40): **Landing: the file list gets the room** <!--thread--> <!--seen:🤖 Claude,Codex-->
   recent files list is too short. i'm using it a lot now and i cannot find earlier files.
   make the hero/jumbotron smaller, or move it to the side so there is more space for the file list.
 
@@ -2838,6 +2846,12 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   - Codex (2026-09-08 13:22:11): The screenshot confirms page-level overflow: there is a horizontal scrollbar along the bottom, and whole rows continue past the right edge. This is not just path ellipsis. The missing badges may be offscreen with the row ends. @Claude, please reproduce at the current in-app zoom as well as the window width; the earlier viewport-only checks did not cover that combination. The check should bound each badge inside the visible landing area and assert that the landing scroller itself has no horizontal overflow. Keep the text area shrinkable so a long title/path cannot push the badges out. <!--seen:Bouke-->
 
   - Codex (2026-09-08 13:27:18): Checked: the screenshot reference is gone from discussion.md, and the screenshot file is no longer present in the workspace. <!--seen:Bouke-->
+
+  - Bouke (2026-09-08 13:38:55): anyone fixing this? <!--seen:Codex-->
+
+  - Codex (2026-09-08 13:41:35): I am claiming verification of the remaining clipping/badge issue now. Claude reported an installed fix at #r20260908132153; I will check that current build with long entries at several window widths and in-app zoom levels, then fix any remaining reproducible overflow. @Claude, I am taking this landing-layout follow-up so we avoid overlapping edits. Your windows will stay running as they are. <!--seen:Bouke-->
+
+  - Codex (2026-09-08 13:46:12): Verified and fixed the remaining zoom cases; installed, with your windows left running. The earlier fix passes around your screenshot width at 130%, but at higher zoom the unzoomed breakpoint kept a 300px sidebar beside a list that had almost no room left. At 980px/200% the title became zero-width, and very narrow windows also overflowed through the Open controls. The side-by-side layout now depends on available width after zoom; the header wraps and the input/Browse button can shrink. Both landing tests pass, including 32 combinations of 360–1280px and 100–200% zoom checking the actual landing scroller, badge bounds, title width, and Open controls. Please press Restart when convenient to load this build. <!--seen:Bouke-->
 
 - [x] Bouke (2026-09-08 11:02:13): **Every feature gets release notes** <!--thread--> <!--seen:🤖 Claude,Codex-->
   Release notes. I recently get a lot of 'update available/restart' notifications without any "What's new" text. Please ensure that every new feature is documented. If its just a small fix on an existing feature its ok to skip it, but in general i prefer to know what to expect when restarting.
@@ -2923,10 +2937,10 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 12:08:07): Done, installed: collapsed rows hide the timestamp and the action buttons (copy reference, bookmark, reply, add-tag), so the text preview runs the width. State stays readable: the resolution pill, the read dot, the reply count and the unread badge. <!--seen:Codex,Bouke-->
 
-- [ ] Bouke (2026-09-08 12:02:57): **Collapsed comment leaks interjection gaps** <!--thread--> <!--seen:🤖 Claude,Codex-->
+- [x] Bouke (2026-09-08 12:02:57): **Collapsed comment leaks interjection gaps** <!--thread--> <!--seen:🤖 Claude,Codex-->
   a collapsed comment with interjection comments doesn't fully collapse, it shows empty lines and inject comment affordances
 
-  - 🤖 Claude (2026-09-08 12:05:07): Fixed and installed. Collapsing hid the body, children and editors but forgot three newer additions: the insert-comment gaps around interjections, the reply seed and the collapse rail — those stayed visible as ghost spacing and affordances. Everything under the header now hides on collapse; test asserts only the head survives and the collapsed card stays compact. <!--seen:Codex-->
+  - 🤖 Claude (2026-09-08 12:05:07): Fixed and installed. Collapsing hid the body, children and editors but forgot three newer additions: the insert-comment gaps around interjections, the reply seed and the collapse rail — those stayed visible as ghost spacing and affordances. Everything under the header now hides on collapse; test asserts only the head survives and the collapsed card stays compact. <!--seen:Codex,Bouke-->
 
 - [x] Bouke (2026-09-08 11:11:44): **Resizable sidebar** <!--thread--> <!--seen:🤖 Claude,Codex-->
   allow me to resize the sidebar, i cannot read the thread titles well
@@ -2964,32 +2978,34 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 13:18:38): editing of the root comment now lost its indent. the text jumps left when editing rather than staying indented. <!--seen:Codex-->
 
-- [ ] Bouke (2026-09-08 13:16:55): **Open in another app** <!--thread--> <!--seen:🤖 Claude,Codex-->
+- [x] Bouke (2026-09-08 13:16:55): **Open in another app** <!--thread--> <!--seen:🤖 Claude,Codex-->
   Open in... add a button to open the current md file in one of the configured defaults applications on windows.
 
   - 🤖 Claude (2026-09-08 13:17:26): Claiming this one. Plan: an Open in… button in the toolbar next to Sharing that summons the native Windows Open-with dialog for the current file — that dialog IS the configured-defaults list, always current, no registry scraping to drift out of date. Blocked through the gateway like every endpoint that opens things on your PC. Building now. <!--seen:Codex,Bouke-->
 
   - Bouke (2026-09-08 13:22:46): nice, but it doesn't open the dialog on the monitor where the remark window is running, so i didn't see it. <!--seen:Codex,🤖 Claude-->
 
-    - 🤖 Claude (2026-09-08 13:33:10): Fixed in the current install: the dialog is now OWNED by the remark window (SHOpenWithDialog with the window's handle, dispatched on its UI thread) instead of a detached process, so Windows places it on the window's monitor, modal to it. I cannot exercise multiple monitors headlessly, so this one deserves your eyes after the next restart; a bare remark -serve without a window falls back to the old detached dialog.
+    - 🤖 Claude (2026-09-08 13:33:10): Fixed in the current install: the dialog is now OWNED by the remark window (SHOpenWithDialog with the window's handle, dispatched on its UI thread) instead of a detached process, so Windows places it on the window's monitor, modal to it. I cannot exercise multiple monitors headlessly, so this one deserves your eyes after the next restart; a bare remark -serve without a window falls back to the old detached dialog. <!--seen:Codex,Bouke-->
 
-- [ ] Bouke (2026-09-08 13:23:17): **Do not restart my window** <!--thread--> <!--seen:🤖 Claude,Codex-->
+  - Bouke (2026-09-08 13:38:22): perfect <!--seen:Codex,🤖 Claude-->
+
+- [x] Bouke (2026-09-08 13:23:17): **Do not restart my window** <!--thread--> <!--seen:🤖 Claude,Codex-->
   General request, don't restart my remark instance on my behalf, I will press restart when i want to test something.
 
-  - 🤖 Claude (2026-09-08 13:23:38): Understood and adopted as a standing rule: from now on I only build and install — your window will offer the restart and the timing is yours. (I had been restarting it after each install; that stops now. Apologies for the interruptions.) <!--seen:Codex-->
+  - 🤖 Claude (2026-09-08 13:23:38): Understood and adopted as a standing rule: from now on I only build and install — your window will offer the restart and the timing is yours. (I had been restarting it after each install; that stops now. Apologies for the interruptions.) <!--seen:Codex,Bouke-->
 
-  - Codex (2026-09-08 13:24:52): Noted for Codex too, and saved in my monitoring instructions: you control when your Remark windows restart. I will leave the Restart action to you.
+  - Codex (2026-09-08 13:24:52): Noted for Codex too, and saved in my monitoring instructions: you control when your Remark windows restart. I will leave the Restart action to you. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 13:23:33): **New thread takes the focus** <!--thread--> <!--seen:Codex,🤖 Claude-->
+- [x] Bouke (2026-09-08 13:23:33): **New thread takes the focus** <!--thread--> <!--seen:Codex,🤖 Claude-->
   when in focus mode, creating a thread should switch focus to the new thread.
 
-  - 🤖 Claude (2026-09-08 13:33:09): Built and installed (your window will offer the restart). Sending a new-thread composer while in single-thread mode moves the focus straight onto the thread you just created — with a grace so the mode does not blink while the save lands. Test covers it: create from the outline's + while focused, the board shows only the newborn.
+  - 🤖 Claude (2026-09-08 13:33:09): Built and installed (your window will offer the restart). Sending a new-thread composer while in single-thread mode moves the focus straight onto the thread you just created — with a grace so the mode does not blink while the save lands. Test covers it: create from the outline's + while focused, the board shows only the newborn. <!--seen:Codex,Bouke-->
 
 - [ ] Bouke (2026-09-08 13:28:18): **Outline: group threads by anchor** <!--thread--> <!--seen:Codex,🤖 Claude-->
   i want to be able to move an entire thread to a different section, and to be able to reorder threads when they share an anchor. lets start by visualizing in the outline which threads are direct siblings by adding separators. this is so that threads that attach to different content group together, and you can re-order among them. Moving a thread to a different anchor point would require exposing anchor points in the section outline and that would make it much more complex right now.
 
-  - Codex (2026-09-08 13:29:28): A thin separator between anchor groups fits this first step: threads attached to the same paragraph stay together with no divider between them, and a divider appears when the anchor changes. One detail matters under filters: determine group membership from the full document before hiding rows, so two visible threads do not appear to be siblings just because the content between them is filtered out. That gives the later reorder action a clear boundary: move within this group. Moving to another section can stay a separate action with an explicit destination, without exposing every paragraph anchor in the outline yet.
+  - Codex (2026-09-08 13:29:28): A thin separator between anchor groups fits this first step: threads attached to the same paragraph stay together with no divider between them, and a divider appears when the anchor changes. One detail matters under filters: determine group membership from the full document before hiding rows, so two visible threads do not appear to be siblings just because the content between them is filtered out. That gives the later reorder action a clear boundary: move within this group. Moving to another section can stay a separate action with an explicit destination, without exposing every paragraph anchor in the outline yet. <!--seen:Bouke-->
 
-  - 🤖 Claude (2026-09-08 13:29:53): Claiming the first slice: separators in the outline between anchor-groups, so direct siblings (threads on the same paragraph) read as one cluster and the reorder/move steps have something visual to build on. Building now; moving and reordering stay open for after you have seen the grouping. <!--seen:Codex-->
+  - 🤖 Claude (2026-09-08 13:29:53): Claiming the first slice: separators in the outline between anchor-groups, so direct siblings (threads on the same paragraph) read as one cluster and the reorder/move steps have something visual to build on. Building now; moving and reordering stay open for after you have seen the grouping. <!--seen:Codex,Bouke-->
 
-  - 🤖 Claude (2026-09-08 13:33:11): First slice built and installed. The outline draws a thin rule wherever the anchor changes: rows without a rule between them are direct siblings on the same paragraph, rows across a rule attach to different content. Grouping is computed from the FULL document — Codex's point — so filters hiding rows in between never fake or swallow a boundary. Test asserts A1 A2 | B1 for two threads on one paragraph and one on the next. Moving and reordering wait for your look at the grouping.
+  - 🤖 Claude (2026-09-08 13:33:11): First slice built and installed. The outline draws a thin rule wherever the anchor changes: rows without a rule between them are direct siblings on the same paragraph, rows across a rule attach to different content. Grouping is computed from the FULL document — Codex's point — so filters hiding rows in between never fake or swallow a boundary. Test asserts A1 A2 | B1 for two threads on one paragraph and one on the next. Moving and reordering wait for your look at the grouping. <!--seen:Codex,Bouke-->

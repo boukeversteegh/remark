@@ -408,6 +408,11 @@ func monParse(content string) []*monItem {
 	// and carry the root's timestamp as the thread's identity
 	var curLabel, curRoot string
 	var stack []*monItem // ancestors by indent, for the parent stamp
+	type monNeg struct {
+		p    *monItem
+		tags []string
+	}
+	var negs []monNeg
 	for _, it := range items {
 		if it.Indent == 0 {
 			if it.Thread != "" {
@@ -428,18 +433,26 @@ func monParse(content string) []*monItem {
 		}
 		// tags: a bare-tag reply tags its parent (and is keyed by that parent
 		// too — "Bouke: #important" recurs under many comments); anything else
-		// owns the tags in its own text
+		// owns the tags in its own text. "-#tag" in a bare reply negates the
+		// tag; negations are applied after the walk so they win regardless of
+		// which reply sits first
 		if it.Indent > 0 && tagIsBare(it.body) {
 			it.Bare = true
 			it.Key = monNormalize(it.Author + "|" + it.body + "|" + it.Parent)
 			if len(stack) > 0 {
 				p := stack[len(stack)-1]
 				p.Tags = tagUnion(p.Tags, tagExtract(it.body))
+				if n := tagExtractNeg(it.body); len(n) > 0 {
+					negs = append(negs, monNeg{p, n})
+				}
 			}
 		} else {
 			it.Tags = tagUnion(tagExtract(it.body), it.Tags)
 		}
 		stack = append(stack, it)
+	}
+	for _, pn := range negs {
+		pn.p.Tags = tagSubtract(pn.p.Tags, pn.tags)
 	}
 	return items
 }
@@ -535,14 +548,19 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 		}
 		if added, removed := tagDiff(prev.Tags, it.Tags), tagDiff(it.Tags, prev.Tags); len(added) > 0 || len(removed) > 0 {
 			// one event per actor: each new bare-tag reply accounts for the
-			// tags it carries, the author for the rest (an edit of the text)
-			byActor := map[string][]string{}
+			// tags it carries — "#x" for additions, "-#x" for removals — and
+			// the author for the rest (an edit of the text)
+			byAdd := map[string][]string{}
+			byRem := map[string][]string{}
 			var order []string
-			claim := func(actor, t string) {
-				if _, ok := byActor[actor]; !ok {
-					order = append(order, actor)
+			note := func(actor string) {
+				if _, ok := byAdd[actor]; ok {
+					return
 				}
-				byActor[actor] = append(byActor[actor], t)
+				if _, ok := byRem[actor]; ok {
+					return
+				}
+				order = append(order, actor)
 			}
 			for _, t := range added {
 				actor := it.Author
@@ -552,23 +570,24 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 						break
 					}
 				}
-				claim(actor, t)
+				note(actor)
+				byAdd[actor] = append(byAdd[actor], t)
 			}
-			if len(added) == 0 {
-				claim(it.Author, "")
+			for _, t := range removed {
+				actor := it.Author
+				for _, b := range taggers[it.Time] {
+					if len(tagDiff(tagExtractNeg(b.body), []string{t})) == 0 {
+						actor = b.Author
+						break
+					}
+				}
+				note(actor)
+				byRem[actor] = append(byRem[actor], t)
 			}
 			for _, actor := range order {
-				add := byActor[actor]
-				if len(add) == 1 && add[0] == "" {
-					add = nil
-				}
-				var rem []string
-				if actor == it.Author {
-					rem = removed
-				}
 				evs = append(evs, monEvent{Type: "tag", File: file, Author: actor,
 					Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text,
-					Tags: it.Tags, Added: add, Removed: rem})
+					Tags: it.Tags, Added: byAdd[actor], Removed: byRem[actor]})
 			}
 		}
 		if prev.Time == "now" && it.Time != "" && it.Time != "now" {

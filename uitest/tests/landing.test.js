@@ -1,5 +1,5 @@
-// the landing page: compact branding row, the file list in columns when
-// the screen is wide, and a generous recents history
+// The landing page keeps a single list, with branding beside it only when
+// the available width (including app zoom) leaves room for readable rows.
 const { assert } = require('../helpers');
 
 module.exports = async ctx => {
@@ -76,5 +76,34 @@ module.exports = async ctx => {
   }));
   assert(!small.hOverflow, 'no horizontal overflow in a small window');
   assert(small.badgeOn, 'the badge stays on screen in a small window');
+
+  // CSS zoom does not change viewport media queries. The old side rail
+  // stayed wide at high zoom and squeezed the title to zero width.
+  for (const width of [360, 500, 720, 721, 979, 980, 1107, 1280]) {
+    await p2.setViewportSize({ width, height: 741 });
+    for (const zoom of [1, 1.3, 1.5, 2]) {
+      await p2.evaluate(z => setZoom(z), zoom);
+      const layout = await p2.evaluate(() => {
+        const landing = document.getElementById('landing');
+        const bounds = landing.getBoundingClientRect();
+        const right = bounds.left + landing.clientWidth * S.zoom;
+        const inside = el => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.left >= bounds.left - 1 && r.right <= right + 1;
+        };
+        return {
+          overflow: landing.scrollWidth - landing.clientWidth,
+          badgeVisible: inside(document.querySelector('#recent .rbadge')),
+          controlsVisible: [...document.querySelectorAll('#browseBtn, #openForm input, #openForm button')].every(inside),
+          titleWidth: document.querySelector('#recent .rname').getBoundingClientRect().width,
+        };
+      });
+      const at = `${width}px at ${zoom * 100}% zoom`;
+      assert(layout.overflow <= 1, `no landing overflow at ${at}: ${layout.overflow}px`);
+      assert(layout.badgeVisible, `badge stays within the landing scroller at ${at}`);
+      assert(layout.controlsVisible, `Browse and Open controls remain reachable at ${at}`);
+      assert(layout.titleWidth >= 40, `title retains visible text at ${at}: ${layout.titleWidth}px`);
+    }
+  }
   await p2.close();
 };

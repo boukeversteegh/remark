@@ -51,6 +51,10 @@
   // a tag starts the text or follows whitespace — "#x" glued to anything
   // (word chars, "(", link targets, url anchors) is not a tag
   var TAG_RE = /(^|\s)#([A-Za-z][\w-]*)/g;
+  // "-#tag" in a bare-tag reply is a NEGATION: it removes the tag from the
+  // parent's effective set (the author's text is never edited). The "-"
+  // also keeps TAG_RE from reading the token as a positive tag.
+  var TAG_NEG_RE = /(^|\s)-#([A-Za-z][\w-]*)/g;
   var TAG_REF_RE = /^r\d*$/; // "#r…" comment references, and a bare "#r"
   // hex colors ("#eaf3ff") are not tags: 3-8 hex chars with a digit in them
   var TAG_HEX_RE = /^(?=[a-f0-9]*\d)[a-f0-9]{3,8}$/;
@@ -84,14 +88,32 @@
     return out;
   }
 
+  // negations: the "-#tag" tokens of a text, canonicalised like tags
+  function extractNegTags(text) {
+    var seen = {};
+    var out = [];
+    var s = tagScannable(text || '');
+    var m;
+    TAG_NEG_RE.lastIndex = 0;
+    while ((m = TAG_NEG_RE.exec(s))) {
+      var t = m[2].replace(/-+$/, '').toLowerCase();
+      if (!t || TAG_REF_RE.test(t) || TAG_HEX_RE.test(t) || seen[t]) continue;
+      seen[t] = true;
+      out.push(t);
+    }
+    return out;
+  }
+
   // a body that is nothing but tags (whitespace separated): a "reader tag"
-  // reply, which tags its parent instead of being a comment of its own
+  // reply, which tags its parent instead of being a comment of its own.
+  // "-#tag" tokens count too: a reply may mix additions and removals
   function isBareTags(text) {
     var s = (text || '').trim();
     if (!s) return false;
     var words = s.split(/\s+/);
     for (var i = 0; i < words.length; i++) {
       var w = words[i];
+      if (w.charAt(0) === '-') w = w.slice(1);
       if (!/^#[A-Za-z][\w-]*$/.test(w) || TAG_REF_RE.test(w.slice(1))) return false;
     }
     return true;
@@ -341,6 +363,7 @@
     item.bare = !isRoot && isBareTags(item.rawBody);
     item.ownTags = item.bare ? [] : extractTags(item.rawBody);
     item.bareTags = item.bare ? extractTags(item.rawBody) : [];
+    item.bareNegs = item.bare ? extractNegTags(item.rawBody) : [];
     var byTag = {};
     item.tags = [];
     var claim = function (t, author, authored) {
@@ -354,8 +377,20 @@
       else if (author && e.by.indexOf(author) === -1) e.by.push(author);
     };
     item.ownTags.forEach(function (t) { claim(t, item.author, true); });
+    // a "-#tag" in a bare reply negates the tag no matter the order the
+    // replies sit in: the entry stays (a struck chip shows who removed it)
+    // but leaves the effective set that filters and counts are built from
+    var negBy = {};
     item.children.forEach(function (c) {
-      if (c.bare) c.bareTags.forEach(function (t) { claim(t, c.author, false); });
+      if (!c.bare) return;
+      c.bareTags.forEach(function (t) { claim(t, c.author, false); });
+      c.bareNegs.forEach(function (t) {
+        var l = negBy[t] = negBy[t] || [];
+        if (c.author && l.indexOf(c.author) === -1) l.push(c.author);
+      });
+    });
+    item.tags.forEach(function (e) {
+      if (negBy[e.tag]) { e.negated = true; e.negBy = negBy[e.tag]; }
     });
   }
 
@@ -777,6 +812,7 @@
     subtreeEnd: subtreeEnd,
     itemParagraphs: itemParagraphs,
     extractTags: extractTags,
+    extractNegTags: extractNegTags,
     isBareTags: isBareTags,
     MARKER: MARKER
   };

@@ -123,7 +123,10 @@ The rules, in full — for when you must hand-edit after all:
     not in code, URLs or link anchors; not "#123", not hex colors, not
     "#r..." references). A reply
     whose whole body is tags is a READER TAG on its parent, not a
-    comment — that is what remark tag writes.
+    comment — that is what remark tag writes. "-#word" in such a reply
+    NEGATES the tag: it leaves the parent's effective set (filters,
+    counts, tag events) without editing anyone's text, and wins over
+    additions; dropping the -# token restores the tag.
   * Link to a comment by writing #r plus the digits of its timestamp,
     bare in your text: "(2026-09-07 12:08:34)" becomes #r20260907120834
     and renders as a link to that comment. remark reply prints the stamp

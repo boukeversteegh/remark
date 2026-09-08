@@ -349,7 +349,7 @@ function threadStats(root) {
 function subtreeTags(root) {
   const out = new Set();
   (function walk(it) {
-    if (!it.bare) for (const e of it.tags || []) out.add(e.tag);
+    if (!it.bare) for (const e of it.tags || []) if (!e.negated) out.add(e.tag);
     it.children.forEach(walk);
   })(root);
   return out;
@@ -365,7 +365,7 @@ function docTagCounts() {
   const counts = new Map();
   for (const it of (S.parsed && S.parsed.items) || []) {
     if (it.bare) continue;
-    for (const e of it.tags || []) counts.set(e.tag, (counts.get(e.tag) || 0) + 1);
+    for (const e of it.tags || []) if (!e.negated) counts.set(e.tag, (counts.get(e.tag) || 0) + 1);
   }
   return counts;
 }
@@ -377,7 +377,7 @@ function toggleTag(tag) {
   if (S.tagFilter.size && S.parsed) {
     // the filter lands on the tagged comments: unfold the path to each
     for (const it of S.parsed.items) {
-      if (it.bare || !(it.tags || []).some(e => S.tagFilter.has(e.tag))) continue;
+      if (it.bare || !(it.tags || []).some(e => !e.negated && S.tagFilter.has(e.tag))) continue;
       for (let p = it; p; p = p.parent) S.collapsed.set(p.key, false);
     }
     if (S.mobile) { S.focusThread = null; setTab('doc'); }
@@ -395,7 +395,8 @@ function tagInitial(name) {
 // the comment it filters on click and a reader tag of yours can be taken off
 function tagChip(e, item) {
   const chip = document.createElement('button');
-  chip.className = 'tagchip' + (S.tagFilter.has(e.tag) ? ' on' : '') + (e.authored ? '' : ' reader');
+  chip.className = 'tagchip' + (S.tagFilter.has(e.tag) ? ' on' : '') + (e.authored ? '' : ' reader') +
+    (e.negated ? ' negated' : '');
   chip.appendChild(document.createTextNode('#' + e.tag));
   if (!e.authored && e.by && e.by.length) {
     const who = document.createElement('span');
@@ -403,39 +404,85 @@ function tagChip(e, item) {
     who.textContent = e.by.map(tagInitial).join('');
     chip.appendChild(who);
   }
+  if (e.negated) {
+    // struck through: a "-#tag" reply took it off; only the remover's ×
+    // (or re-adding the tag) brings it back — filters and counts skip it
+    chip.title = 'Removed by ' + (e.negBy || []).join(', ');
+    if (item && (e.negBy || []).some(isMe)) {
+      const x = document.createElement('span');
+      x.className = 'tagx';
+      x.textContent = '×';
+      x.title = 'Restore #' + e.tag;
+      x.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const mine = item.children.find(c => c.bare && isMe(c.author) && c.bareNegs.includes(e.tag));
+        if (mine) rewriteMyBare(item, mine, mine.bareTags, mine.bareNegs.filter(t => t !== e.tag));
+      });
+      chip.appendChild(x);
+    }
+    return chip;
+  }
   chip.title = (e.authored ? 'In the text' : 'Tagged by ' + (e.by || []).join(', ')) +
     (S.tagFilter.has(e.tag) ? ' — click to stop filtering by #' + e.tag : ' — click to show only threads with #' + e.tag);
   chip.addEventListener('click', ev => { ev.stopPropagation(); toggleTag(e.tag); });
-  // removable when it is YOURS: a reader tag you placed, or a tag written
-  // in your own text (removing edits your text, tidying the emptied line)
-  const removable = item && (
-    (!e.authored && (e.by || []).some(isMe)) ||
-    (e.authored && isMe(item.author)));
-  if (removable) {
+  // every tag on a comment can be taken off: your own participations go
+  // away (your text is edited, your bare-reply token dropped) and whatever
+  // remains from others is negated with a "-#tag" in your bare reply —
+  // their words and replies are never touched
+  if (item) {
     const x = document.createElement('span');
     x.className = 'tagx';
     x.textContent = '×';
-    x.title = 'Remove your #' + e.tag + ' from this comment';
+    x.title = 'Remove #' + e.tag + ' from this comment';
     x.addEventListener('click', ev => {
       ev.stopPropagation();
-      if (!e.authored) {
-        const mine = item.children.find(c => c.bare && isMe(c.author) && c.bareTags.includes(e.tag));
-        if (!mine) return;
-        const rest = mine.bareTags.filter(t => t !== e.tag);
-        submitOps([rest.length
-          ? { type: 'edit', hash: mine.hash, occ: mine.occ, text: rest.map(t => '#' + t).join(' ') }
-          : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
-        return;
-      }
-      const rx = new RegExp('(^|\\s)#' + e.tag + '(?![\\w-])', 'gi');
-      let text = item.rawBody.replace(rx, '$1');
-      text = text.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n')
-        .replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
-      submitOps([{ type: 'edit', hash: item.hash, occ: item.occ, text }]);
+      removeTag(item, e);
     });
     chip.appendChild(x);
   }
   return chip;
+}
+// my bare-tag reply under item rewritten to carry exactly adds + negs;
+// emptied out, the reply goes with it
+function rewriteMyBare(item, mine, adds, negs) {
+  const text = adds.map(t => '#' + t).concat(negs.map(t => '-#' + t)).join(' ');
+  submitOps([text
+    ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
+    : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
+}
+function removeTag(item, e) {
+  const t = e.tag;
+  const ops = [];
+  // written in my own text: the token is edited out, tidying the line
+  if (e.authored && isMe(item.author)) {
+    const rx = new RegExp('(^|\\s)#' + t + '(?![\\w-])', 'gi');
+    let text = item.rawBody.replace(rx, '$1');
+    text = text.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n')
+      .replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+    ops.push({ type: 'edit', hash: item.hash, occ: item.occ, text });
+  }
+  // the tag would survive without me (someone else's text or reader tag):
+  // a "-#tag" in my bare reply removes it without touching their words
+  const needNeg = (e.authored && !isMe(item.author)) || (e.by || []).some(a => !isMe(a));
+  const mine = item.children.find(c => c.bare && isMe(c.author));
+  const adds = mine ? mine.bareTags.filter(x => x !== t) : [];
+  const negs = mine ? mine.bareNegs.slice() : [];
+  if (needNeg && negs.indexOf(t) === -1) negs.push(t);
+  if (mine) {
+    if (adds.length !== mine.bareTags.length || negs.length !== mine.bareNegs.length) {
+      const text = adds.map(x => '#' + x).concat(negs.map(x => '-#' + x)).join(' ');
+      ops.push(text
+        ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
+        : { type: 'delete', hash: mine.hash, occ: mine.occ });
+    }
+  } else if (needNeg) {
+    ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me, text: '-#' + t, time: uniqueStamp(), opener: false });
+    if (!seenByMe(item)) {
+      S.optimisticSeen.set(item.key, true);
+      ops.push({ type: 'seen', hash: item.hash, occ: item.occ, reader: S.me, on: true });
+    }
+  }
+  if (ops.length) submitOps(ops);
 }
 // "+ tag" on a comment: a tiny input in the header; Enter writes the tag —
 // into your own text (appended, on the tag row at the end) or, on someone
@@ -470,9 +517,19 @@ function tagAddButton(item) {
   return btn;
 }
 function addTags(item, tags) {
-  const have = new Set((item.tags || []).map(e => e.tag));
+  // negated tags do not count as present: adding one back retracts your
+  // "-#tag" (the underlying tag is still there, so nothing else to write)
+  const have = new Set((item.tags || []).filter(e => !e.negated).map(e => e.tag));
   const add = tags.filter(t => !have.has(t));
   if (!add.length) { toast('ok', 'Already tagged #' + tags.join(' #')); return; }
+  const mineBare = item.children.find(c => c.bare && isMe(c.author));
+  if (mineBare && add.some(t => mineBare.bareNegs.includes(t))) {
+    const negs = mineBare.bareNegs.filter(t => !add.includes(t));
+    const adds = mineBare.bareTags.concat(add.filter(t =>
+      !mineBare.bareNegs.includes(t) && !mineBare.bareTags.includes(t)));
+    rewriteMyBare(item, mineBare, adds, negs);
+    return;
+  }
   const ops = [];
   if (isMe(item.author)) {
     const lines = item.rawBody.split('\n');
@@ -484,7 +541,7 @@ function addTags(item, tags) {
   } else {
     const mine = item.children.find(c => c.bare && isMe(c.author));
     if (mine) {
-      ops.push({ type: 'edit', hash: mine.hash, occ: mine.occ, text: mine.bareTags.concat(add).map(t => '#' + t).join(' ') });
+      ops.push({ type: 'edit', hash: mine.hash, occ: mine.occ, text: mine.bareTags.concat(add).map(t => '#' + t).concat(mine.bareNegs.map(t => '-#' + t)).join(' ') });
     } else {
       ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me, text: add.map(t => '#' + t).join(' '), time: uniqueStamp(), opener: false });
       if (!seenByMe(item)) {

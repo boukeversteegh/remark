@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-08
 
+### Remove any tag with -#tag
+The × is on every tag chip now, not only your own. Removing a tag you do not own — one in someone else's text, or a reader tag placed by someone else — writes a small -#tag reply instead of touching their words: the tag stops counting for everyone (filters, the Tags panel, the outline, monitors), and the chip stays as a struck-through trace naming who removed it. The remover's ×, or simply adding the tag back, restores it. Bare-tag replies can mix additions and removals; grep still finds both.
+
 ### remark seen marks a comment read from the CLI
 remark seen <file> <sel> -as <name> writes your read-marker at once. The guidance for agents changed with it: mark a comment the moment it reaches you, not when the work it asks for is finished — a long build must not look like an unread message.
 
