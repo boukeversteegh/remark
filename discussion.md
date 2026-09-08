@@ -2894,7 +2894,16 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 11:11:41): so you can remove the action menu for now
 
-  - Bouke (2026-09-08 12:00:23): in any filtered mode, including focus, the unread pill at the top should only count and cycle through replies within the visible threads
+  - Bouke (2026-09-08 12:00:23): in any filtered mode, including focus, the unread pill at the top should only count and cycle through replies within the visible threads <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-08 12:02:40): Done, installed. The unread pill now counts and cycles only what is on screen: in single-thread mode just the focused thread's unread, under a tag filter just the matching threads; whole document as before. Test asserts the count narrowing when the mode turns on.
+
+- [ ] Bouke (2026-09-08 12:04:48): compact view for collapsed comments. <!--thread-->
+
+  please hide all buttons on collapsed comments as well as the timestamp so i can see more of the text preview
+
+- [ ] Bouke (2026-09-08 12:02:57): **Collapsed comment leaks interjection gaps** <!--thread-->
+  a collapsed comment with interjection comments doesn't fully collapse, it shows empty lines and inject comment affordances
 
 - [ ] Bouke (2026-09-08 11:11:44): **Resizable sidebar** <!--thread--> <!--seen:🤖 Claude-->
   allow me to resize the sidebar, i cannot read the thread titles well

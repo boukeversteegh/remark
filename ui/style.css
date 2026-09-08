@@ -1030,6 +1030,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .citem.collapsed { padding-bottom: 9px; }
 .citem.collapsed > .cbody,
 .citem.collapsed > .citem,
+.citem.collapsed > .igap,
+.citem.collapsed > .cfoot,
+.citem.collapsed > .crail,
 .citem.collapsed > .editor { display: none; }
 
 /* text (author, snippet, counts) aligns on a shared baseline; controls

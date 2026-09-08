@@ -54,5 +54,20 @@ module.exports = async ctx => {
   }));
   assert(nested.hung, 'list-note hangs inside its list item');
   assertEq(nested.spliced, 3, 'interrupted list splices back together');
+
+  // collapsing a comment with interjections hides EVERYTHING under the
+  // header — no leftover gaps or insert-comment affordances
+  await page2.evaluate(() => document.querySelector('#r20260901110000 > .chead .twisty').click());
+  await page2.waitForTimeout(300);
+  const leak = await page2.evaluate(() => {
+    const c = document.getElementById('r20260901110000');
+    const visible = [...c.querySelectorAll(':scope > *')]
+      .filter(x => getComputedStyle(x).display !== 'none')
+      .map(x => x.className.split(' ')[0]);
+    return { visible, h: Math.round(c.getBoundingClientRect().height) };
+  });
+  assert(!leak.visible.some(v => v === 'igap' || v === 'cfoot' || v === 'cbody'),
+    'nothing but the head survives a collapse: ' + JSON.stringify(leak.visible));
+  assert(leak.h < 90, 'the collapsed card is compact, got ' + leak.h + 'px');
   await page2.close();
 };
