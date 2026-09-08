@@ -1976,8 +1976,21 @@ function renderConflicts() {
 // unread navigation
 // ---------------------------------------------------------------------------
 let unreadCursor = -1;
+// the pill counts and cycles only what is on screen: in focus mode the
+// focused thread, under a tag filter the matching threads
+function visibleUnread() {
+  if (!S.parsed) return [];
+  return S.parsed.items.filter(it => {
+    if (!isUnread(it)) return false;
+    let r = it;
+    while (r.parent) r = r.parent;
+    if (S.focusThread) return r.time === S.focusThread;
+    if (S.tagFilter.size) return threadMatchesFilter(r);
+    return true;
+  });
+}
 function updateUnreadUI() {
-  const unread = S.parsed ? S.parsed.items.filter(isUnread) : [];
+  const unread = visibleUnread();
   const btn = $('#unreadBtn');
   btn.classList.toggle('hidden', unread.length === 0);
   btn.innerHTML = iconHTML('bell-dot');
@@ -2024,7 +2037,7 @@ function setAppTitle(t) {
   try { if (window.__remarkTitle) window.__remarkTitle(t); } catch (e) { }
 }
 function jumpUnread() {
-  const unread = S.parsed.items.filter(isUnread);
+  const unread = visibleUnread();
   if (!unread.length) return;
   unreadCursor = (unreadCursor + 1) % unread.length;
   revealItem(unread[unreadCursor]);

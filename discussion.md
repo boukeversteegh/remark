@@ -2894,6 +2894,8 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 11:11:41): so you can remove the action menu for now
 
+  - Bouke (2026-09-08 12:00:23): in any filtered mode, including focus, the unread pill at the top should only count and cycle through replies within the visible threads
+
 - [ ] Bouke (2026-09-08 11:11:44): **Resizable sidebar** <!--thread--> <!--seen:🤖 Claude-->
   allow me to resize the sidebar, i cannot read the thread titles well
 

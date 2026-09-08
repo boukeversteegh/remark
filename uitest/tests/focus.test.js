@@ -13,12 +13,16 @@ module.exports = async ctx => {
     '- [ ] Me (2026-09-01 10:00:00): **Alpha** <!--thread-->',
     '  the first thread',
     '',
+    '  - Bob (2026-09-01 10:05:00): unread in alpha.',
+    '',
     '## Two',
     '',
     'Para two.',
     '',
     '- [ ] Me (2026-09-01 11:00:00): **Beta** <!--thread-->',
     '  the second thread',
+    '',
+    '  - Bob (2026-09-01 11:05:00): unread in beta.',
     '',
   ].join('\n'));
   const page = await ctx.open(doc);
@@ -32,11 +36,15 @@ module.exports = async ctx => {
       (r.classList.contains('dimfocus') ? ':dim' : r.classList.contains('focused') ? ':focused' : '')),
   }));
 
+  const pill = () => page.evaluate(() => document.getElementById('unreadBtn').textContent.trim());
+  assertEq(await pill(), '2 unread', 'the pill counts everything before focusing');
+
   // the toolbar toggle enters the mode on the current thread
   await page.evaluate(() => document.getElementById('focusModeBtn').click());
   await page.waitForTimeout(300);
   let s = await state();
   assert(s.alpha && !s.beta && s.bar && s.btnOn, 'one thread on the board, button lit');
+  assertEq(await pill(), '1 unread', 'the pill counts only the visible thread');
   assert(s.rows.includes('Alpha:focused') && s.rows.includes('Beta:dim'),
     'the outline keeps every row: ' + JSON.stringify(s.rows));
 
