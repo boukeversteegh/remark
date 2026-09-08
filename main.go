@@ -44,6 +44,14 @@ func main() {
 		runStamp(os.Args[2:])
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "seen" {
+		runSeen(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "delete" {
+		runDelete(os.Args[2:])
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "edit" {
 		runEdit(os.Args[2:])
 		return

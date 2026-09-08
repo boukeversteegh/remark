@@ -155,7 +155,7 @@ let PREFS = {};
 // behind the gateway the phone shares the PC's identity (name, aliases)
 // but not its screen: the layout keys live on the device, and the PC's
 // values for them are ignored, so neither side rearranges the other
-const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct'];
+const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct', 'outlineW'];
 // a group member's EVERYTHING lives on their device: name included, and
 // nothing is ever posted back to the owner's prefs (the gateway refuses it)
 const isDevicePref = k => DEVICE_PREFS.includes(k) || !!(PREFS && PREFS.group);
@@ -1152,20 +1152,6 @@ function buildItem(item, opts) {
     });
     head.appendChild(cp);
 
-    // roots can be focused: only this thread on screen, like a filter
-    if (!item.parent) {
-      const fc = document.createElement('button');
-      fc.className = 'crefbtn focusbtn';
-      fc.innerHTML = iconHTML('focus');
-      fc.title = 'Focus — show only this thread';
-      fc.addEventListener('click', e => {
-        e.stopPropagation();
-        S.focusThread = S.focusThread === item.time ? null : item.time;
-        render();
-      });
-      head.appendChild(fc);
-    }
-
     // bookmark: a private, per-file, per-window mark (local storage keyed
     // by the comment's timestamp — never written to the file); bookmarked
     // comments are listed under their thread in the outline
@@ -1234,9 +1220,32 @@ function buildItem(item, opts) {
     head.appendChild(nc);
   }
 
-  // own comments get a hover-revealed edit pencil in the header corner
+  // own comments get a hover-revealed edit pencil in the header corner —
+  // and a delete, guarded: a comment with replies by OTHERS stays
   const editing = S.editorsOpen.has('edit:' + item.key) && isMe(item.author);
   if (!collapsed && isMe(item.author) && !editing) {
+    const db = document.createElement('button');
+    db.className = 'replybtn inhead delbtn';
+    db.innerHTML = iconHTML('trash-2');
+    db.title = 'Delete your comment';
+    db.addEventListener('click', () => {
+      let others = 0, mine = 0;
+      (function walk(kids) {
+        for (const c of kids || []) {
+          if (c.author && !isMe(c.author)) others++;
+          else if (c.author) mine++;
+          walk(c.children);
+        }
+      })(item.children);
+      if (others) {
+        toast('warn', 'It has ' + others + (others === 1 ? ' reply' : ' replies') + ' by others — their words stay; remove those first.');
+        return;
+      }
+      const n = mine;
+      if (!confirm('Delete this comment' + (n ? ' and its ' + n + (n === 1 ? ' reply' : ' replies') + ' of yours' : '') + '? This removes it from the file.')) return;
+      submitOps([{ type: 'delete', hash: item.hash, occ: item.occ }]);
+    });
+    head.appendChild(db);
     const eb = document.createElement('button');
     eb.className = 'replybtn inhead';
     eb.innerHTML = iconHTML('pencil');
@@ -1996,6 +2005,8 @@ function updateUnreadUI() {
   btn.appendChild(document.createTextNode(unread.length + ' unread'));
   setAppTitle((unread.length ? '(' + unread.length + ') ' : '') + docDisplayName());
   updateFilenameUI();
+  const fm = $('#focusModeBtn');
+  if (fm) fm.classList.toggle('active', !!S.focusThread);
 }
 
 // the document is named by its first heading; the filename disambiguates
@@ -2991,48 +3002,61 @@ document.addEventListener('keydown', e => {
   exitFocus();
 });
 
-// the outline's per-thread ⋯ menu
-function openThreadMenu(anchor, th) {
-  const old = $('#omenupop');
-  if (old) old.remove();
-  const m = document.createElement('div');
-  m.id = 'omenupop';
-  const add = (label, fn) => {
-    const b = document.createElement('button');
-    b.textContent = label;
-    b.addEventListener('click', () => { m.remove(); fn(); });
-    m.appendChild(b);
-  };
-  if (S.focusThread === th.time) {
-    add('Unfocus', () => exitFocus());
-  } else {
-    add('Focus this thread', () => {
-      S.focusThread = th.time;
-      render();
-      const el = th.time && document.getElementById('r' + th.time.replace(/\D/g, ''));
-      if (el) el.scrollIntoView({ block: 'start' });
-    });
-  }
-  if (th.time) {
-    add('Copy reference', () => {
-      const ref = '#r' + th.time.replace(/\D/g, '');
-      navigator.clipboard.writeText(ref).then(
-        () => toast('ok', 'Copied <code>' + ref + '</code>'),
-        () => toast('warn', 'Could not access the clipboard'));
-    });
-  }
-  // fixed-position coordinates must be de-zoomed: the rect is visual px,
-  // the style is CSS px inside the zoomed body
-  const z = S.zoom || 1;
-  const r = anchor.getBoundingClientRect();
-  m.style.left = Math.round(Math.min(r.left, innerWidth - 200) / z) + 'px';
-  m.style.top = Math.round((r.bottom + 4) / z) + 'px';
-  document.body.appendChild(m);
-  const away = ev => {
-    if (!m.contains(ev.target)) { m.remove(); document.removeEventListener('mousedown', away); }
-  };
-  setTimeout(() => document.addEventListener('mousedown', away), 0);
+// the sidebar's right edge drags to resize it; the width is a device
+// preference so a phone never inherits a monitor-sized sidebar
+function wireOutlineResize() {
+  if (S.mobile || $('#outlineDrag')) return;
+  const h = document.createElement('div');
+  h.id = 'outlineDrag';
+  h.title = 'Drag to resize the sidebar';
+  document.body.appendChild(h);
+  const apply = w => document.documentElement.style.setProperty('--outlinew', w + 'px');
+  if (PREFS.outlineW) apply(PREFS.outlineW);
+  h.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    try { h.setPointerCapture(e.pointerId); } catch (err) { }
+    h.classList.add('dragging');
+    let w = PREFS.outlineW || 268;
+    const move = ev => {
+      w = Math.round(Math.min(520, Math.max(180, ev.clientX / (S.zoom || 1))));
+      apply(w);
+      scheduleLayout();
+    };
+    const up = () => {
+      h.classList.remove('dragging');
+      h.removeEventListener('pointermove', move);
+      h.removeEventListener('pointerup', up);
+      setPref('outlineW', w);
+    };
+    h.addEventListener('pointermove', move);
+    h.addEventListener('pointerup', up);
+  });
 }
+
+// single-thread mode: the toolbar toggle enters on the thread the scroll
+// spy marks current (else the first), and leaves back to the whole document
+function toggleFocusMode() {
+  if (S.focusThread) { exitFocus(); return; }
+  let time = null;
+  const act = $('#outline .otrow.active[data-spy-time]') || $('#outline .otrow[data-spy-time]');
+  if (act && S.parsed) {
+    const it = S.parsed.items.find(i => i.time && i.time.replace(/\D/g, '') === act.dataset.spyTime);
+    time = it && it.time;
+  }
+  if (!time && S.parsed) {
+    const tb = S.parsed.blocks.find(b => b.type === 'thread' && b.thread.time);
+    time = tb && tb.thread.time;
+  }
+  if (!time) { toast('warn', 'No thread to focus.'); return; }
+  S.focusThread = time;
+  render();
+  const el = document.getElementById('r' + time.replace(/\D/g, ''));
+  if (el) el.scrollIntoView({ block: 'start' });
+}
+window.addEventListener('DOMContentLoaded', () => {
+  const b = $('#focusModeBtn');
+  if (b) { b.innerHTML = iconHTML('focus'); b.addEventListener('click', toggleFocusMode); }
+});
 
 function buildOutline() {
   const nav = $('#outline');
@@ -3207,26 +3231,16 @@ function buildOutline() {
           : marks.length + ' bookmarked comments';
         trow.appendChild(ic);
       }
-      // ⋯: a small home for per-thread actions
-      const dots = document.createElement('button');
-      dots.className = 'omenu';
-      dots.textContent = '⋯';
-      dots.title = 'Thread actions';
-      dots.addEventListener('click', e => {
-        e.stopPropagation();
-        openThreadMenu(dots, th);
-      });
-      trow.appendChild(dots);
       trow.addEventListener('click', () => {
+        // in single-thread mode a click SWITCHES the focus to this thread
+        if (S.focusThread && !S.mobile && th.time) {
+          S.focusThread = th.time;
+          render();
+          return;
+        }
         const unreadHere = [];
         collectUnread(th, unreadHere);
         openFromPanel(unreadHere[0] || th, th);
-      });
-      // double-click an outline row toggles the focus on its thread
-      trow.addEventListener('dblclick', e => {
-        e.preventDefault();
-        S.focusThread = S.focusThread === th.time ? null : th.time;
-        render();
       });
       nav.appendChild(trow);
       // one line per bookmarked comment, nested under its thread
@@ -4100,6 +4114,7 @@ async function init() {
   fn.title = S.path;
   wireTopbar();
   wireDivider();
+  wireOutlineResize();
   new ResizeObserver(scheduleLayout).observe($('#doc'));
   new ResizeObserver(scheduleLayout).observe($('#rail'));
   loadDrafts();

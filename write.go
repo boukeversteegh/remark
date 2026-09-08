@@ -370,6 +370,79 @@ func runEdit(args []string) {
 	fmt.Printf("titled %s at line %d\n", a.sel, line)
 }
 
+// remark seen <file> <sel> -as <name>: writes your read-marker on the
+// comment NOW. Do it the moment a comment reaches you — not when the work
+// it asks for is done; a long build must not look like an unread message.
+// (remark reply marks its parent by itself.)
+func runSeen(args []string) {
+	a := writeParseArgs(args)
+	if a.file == "" || a.sel == "" || a.as == "" {
+		fmt.Fprintln(os.Stderr, "usage: remark seen <file> <selector> -as <name>")
+		os.Exit(2)
+	}
+	writeWithRetry(a.file, func(content string) (string, error) {
+		lines, _, all := readParse(content)
+		hits := readSelect(all, a.sel)
+		switch {
+		case len(hits) == 0:
+			return "", fmt.Errorf("no comment matches %q", a.sel)
+		case len(hits) > 1:
+			return "", fmt.Errorf("%q is ambiguous — use an exact selector", a.sel)
+		}
+		n := hits[0]
+		if n.author == a.as {
+			return "", fmt.Errorf("that comment is your own — read-markers are for others' comments")
+		}
+		lines[n.start] = writeAddSeen(lines[n.start], a.as)
+		return strings.ReplaceAll(strings.Join(lines, "\n"), "\r\n", "\n"), nil
+	})
+	fmt.Printf("marked %s seen by %s\n", a.sel, a.as)
+}
+
+// remark delete <file> <sel> -as <name>: removes YOUR OWN comment and its
+// subtree — refused when the comment is someone else's, or when replies by
+// others sit under it (their words are not yours to take).
+func runDelete(args []string) {
+	a := writeParseArgs(args)
+	if a.file == "" || a.sel == "" || a.as == "" {
+		fmt.Fprintln(os.Stderr, "usage: remark delete <file> <selector> -as <name>")
+		os.Exit(2)
+	}
+	var removed int
+	writeWithRetry(a.file, func(content string) (string, error) {
+		lines, _, all := readParse(content)
+		hits := readSelect(all, a.sel)
+		switch {
+		case len(hits) == 0:
+			return "", fmt.Errorf("no comment matches %q", a.sel)
+		case len(hits) > 1:
+			return "", fmt.Errorf("%q is ambiguous — use an exact selector", a.sel)
+		}
+		n := hits[0]
+		if n.author != a.as {
+			return "", fmt.Errorf("that comment is by %q — only your own comments can be deleted", n.author)
+		}
+		end := readSubtreeEnd(n)
+		if end >= len(lines) {
+			end = len(lines) - 1
+		}
+		for _, o := range all {
+			if o.start > n.start && o.start <= end && o.author != "" && o.author != a.as {
+				return "", fmt.Errorf("it has replies by %q — their words stay; remove those first", o.author)
+			}
+		}
+		start := n.start
+		blank := func(i int) bool { return i < 0 || i >= len(lines) || strings.TrimSpace(lines[i]) == "" }
+		if start > 0 && blank(start-1) && blank(end+1) {
+			start-- // the separating blank goes with it, so two blanks never meet
+		}
+		removed = end - start + 1
+		out := append(append([]string{}, lines[:start]...), lines[end+1:]...)
+		return strings.ReplaceAll(strings.Join(out, "\n"), "\r\n", "\n"), nil
+	})
+	fmt.Printf("deleted %s (%d line(s))\n", a.sel, removed)
+}
+
 func runReply(args []string) {
 	a := writeParseArgs(args)
 	if a.file == "" || a.sel == "" || a.as == "" {

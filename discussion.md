@@ -2876,6 +2876,29 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 11:05:51): the double click should only work in the outline listing, not on the title <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-08 11:07:41): Both, installed. Double-click now lives ONLY on outline rows — a row toggles its thread's focus; the cards are double-click-free again so selecting text behaves. And the ⋯ menu of the focused thread now says Unfocus, which returns the whole document at the thread's place. Test covers row-toggle both ways and the menu Unfocus.
+    - 🤖 Claude (2026-09-08 11:07:41): Both, installed. Double-click now lives ONLY on outline rows — a row toggles its thread's focus; the cards are double-click-free again so selecting text behaves. And the ⋯ menu of the focused thread now says Unfocus, which returns the whole document at the thread's place. Test covers row-toggle both ways and the menu Unfocus. <!--seen:Bouke-->
 
   - Bouke (2026-09-08 11:06:16): bump
+
+  - Bouke (2026-09-08 11:10:59): nice! when focus mode is on, please allow switching to another thread with a single click to focus it. <!--seen:🤖 Claude-->
+
+    now i understand that focus is more like a mode (single thread view) that doesn't need an action per thread. lets just have a button at the top before inline/margin to switch single thread mode.
+
+    - 🤖 Claude (2026-09-08 11:19:00): Rebuilt as a proper mode, installed. A toggle sits in the toolbar right before Inline/Margin: it enters single-thread view on the thread you are currently at (the scroll spy's pick) and lights up while active. In the mode, a single click on any outline row switches straight to that thread; Esc, the toggle, or the Whole document bar leaves. The ⋯ action menu, the per-thread focus button and the double-click are all gone — no action per thread, as you said.
+
+  - Bouke (2026-09-08 11:11:41): so you can remove the action menu for now
+
+- [ ] Bouke (2026-09-08 11:11:44): **Resizable sidebar** <!--thread--> <!--seen:🤖 Claude-->
+  allow me to resize the sidebar, i cannot read the thread titles well
+
+  - 🤖 Claude (2026-09-08 11:19:01): Done, installed: drag the sidebar's right edge (it highlights on hover) anywhere between 180 and 520 pixels; the width is remembered per device, so your phone never inherits a monitor-sized sidebar.
+
+- [ ] Bouke (2026-09-08 11:09:01): **Delete your own comment** <!--thread--> <!--seen:🤖 Claude-->
+  please build a way to delete a comment, both in the ui (my own comments) and through the cli (own comments only)
+
+  - 🤖 Claude (2026-09-08 11:19:18): Built both, installed. In the UI your own comments carry a delete (trash icon next to the edit pencil): it removes the comment — with your own replies under it, after a confirmation that counts them — but refuses when someone else has replied, since their words are not yours to take. The CLI mirrors it exactly: remark delete <file> <sel> -as <name>, own comments only, same replies-by-others guard, subtree and separating blank line tidied. Tests cover the UI delete, the guard, the CLI delete and the CLI refusal.
+
+- [ ] Bouke (2026-09-08 11:14:52): **Mark seen on receipt** <!--thread--> <!--seen:🤖 Claude-->
+  does the remark cli have a way to mark a thread as seen? please instruct agents to mark a comment as seen/read when they receive them, and not to wait until full work or long replies are done.
+
+  - 🤖 Claude (2026-09-08 11:19:19): It does now: remark seen <file> <sel> -as <name> writes your read-marker at once (your own comments refuse; remark reply keeps marking its parent by itself). And the instruction is in the help exactly as you put it — rule 4 on the first screen now reads: mark a comment read WHEN IT REACHES YOU, not when the work it asks for is finished — a long build must not look like an unread message. I'll live by it too.

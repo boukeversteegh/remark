@@ -7,8 +7,17 @@ eye; nothing depends on them.
 
 ## 2026-09-08
 
-### Focus a thread
-Double-click a thread and it takes the stage: the rest of the board stays put but dims (hovering peeks one back). Esc, another double-click or the Whole document bar — which names the focused thread — returns. Also reachable from the focus button in a thread's header and from the outline rows' new ⋯ menu, which carries Copy reference too and has room for more actions. A focus wins over an active tag filter; the phone keeps showing one thread alone.
+### remark seen marks a comment read from the CLI
+remark seen <file> <sel> -as <name> writes your read-marker at once. The guidance for agents changed with it: mark a comment the moment it reaches you, not when the work it asks for is finished — a long build must not look like an unread message.
+
+### Delete your own comment
+Your comments carry a delete next to the edit pencil: it removes the comment (with your own replies under it, after a confirmation) but never one that someone else has answered — their words stay. The CLI mirrors it as remark delete <file> <sel> -as <name>, with the same guard.
+
+### Single-thread mode
+A toolbar toggle (next to Inline/Margin) shows one thread at a time: the board holds just the focused thread under its section heading — the scrollbar breathes again — while the outline keeps every row, the others dimmed, and a single click there switches threads without leaving the mode. Esc, the toggle or the Whole document bar (named after the thread) returns, landing back at the thread's place. The mode wins over an active tag filter; the phone keeps its one-thread view.
+
+### The sidebar resizes
+Drag the outline's right edge to give long thread titles the room they need; the width is remembered per device.
 
 ### The landing page is a file list first
 The branding and actions move into a side rail on wide screens and the recent files get the room as one continuous list — each entry a headline (title, filename dim beside it) with the path underneath — with the history raised from 10 to 30 files. Clicking a thread's title now collapses it, same as the header row.

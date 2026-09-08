@@ -1,5 +1,5 @@
-﻿// focus: one thread gets the stage (others dim), from the thread header,
-// a double-click, or the outline menu; Esc or the bar gives it back
+// single-thread mode: a toolbar toggle shows one thread on the board while
+// the outline keeps every row (others dimmed) and a single click switches
 const { assert, assertEq } = require('../helpers');
 
 module.exports = async ctx => {
@@ -22,91 +22,44 @@ module.exports = async ctx => {
     '',
   ].join('\n'));
   const page = await ctx.open(doc);
-
   const state = () => page.evaluate(() => ({
     alpha: !!document.getElementById('r20260901100000'),
     beta: !!document.getElementById('r20260901110000'),
     bar: !!document.querySelector('.focusback'),
-    label: (document.querySelector('.focuslabel') || {}).textContent,
+    btnOn: document.getElementById('focusModeBtn').classList.contains('active'),
     rows: [...document.querySelectorAll('#outline .otrow')].map(r =>
-      r.querySelector('.otxt').textContent + (r.classList.contains('dimfocus') ? ':dim' : r.classList.contains('focused') ? ':focused' : '')),
+      r.querySelector('.otxt').textContent +
+      (r.classList.contains('dimfocus') ? ':dim' : r.classList.contains('focused') ? ':focused' : '')),
   }));
 
-  // focus from the thread header: the board shows only that thread, the
-  // outline keeps every row with the others dimmed
-  await page.evaluate(() => document.querySelector('#r20260901100000 .focusbtn').click());
+  // the toolbar toggle enters the mode on the current thread
+  await page.evaluate(() => document.getElementById('focusModeBtn').click());
   await page.waitForTimeout(300);
   let s = await state();
-  assert(s.alpha && !s.beta && s.bar, 'the board shows only the focused thread');
-  assertEq(s.label, 'Alpha', 'the bar names the thread');
+  assert(s.alpha && !s.beta && s.bar && s.btnOn, 'one thread on the board, button lit');
   assert(s.rows.includes('Alpha:focused') && s.rows.includes('Beta:dim'),
-    'the outline keeps every row, others dimmed: ' + JSON.stringify(s.rows));
+    'the outline keeps every row: ' + JSON.stringify(s.rows));
 
-  // Esc returns to the whole document
+  // a single click on another row switches the focus
+  await page.evaluate(() => {
+    [...document.querySelectorAll('#outline .otrow')]
+      .find(r => r.querySelector('.otxt').textContent === 'Beta').click();
+  });
+  await page.waitForTimeout(300);
+  s = await state();
+  assert(s.beta && !s.alpha, 'a click switches the focused thread');
+  assert(s.rows.includes('Beta:focused') && s.rows.includes('Alpha:dim'), 'the outline follows');
+
+  // Esc leaves; the toggle leaves too
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
   s = await state();
-  assert(s.alpha && s.beta && !s.bar, 'the whole document is back');
-
-  // double-click an OUTLINE row gives its thread the board; again gives
-  // it back (cards themselves stay double-click-free for text selection)
-  const dblRow = name => page.evaluate(n => {
-    const r = [...document.querySelectorAll('#outline .otrow')]
-      .find(x => x.querySelector('.otxt').textContent === n);
-    r.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-  }, name);
-  await dblRow('Beta');
+  assert(s.alpha && s.beta && !s.bar && !s.btnOn, 'Esc returns the whole document');
+  await page.evaluate(() => document.getElementById('focusModeBtn').click());
+  await page.waitForTimeout(200);
+  await page.evaluate(() => document.getElementById('focusModeBtn').click());
   await page.waitForTimeout(300);
   s = await state();
-  assert(s.beta && !s.alpha, 'outline double-click focuses the thread');
-  await dblRow('Beta');
-  await page.waitForTimeout(300);
-  s = await state();
-  assert(s.alpha && s.beta, 'outline double-click again unfocuses');
-
-  // focus from the outline menu
-  await page.evaluate(() => {
-    const rows = [...document.querySelectorAll('#outline .otrow')];
-    const beta = rows.find(r => r.querySelector('.otxt').textContent === 'Beta');
-    beta.querySelector('.omenu').click();
-  });
-  await page.waitForSelector('#omenupop', { timeout: 3000 });
-  await page.evaluate(() => {
-    [...document.querySelectorAll('#omenupop button')]
-      .find(b => b.textContent === 'Focus this thread').click();
-  });
-  await page.waitForTimeout(300);
-  s = await state();
-  assert(s.beta && !s.alpha, 'the outline menu focuses its thread');
-
-  // and the outline switches focus directly, without leaving focus mode
-  await page.evaluate(() => {
-    const rows = [...document.querySelectorAll('#outline .otrow')];
-    const alpha = rows.find(r => r.querySelector('.otxt').textContent === 'Alpha');
-    alpha.querySelector('.omenu').click();
-  });
-  await page.waitForSelector('#omenupop', { timeout: 3000 });
-  await page.evaluate(() => {
-    [...document.querySelectorAll('#omenupop button')]
-      .find(b => b.textContent === 'Focus this thread').click();
-  });
-  await page.waitForTimeout(300);
-  s = await state();
-  assert(s.alpha && !s.beta, 'the outline switches the focus');
-
-  // the focused row's menu offers Unfocus
-  await page.evaluate(() => {
-    const r = [...document.querySelectorAll('#outline .otrow')]
-      .find(x => x.querySelector('.otxt').textContent === 'Alpha');
-    r.querySelector('.omenu').click();
-  });
-  await page.waitForSelector('#omenupop', { timeout: 3000 });
-  await page.evaluate(() => {
-    [...document.querySelectorAll('#omenupop button')]
-      .find(b => b.textContent === 'Unfocus').click();
-  });
-  await page.waitForTimeout(300);
-  s = await state();
-  assert(s.alpha && s.beta && !s.bar, 'Unfocus from the menu returns the document');
+  assert(s.alpha && s.beta && !s.btnOn, 'the toggle leaves the mode as well');
   await page.close();
 };

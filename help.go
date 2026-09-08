@@ -37,6 +37,11 @@ Writing — the verbs:
                  (-after <sel> | -section <h> | -end) [-text|-file|stdin]
                                  open a new thread root
   remark edit <file> <sel> -title <t>    set the thread's title
+  remark seen <file> <sel> -as <name>    write your read-marker — do it
+                                 the MOMENT a comment reaches you, not
+                                 when the work it asks for is done
+  remark delete <file> <sel> -as <name>  remove YOUR OWN comment (and its
+                                 subtree; refused if others replied)
   remark tag <file> <sel> #a #b -as <name>   tag someone's comment
   remark dm <author> -as <name> [-to <sid>] [-text|-file|stdin]
                                  direct message on <author>'s channel
@@ -59,8 +64,9 @@ The five rules that matter (the long form: remark help format):
   3. "- [ ]" is the thread's open/closed RESOLUTION, settled by its
      author — not "needs an answer" (answering is expected anyway);
      never tick another author's box.
-  4. Read state: append your name to the <!--seen:...--> marker on a
-     comment's first line once processed; never remove other names.
+  4. Mark a comment read WHEN IT REACHES YOU (remark seen, or your
+     reply does it) — not when the work it asks for is finished; never
+     remove other names from a <!--seen:...--> marker.
   5. Threads stay FLAT: answer at the level you were addressed.
   6. Link to a comment by writing #r plus its stamp's digits in your
      text: (2026-09-07 12:08:34) becomes #r20260907120834.
