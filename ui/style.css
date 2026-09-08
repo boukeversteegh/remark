@@ -465,6 +465,8 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 #gwpanel .gwurl { user-select: all; }
 #gwpanel .gwqr { display: block; width: 240px; height: 240px; margin: 8px auto 4px; border-radius: 8px; background: #fff; padding: 8px; box-sizing: content-box; }
 #gwpanel .gwurl { text-align: center; font: 11px var(--font-mono); color: var(--faint); word-break: break-all; margin-bottom: 4px; }
+#gwpanel .gwurlrow { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; }
+#gwpanel .gwurlrow .gwurl { flex: 1; margin: 0; text-align: left; }
 #gwpanel .gwnote { color: var(--muted); font-size: 12px; margin: 6px 0 2px; }
 #gwpanel .gwdoc { font-size: 12.5px; padding: 2px 0; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -511,7 +513,10 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 }
 #gwpanel .gwmore:hover { color: var(--fg); }
 #gwpanel .gwmore .ic.closed { transform: rotate(-90deg); }
-#gatewayBtn.on { color: var(--accent); }
+/* the sharing button: green = this document is shared and reachable,
+   red = shared but the gateway is stopped, gray = not shared */
+#gatewayBtn.on { color: var(--ok); }
+#gatewayBtn.warn { color: var(--danger); }
 .switch { position: relative; width: 40px; height: 22px; flex: none; display: inline-block; }
 .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
 .switch .knob { position: absolute; inset: 0; border-radius: 999px; background: var(--border); cursor: pointer; transition: background .15s; }

@@ -34,6 +34,27 @@ module.exports = async ctx => {
   const grp = groups.find(g => g.name === 'Panelists');
   assert(grp.docs.some(d => d.toLowerCase() === doc.toLowerCase()), 'toggle put the document in the group');
 
+  // flipping the switch on also started the gateway: the button goes green
+  const green = await page.evaluate(() => ({
+    on: document.getElementById('gatewayBtn').classList.contains('on'),
+    head: document.querySelector('#gwpanel .gwhead b').textContent,
+  }));
+  assert(green.on, 'shared + running gateway shows green');
+  assert(green.head === 'Sharing', 'the panel is called Sharing, got ' + green.head);
+
+  // stop the gateway while the document stays shared: the button turns red
+  await fetch(`http://127.0.0.1:7461/api/gateway/stop?t=${ctx.token}`, { method: 'POST' });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => document.getElementById('gatewayBtn').click()); // close…
+  await page.evaluate(() => document.getElementById('gatewayBtn').click()); // …reopen, fresh state
+  await page.waitForSelector('#gwpanel .gwshare', { timeout: 6000 });
+  await page.waitForTimeout(300);
+  const red = await page.evaluate(() => {
+    const b = document.getElementById('gatewayBtn');
+    return { warn: b.classList.contains('warn'), on: b.classList.contains('on') };
+  });
+  assert(red.warn && !red.on, 'shared + stopped gateway shows the red state');
+
   // management is a fold of its own
   await page.evaluate(() => {
     const folds = [...document.querySelectorAll('#gwpanel .gwmore')];

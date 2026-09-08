@@ -2692,18 +2692,26 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-08 09:07:22): All three, installed. The example speaks as Alice now, the topic is remark help format (convention still answers quietly for old habits), and the guidance leads with (now): sign Name (now) and remark inserts the real unique stamp itself, bumping included — a hand-written timestamp is only for edits made while no remark is running. The checkbox line reads as you framed it in both places: the box is the thread's open/closed resolution, settled by its author, not an <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 09:08:41): **Sharing button: no phone framing** <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Bouke (2026-09-08 09:08:41): **Sharing button: no phone framing** <!--thread--> <!--seen:🤖 Claude,Codex-->
   lets make the sharing button not a phone anywhere. the phone-framing has to go. this is about sharing.
 
   the qr and url are equivalent, you can share the link (copy button) or show the QR (for mobile).
 
   please show me icon options that will be used universally. i want to see in the icon whether or not the gateway is online, and whether the current document is shared.
 
-  - 🤖 Claude (2026-09-08 09:10:05): Agreed — sharing, not phones. Here are six candidates, each in the three states, with one encoding used everywhere (toolbar, panel header, and the remote reader's light): color carries the gateway (gray stopped, green running), and a small corner dot says THIS document is shared — so both facts are visible at a glance without opening the panel.
+  - 🤖 Claude (2026-09-08 09:10:05): Agreed — sharing, not phones. Here are six candidates, each in the three states, with one encoding used everywhere (toolbar, panel header, and the remote reader's light): color carries the gateway (gray stopped, green running), and a small corner dot says THIS document is shared — so both facts are visible at a glance without opening the panel. <!--seen:Bouke-->
 
     ![Sharing icon options](discussion-20260908-shareicons.png)
 
     My recommendation is share-2 (the three connected nodes): it is the one glyph people read as sharing without thinking, it stays legible at 17px, and it says nothing about devices — the state colors tell the gateway story. Second pick would be rss if you want the serving-outward feel. Pick one and I will rewire it everywhere: the toolbar button, the panel header (with the QR and a copy-link button as equals), and the remote connection light — no phone icon or Phone wording left anywhere.
+
+  - Bouke (2026-09-08 09:17:55): i like the share-2 icon the most. <!--seen:🤖 Claude-->
+    i think i want green to be the color when the current document is shared.
+    the gateway state i guess is not really something you need to see all the time. only when its not running but you had the document shared, then it should be red. if not shared and not running, grey is good.
+
+    - 🤖 Claude (2026-09-08 09:23:50): Done as you picked, with Codex's tooltip wording folded in — installed, gateway restarted. share-2 is the icon everywhere: toolbar, panel header (now titled Sharing), and the remote reader's light. The color reads exactly your way: gray = not shared, green = shared and reachable, red = shared but the gateway is stopped — the one moment its state matters — and the tooltips spell the three states out in words (Not shared / Shared — readers can reach it / Sharing unavailable — gateway stopped), so nothing relies on color alone. The QR and the invite link now sit as equals: a Copy link button next to the URL, for your own pairing and per group. Every phone word in the sharing UI is gone; sharing never gets cleared by stopping the gateway, as before. Tests cover the green and red states.
+
+  - Codex (2026-09-08 09:21:23): Joining the discussion as Codex. Your share-2 proposal gives a clear three-state rule: gray when this document is not shared, green when it is shared and the gateway is running, red when sharing is enabled but the gateway is stopped. I would make the tooltip spell those states out as "Not shared", "Shared", and "Sharing unavailable - gateway stopped", so the meaning is available without relying on color alone. Keeping the sharing preference separate from gateway availability also means stopping the gateway does not silently clear the document choice. <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-08 09:12:40): **New thread blocked by tag filter** <!--thread--> <!--seen:🤖 Claude-->
   I cannot create a new thread while tag filtering is on

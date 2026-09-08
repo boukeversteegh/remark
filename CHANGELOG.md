@@ -5,6 +5,17 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-08
+
+### Sharing sheds the phone framing
+The sharing button is the share glyph everywhere now — toolbar, panel and the remote reader's light — and tells the document's state at a glance: gray when not shared, green when shared and reachable, red when shared but the gateway is stopped (the one moment its state matters). The panel is called Sharing, the QR and the invite link sit side by side with a Copy link button, and the phone wording is gone.
+
+### New thread while filtering; jump to a thread's end
+A tag filter no longer hides every way to start a thread — a New thread at the end of the document button stays. The thread gutter gains a second jump to the start of the last message, and the pair sits just below the visible top again.
+
+### A tag of yours can be removed
+Tags you placed get a small × on their chip: a reader tag removes your bare-tag reply, a tag in your own text is edited out of your comment.
+
 ## 2026-09-07
 
 ### remark edit sets a thread's title

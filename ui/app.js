@@ -2402,7 +2402,7 @@ function showGateway() {
   if (old) { old.remove(); return; }
   const panel = document.createElement('div');
   panel.id = 'gwpanel';
-  panel.innerHTML = '<div class="gwhead">' + iconHTML('smartphone') + '<b>Phone</b><span class="spacer"></span><button class="wnclose" title="Close">\u00d7</button></div><div class="gwbody">loading\u2026</div>';
+  panel.innerHTML = '<div class="gwhead">' + iconHTML('share-2') + '<b>Sharing</b><span class="spacer"></span><button class="wnclose" title="Close">\u00d7</button></div><div class="gwbody">loading\u2026</div>';
   panel.querySelector('.wnclose').addEventListener('click', () => panel.remove());
   // the height cap is computed, not declared: inside a zoomed body 100vh
   // does not track the real viewport, so px divided by the zoom do
@@ -2432,7 +2432,7 @@ function showGateway() {
     const here = p => S.path && p.replace(/\//g, '\\').toLowerCase() === S.path.replace(/\//g, '\\').toLowerCase();
     const sharedGroups = S.path ? groups.filter(g => g.docs.some(here)) : [];
     const sharedAny = shared || sharedGroups.length > 0;
-    gatewayButtonState(sharedAny && !!st.running);
+    gatewayButtonState(sharedAny, !!st.running);
 
     // above the fold: one flat toggle per audience for THIS document —
     // Myself (your own phone) and each group. No dependencies between them;
@@ -2533,7 +2533,12 @@ function showGateway() {
           img.src = '/api/groups/qr.png?id=' + encodeURIComponent(g.id) + '&t=' + TOKEN + '&r=' + Date.now();
           img.alt = 'group QR';
           det.appendChild(img);
-          det.appendChild(el('div', 'gwurl', g.url || ''));
+          // the QR and the link are the same invite: scan one, send the other
+          const ur = el('div', 'gwurlrow');
+          ur.appendChild(el('div', 'gwurl', g.url || ''));
+          ur.appendChild(btn('Copy link', 'quiet', () =>
+            navigator.clipboard.writeText(g.url).then(() => toast('ok', 'Invite link copied'))));
+          det.appendChild(ur);
         }
         const rr = el('div', 'gwrow');
         rr.appendChild(el('span', null, 'Members scan once; a new code locks out everyone who scanned this one.'));
@@ -2577,13 +2582,17 @@ function showGateway() {
       img.src = '/api/gateway/qr.png?t=' + TOKEN + '&r=' + Date.now();
       img.alt = 'pairing QR';
       body.appendChild(img);
-      body.appendChild(el('div', 'gwurl', st.url || ''));
+      const ur = el('div', 'gwurlrow');
+      ur.appendChild(el('div', 'gwurl', st.url || ''));
+      ur.appendChild(btn('Copy link', 'quiet', () =>
+        navigator.clipboard.writeText(st.url || '').then(() => toast('ok', 'Link copied'))));
+      body.appendChild(ur);
       if (st.addrs && st.addrs.length > 1) body.appendChild(el('div', 'gwnote', 'Also reachable on: ' + st.addrs.slice(1).join(', ')));
-      row('Scan once with the phone; the code survives restarts.', btn('New code', 'quiet', () => {
-        if (confirm('Issue a new pairing code? Every paired phone must scan again.')) call('/rotate');
+      row('Scan the QR or open the link once; the code survives restarts.', btn('New code', 'quiet', () => {
+        if (confirm('Issue a new pairing code? Every paired device must scan again.')) call('/rotate');
       }));
     } else {
-      row('The gateway serves your shared documents to the paired phone over your network or VPN.', btn('Start', '', () => call('/start')));
+      row('The gateway serves your shared documents to paired devices over your network or VPN.', btn('Start', '', () => call('/start')));
     }
     const docs = st.docs || [];
     if (docs.length) {
@@ -2597,10 +2606,17 @@ function showGateway() {
   }
   loadGroups().then(() => call(''));
 }
-// the toolbar button lights up while this document is on the phone
-function gatewayButtonState(on) {
+// the sharing button tells the document's state at a glance: green when
+// shared and reachable, red when shared but the gateway is stopped (the
+// one moment the gateway state matters), gray when not shared
+function gatewayButtonState(shared, running) {
   const b = $('#gatewayBtn');
-  if (b) { b.classList.toggle('on', !!on); b.title = on ? 'Shared with the phone' : 'Phone \u2014 share this document'; }
+  if (!b) return;
+  b.classList.toggle('on', !!(shared && running));
+  b.classList.toggle('warn', !!(shared && !running));
+  b.title = shared && running ? 'Shared \u2014 readers can reach it'
+    : shared ? 'Sharing unavailable \u2014 the gateway is stopped, start it inside'
+    : 'Not shared \u2014 click to share this document';
 }
 // through the gateway the Phone panel makes no sense — this session IS the
 // remote side. The button becomes a connection light instead: green, a
@@ -2611,7 +2627,7 @@ function wireRemoteBadge() {
   if (!b) return;
   const nb = b.cloneNode(false); // drops the desktop panel click handler
   b.replaceWith(nb);
-  nb.innerHTML = iconHTML('wifi');
+  nb.innerHTML = iconHTML('share-2');
   nb.classList.add('remote');
   nb.title = 'Connected remotely';
   nb.addEventListener('click', () => {
@@ -2625,11 +2641,11 @@ function wireRemoteBadge() {
 function gatewayProbe() {
   if (PREFS.gateway || !S.path) return;
   fetch('/api/gateway?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN).then(r => r.json())
-    .then(st => gatewayButtonState(st && st.running && (st.sharedAny || st.shared))).catch(() => {});
+    .then(st => gatewayButtonState(!!(st && (st.sharedAny || st.shared)), !!(st && st.running))).catch(() => {});
 }
 window.addEventListener('DOMContentLoaded', () => {
   const b = $('#gatewayBtn');
-  if (b) { b.innerHTML = iconHTML('smartphone'); b.addEventListener('click', showGateway); }
+  if (b) { b.innerHTML = iconHTML('share-2'); b.addEventListener('click', showGateway); }
   setTimeout(gatewayProbe, 1500);
 });
 
@@ -3398,7 +3414,7 @@ function showLanding() {
     $('#recent h3').textContent = grp ? grp.name : 'Shared documents';
     $('#recent .rempty').textContent = grp
       ? 'Nothing shared with this group yet.'
-      : 'Nothing shared yet. On the PC, open a document and choose "Put on the phone" under Gateway.';
+      : 'Nothing shared yet. On the PC, open a document and flip a switch under Sharing.';
   }
   // remotely the shared list changes under you (the owner flips a switch):
   // watch for it and refresh, so a newly shared document just appears
