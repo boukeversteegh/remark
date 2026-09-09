@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-09
 
+### A thread started under a tag filter joins it
+Writing a new thread while filtering by a tag used to hand you a thread that vanished the moment you sent it — it did not carry the tag it was written under. It inherits the active filter's tags now, written into your own text as a tag row, and the composer names them before you send (the note disappears if you type them yourself). Replies are left alone: they stay visible through their thread.
+
 ### Sharing says when the firewall is the one blocking
 Windows allows inbound connections per network profile, and its one-time "allow access" dialog is usually answered for a single one — so a gateway can listen on a name the phone resolves and still reach nobody, showing a healthy green link the whole time. The Sharing panel now names that: it reads the firewall rules for remark's own binary against the profile your active network uses, and when nothing lets it in it says so in red instead of claiming reachable. "Allow on this network" asks Windows for consent once and writes the inbound rule itself; a Copy command button is there for anyone who would rather do it by hand. Windows cannot be made to re-raise its own dialog once any rule exists, so one consent prompt is the closest equivalent.
 

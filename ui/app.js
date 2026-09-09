@@ -531,6 +531,13 @@ function tagAddButton(item) {
   });
   return btn;
 }
+// the active filter's tags that a text does not already carry — what a new
+// thread inherits so it stays in the view it was written in
+function filterTagsFor(text) {
+  if (!S.tagFilter.size) return [];
+  const have = new Set(RvParser.extractTags(text || ''));
+  return [...S.tagFilter].filter(t => !have.has(t));
+}
 function addTags(item, tags) {
   // negated tags do not count as present: adding one back retracts your
   // "-#tag" (the underlying tag is still there, so nothing else to write)
@@ -1790,6 +1797,26 @@ function buildEditor(key, target) {
   // listens for
   mountMentionPicker(ta);
 
+  // a thread started under a tag filter inherits its tags, or it would
+  // disappear the moment it is sent. Nothing is added behind your back: the
+  // note names them, and it shrinks as you type them yourself
+  let tagNote = null;
+  const updateTagNote = () => {
+    if (!tagNote) return;
+    const inherit = filterTagsFor(ta.value);
+    tagNote.textContent = inherit.length
+      ? 'Tagged #' + inherit.join(' #') + ' — the filter you are writing in'
+      : '';
+    tagNote.style.display = inherit.length ? '' : 'none';
+  };
+  if (isNewThread && S.tagFilter.size) {
+    tagNote = document.createElement('div');
+    tagNote.className = 'etaghint';
+    wrap.appendChild(tagNote);
+    ta.addEventListener('input', updateTagNote);
+    updateTagNote();
+  }
+
   const preview = document.createElement('div');
   preview.className = 'epreview cbody';
   preview.style.display = 'none';
@@ -1966,6 +1993,16 @@ function buildEditor(key, target) {
     } else if (isReply) {
       op = { type: 'reply', parentHash: target.hash, occ: target.occ, author: S.me, text, time: uniqueStamp(), opener: opChk.checked };
     } else {
+      // a thread started while a tag filter is on joins that filter: without
+      // its tags it would vanish from the view the moment it is sent. Written
+      // into your own text as a tag row, so it reads the same as any tag you
+      // type — and the composer said which ones before you sent.
+      const inherit = filterTagsFor(text);
+      if (inherit.length) {
+        const lastLine = text.split('\n').pop() || '';
+        text += (RvParser.isBareTags(lastLine) ? ' ' : (text ? '\n\n' : '')) +
+          inherit.map(t => '#' + t).join(' ');
+      }
       // find nearest preceding heading for the fallback anchor
       const bi = S.parsed.blocks.indexOf(target);
       let sectionHash = null;
