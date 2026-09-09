@@ -5,6 +5,11 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-09
+
+### Edit composers keep the comment's own indent
+Editing a root or a nested comment opens the composer at that comment's text column: the root keeps its indent, and a nested edit no longer inherits the reply-slot inset that made it look one level deeper.
+
 ## 2026-09-08
 
 ### Code blocks get syntax colors

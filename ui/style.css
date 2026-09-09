@@ -458,6 +458,7 @@ body.mobile .citem > .editor textarea, body.mobile .citem > .editor .etitle,
 body.mobile .citem > .editor .epreview, body.mobile .citem > .editor .ebar { margin-left: 0; width: 100%; }
 body.mobile .cfoot .replyseed { margin-left: 0; width: 100%; font-size: 13px; }
 body.mobile .citem .citem > .cfoot:last-child, body.mobile .citem .citem > .editor:last-child { margin-bottom: -8px; padding-bottom: 8px; }
+body.mobile .citem .citem > .editor.editedit { margin: 0 -10px; border-left: 0; padding-left: 10px; padding-right: 10px; }
 body.mobile .ctitlebar { font-size: 15px; }
 body.mobile:not(.tab-doc) #docwrap { display: none !important; }
 /* the sidebar becomes the Notifications / Outline / Authors pages */
@@ -1215,6 +1216,15 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
    the item inset (nested editors keep their own margins via the rule
    above, which is more specific) */
 .citem > .editor { margin: 0 -14px 0 -11px; padding-left: 11px; padding-right: 11px; }
+/* EDITING is different from replying: the composer replaces the body text
+   of the comment it sits in, so it takes that comment's own text column
+   (the 30px past the avatar) at every depth. A nested comment's editor
+   must therefore NOT inherit the reply-slot inset above (22px + border +
+   11px), which is for a box appended UNDER a comment, not one replacing
+   its body; the root editor already goes flush */
+.citem .citem > .editor.editedit {
+  margin: 0 -14px 0 -11px; border-left: 0; padding-left: 11px; padding-right: 11px;
+}
 /* like the reply seed: the input's own left border starts at the text
    column — margin outside the box, not padding inside it */
 .citem > .editor textarea, .citem > .editor .etitle,
