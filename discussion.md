@@ -3085,9 +3085,26 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 16:05:55): Fixed and installed. The BOM now travels exactly like the line-ending style: detected on load, stripped before any parsing - window, CLI verbs, and the monitor alike, so the first # Header renders and section names resolve - and restored on every save, so the file keeps its signature byte-for-byte whether the window or a CLI verb wrote it. The test opens a BOM'd file, checks the heading renders, then round-trips a CLI reply and a window save and asserts the BOM survives both. 33 of 33 pass.
 
-- [ ] Bouke (2026-09-08 16:01:54): **Syntax highlighting for code blocks** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-08 16:01:54): **Syntax highlighting for code blocks** <!--thread--> <!--seen:🤖 Claude-->
   Please implement syntax highlighting for code blocks
 
-  - 🤖 Claude (2026-09-08 16:06:51): Claiming. Plan: bundle highlight.js next to marked and DOMPurify in ui/vendor (everything stays offline), highlight fenced blocks after render - the fence's language tag wins, detection as fallback - with a color theme wired to the app's own light and dark variables. Test and changelog included.
+  - 🤖 Claude (2026-09-08 16:06:51): Claiming. Plan: bundle highlight.js next to marked and DOMPurify in ui/vendor (everything stays offline), highlight fenced blocks after render - the fence's language tag wins, detection as fallback - with a color theme wired to the app's own light and dark variables. Test and changelog included. <!--seen:Bouke-->
 
   - 🤖 Claude (2026-09-08 16:11:49): Built and installed. Fenced code highlights everywhere it renders - comment bodies, the document's own prose, and the composer preview - with the fence's language tag deciding and detection covering untagged blocks. highlight.js (the common-languages build) is bundled next to marked and DOMPurify in ui/vendor, so it works offline and over the gateway on the phone; the colors are a github-flavored set tied to the app's light and dark schemes, on the app's own code background. Test asserts colored tokens in both a tagged Go block in a comment and a Python block in prose; 34 of 34 pass.
+
+- [ ] Bouke (2026-09-09 12:17:17): **Code-block-only reply mangles the markdown** <!--thread--> <!--seen:🤖 Claude-->
+  another instance of a previously fixed bug.
+  if i reply to a root thread with only a codeblock, the markdown gets mangled.
+
+  the backticks are not indentation-aligned so the codeblock is not finished correctly.
+  codeblocks should force an additional newline before it if its the first thing, and possibly behind it.
+  ensure ui tests cover this.
+
+  - 🤖 Claude (2026-09-09 15:19:44): Fixed and installed. You were right about the shape of it, and the culprit was the EDIT path: a fresh reply already moved a fence-opening body onto its own line, but editing a comment inlined the first body line unconditionally, so the opening backticks landed after 'Author:' while the closing ones sat at the body indent - a block nothing can pair up. Both paths now follow one rule, and per your request a blank line goes under the prefix line, so the block stands alone in every reader (GitHub included, which matters since this file is public). remark reply on the CLI does the same. What I did not do: inject a blank line after a closing fence - after a fence any following line already starts a new block, and injecting one would silently rewrite your text; say the word if you want it anyway. Test code-block-body drives all three writers (reply, edit, CLI) and asserts every fence in the file opens and closes at one indent.
+
+- [ ] Bouke (2026-09-09 14:49:29): **Sharing unreachable on the LAN, wrong hostname** <!--thread--> <!--seen:🤖 Claude-->
+  when i share it is not reachable locally over the network, it also picks up the wrong hostname (docker)
+
+  #sharing
+
+  - 🤖 Claude (2026-09-09 15:19:45): Found it exactly, fixed and installed. Reverse-resolving your LAN address 192.168.0.74 returns host.docker.internal - Docker Desktop parks that name on the real address in the hosts file - and since it resolved back to your own IP it passed the check and went into the invite link and QR. No phone can resolve it, so sharing looked dead on the network. Now a candidate name is refused if it lives in the hosts file or smells of virtualization (docker, wsl, Hyper-V mshome.net, VMware), and link-local 169.254 addresses are skipped entirely (you have four of them from idle adapters). Your machine now advertises bouke-hp.home - your router's own name for it, which every device on your network can resolve - falling back to the bare address otherwise. A pinned host is still taken as-is. The listener was never the problem: it binds 0.0.0.0 already, so if a device still cannot reach it after this, the remaining suspect is the Windows firewall on the gateway port. Since none of this is reachable from a browser, it is covered by the project's first Go unit tests (task test:go, or task test for both suites) - including one that fails on any machine where the advertised host is virtualization plumbing.

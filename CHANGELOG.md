@@ -7,6 +7,12 @@ eye; nothing depends on them.
 
 ## 2026-09-09
 
+### Sharing advertises a name the network can resolve
+The invite link and QR carried whatever the reverse lookup of this machine's address returned — and with Docker Desktop installed that is "host.docker.internal", parked on the real LAN address, so it even resolved back to us while no phone could reach it. Names that live in the hosts file or belong to virtualization plumbing (Docker, WSL, Hyper-V, VMware) are refused now, as are link-local addresses when no DHCP answered; what remains is the router's own name for this machine, or the bare address, which always works.
+
+### A code block as the whole comment stays a code block
+Writing or editing a comment whose body starts with a fenced code block put the opening backticks inline after "Author:" while the closing ones sat at the body indent — a block no markdown reader could pair up. The fence now always starts on its own line, with a blank line under the prefix, in the window and in remark reply alike.
+
 ### Edit composers keep the comment's own indent
 Editing a root or a nested comment opens the composer at that comment's text column: the root keeps its indent, and a nested edit no longer inherits the reply-slot inset that made it look one level deeper.
 

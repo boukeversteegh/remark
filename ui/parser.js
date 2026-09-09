@@ -588,6 +588,9 @@
     var shunt = time && (inline.trim() === '' || FENCE_RE.test(inline) || LIST_RE.test(inline));
     var out = [sp + bullet + signed + ':' + (shunt ? '' : ' ' + inline) +
       (withMarker ? ' ' + MARKER : '')];
+    // a body that opens with a fence gets a blank line under the prefix, so
+    // the block stands on its own in every markdown reader
+    if (shunt && FENCE_RE.test(inline)) out.push('');
     for (var i = shunt ? 0 : 1; i < parts.length; i++) {
       out.push(parts[i].trim() === '' ? '' : spc + parts[i]);
     }
@@ -730,9 +733,18 @@
         var ea = parseAuthor(ebm[2]);
         var espc = new Array(eit.indent + 3).join(' ');
         var ebody = op.text.replace(/\r\n/g, '\n').replace(/\s+$/, '').split('\n');
-        var eout = [ebm[1] + (ea ? ea.author + ': ' : '') + ebody[0] +
+        // same rule a fresh comment follows: a body that opens with a fence,
+        // a list item or a blank line cannot sit inline after "Author:" —
+        // an inline fence would open at the prefix and close at the body
+        // indent, which no markdown reader can pair up. Needs the
+        // timestamped prefix, the only form recognized with an empty rest.
+        var eshunt = !!ea && TIME_RE.test(ea.author) &&
+          (ebody[0].trim() === '' || FENCE_RE.test(ebody[0]) || LIST_RE.test(ebody[0]));
+        var esign = ea ? ea.author + ':' : '';
+        var eout = [ebm[1] + esign + (eshunt ? '' : (esign ? ' ' : '') + ebody[0]) +
           (thrM ? ' ' + thrM : '') + (seenTag ? ' ' + seenTag : '')];
-        for (var el2 = 1; el2 < ebody.length; el2++) {
+        if (eshunt && FENCE_RE.test(ebody[0])) eout.push('');
+        for (var el2 = eshunt ? 0 : 1; el2 < ebody.length; el2++) {
           eout.push(ebody[el2].trim() === '' ? '' : espc + ebody[el2]);
         }
         eit.children.forEach(function (c) {

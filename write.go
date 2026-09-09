@@ -154,6 +154,11 @@ func writeItemLines(indent int, checkbox bool, author, ts, title, body string) [
 		head += " <!--thread-->"
 	}
 	out = append(out, head)
+	// a body that opens with a fence gets a blank line under the prefix, so
+	// the block stands on its own in every markdown reader
+	if len(bodyLines) > 0 && writeFenceRe.MatchString(strings.TrimSpace(bodyLines[0])) {
+		out = append(out, "")
+	}
 	// strip the common leading whitespace of the body, then re-indent
 	minLead := -1
 	inFence := false
