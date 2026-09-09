@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-09
 
+### Sharing says when the firewall is the one blocking
+Windows allows inbound connections per network profile, and its one-time "allow access" dialog is usually answered for a single one — so a gateway can listen on a name the phone resolves and still reach nobody, showing a healthy green link the whole time. The Sharing panel now names that: it reads the firewall rules for remark's own binary against the profile your active network uses, and when nothing lets it in it says so in red instead of claiming reachable. "Allow on this network" asks Windows for consent once and writes the inbound rule itself; a Copy command button is there for anyone who would rather do it by hand. Windows cannot be made to re-raise its own dialog once any rule exists, so one consent prompt is the closest equivalent.
+
 ### Sharing advertises a name the network can resolve
 The invite link and QR carried whatever the reverse lookup of this machine's address returned — and with Docker Desktop installed that is "host.docker.internal", parked on the real LAN address, so it even resolved back to us while no phone could reach it. Names that live in the hosts file or belong to virtualization plumbing (Docker, WSL, Hyper-V, VMware) are refused now, as are link-local addresses when no DHCP answered; what remains is the router's own name for this machine, or the bare address, which always works.
 

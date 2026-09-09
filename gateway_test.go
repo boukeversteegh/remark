@@ -3,8 +3,10 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The pairing URL must carry a name other machines can resolve. Docker
@@ -63,6 +65,59 @@ func TestGatewayHostIsReachableName(t *testing.T) {
 	if strings.HasPrefix(h, "169.254.") {
 		t.Errorf("gateway advertises the link-local address %q", h)
 	}
+}
+
+// The firewall probe must answer coherently and quickly enough to sit behind
+// a status call. The verdict itself is a property of this machine, so it is
+// logged rather than asserted — only an incoherent answer is a failure.
+func TestFirewallProbe(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("no per-profile firewall to read")
+	}
+	// the real thing: read this machine's rules and judge our own binary
+	start := time.Now()
+	st := firewallProbe(7444)
+	t.Logf("inbound allowed=%v profiles=%q in %s", st.Allowed, st.Profiles,
+		time.Since(start).Round(time.Millisecond))
+	if !st.checked {
+		t.Error("the probe returned no verdict at all")
+	}
+	if !st.Allowed && st.Profiles == "" {
+		t.Error("reported blocked without naming the active profile")
+	}
+	if fix := firewallFixCommand(); !strings.Contains(fix, "NetFirewallRule") {
+		t.Errorf("fix command looks wrong: %q", fix)
+	}
+}
+
+// A status call must never wait on the probe: the first answer is Pending and
+// the verdict lands in the background.
+func TestFirewallProbeIsAsync(t *testing.T) {
+	firewallInvalidate()
+	start := time.Now()
+	first := firewallAllowsInbound(7444)
+	if took := time.Since(start); took > 200*time.Millisecond {
+		t.Errorf("status call blocked for %s on the firewall probe", took.Round(time.Millisecond))
+	}
+	if runtime.GOOS == "windows" && !first.Pending {
+		t.Error("the first call should report Pending, not a guess")
+	}
+	if !first.Allowed {
+		t.Error("an unknown verdict must not be reported as blocked")
+	}
+	if runtime.GOOS != "windows" {
+		return
+	}
+	// the background answer arrives and then serves from cache
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		if st := firewallAllowsInbound(7444); !st.Pending {
+			t.Logf("verdict landed: allowed=%v profiles=%q", st.Allowed, st.Profiles)
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Error("the firewall verdict never arrived")
 }
 
 // A pinned host stays untouched: the human overrode the guess on purpose.

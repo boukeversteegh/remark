@@ -548,6 +548,10 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 #gwpanel .gwshare .gwlabel { font-size: 12px; color: var(--muted); }
 #gwpanel .gwstatus { font-size: 12.5px; color: var(--muted); padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); margin-bottom: 4px; }
 #gwpanel .gwstatus.on { color: var(--ok); }
+/* listening, resolvable, and still unreachable: the firewall is the reason */
+#gwpanel .gwstatus.warn { color: var(--danger); }
+#gwpanel .gwfix { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 0 10px; }
+#gwpanel .gwfix .tbtn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
 #gwpanel .gwmore {
   display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 8px 0 4px;
   color: var(--faint); font: 650 11px var(--font-display); text-transform: uppercase; letter-spacing: .08em; cursor: pointer;

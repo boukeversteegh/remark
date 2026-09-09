@@ -287,7 +287,8 @@ func gatewayHandler(mux http.Handler) http.Handler {
 			return
 		}
 		switch r.URL.Path {
-		case "/api/openfile", "/api/openurl", "/api/openwith", "/api/dm", "/api/restart", "/api/gateway/start", "/api/gateway/stop":
+		case "/api/openfile", "/api/openurl", "/api/openwith", "/api/dm", "/api/restart",
+			"/api/gateway/start", "/api/gateway/stop", "/api/firewall/allow":
 			http.Error(w, "not available through the gateway", http.StatusForbidden)
 			return
 		}
@@ -556,6 +557,16 @@ func gatewayStatusJSON(doc string) map[string]any {
 		out["url"] = gatewayURL(rec)
 		out["host"] = gatewayHost(rec)
 		out["hostPinned"] = rec.Host != ""
+		// a listening gateway the firewall will not let anyone reach looks
+		// perfectly healthy otherwise — say so instead of showing a green link
+		switch fw := firewallAllowsInbound(rec.Port); {
+		case fw.Pending:
+			out["firewallPending"] = true // reading the rules takes seconds: ask again
+		case !fw.Allowed:
+			out["firewallBlocked"] = true
+			out["firewallProfiles"] = fw.Profiles
+			out["firewallFix"] = firewallFixCommand()
+		}
 	}
 	if doc != "" {
 		own := gatewayAllows(doc)

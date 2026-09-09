@@ -2613,6 +2613,7 @@ function showGateway() {
   // groups: sharing with other people — their registry rides along with
   // every render so a change (join, new code) shows on the next refresh
   let groups = [], openGid = null, lastSt = null;
+  let fwPolls = 0; // the firewall verdict arrives a few seconds late
   const loadGroups = () => fetch('/api/groups?t=' + TOKEN).then(r => r.json())
     .then(g => { groups = Array.isArray(g) ? g : []; }).catch(() => {});
   const gpost = (ep, bodyObj) => fetch('/api/groups' + ep + '?t=' + TOKEN, {
@@ -2657,13 +2658,56 @@ function showGateway() {
         gpost('/doc', { id: g.id, path: S.path, on }).then(() => { if (on) startIfOff(); });
       });
     }
-    const status = el('div', 'gwstatus' + (sharedAny && st.running ? ' on' : ''));
+    // "reachable" is a claim, and the firewall can make it false: Windows
+    // blocks inbound per network profile, so a gateway that listens on a
+    // resolvable name still answers nobody. Say that instead of showing green.
+    const blocked = !!st.firewallBlocked;
+    if (st.firewallPending && st.running && fwPolls < 4 && panel.isConnected) {
+      fwPolls++;
+      setTimeout(() => { if (panel.isConnected) call(''); }, 2500);
+    }
+    const status = el('div', 'gwstatus' + (sharedAny && st.running && !blocked ? ' on' : '') +
+      (sharedAny && st.running && blocked ? ' warn' : ''));
     status.textContent = !S.path ? 'Open a document to share it.'
+      : sharedAny && st.running && blocked
+        ? 'Shared and running, but the firewall is blocking your ' +
+          (st.firewallProfiles || 'current') + ' network — nothing can reach it yet.'
       : sharedAny && st.running ? 'Shared and reachable — readers open it from their list.'
       : sharedAny ? 'Marked shared, but the gateway is not running: start it below.'
       : st.running ? 'Not shared. Flip a switch to share it.'
       : 'Not shared. Flipping a switch also starts the gateway.';
     body.appendChild(status);
+    if (blocked && st.running && sharedAny) {
+      const fix = el('div', 'gwfix');
+      const allow = btn('Allow on this network', 'primary', () => {
+        allow.disabled = true;
+        allow.textContent = 'Waiting for Windows…';
+        fetch('/api/firewall/allow?t=' + TOKEN, { method: 'POST' })
+          .then(r => r.json())
+          .then(res => {
+            if (res && res.ok) { toast('ok', 'The firewall lets remark through now.'); call(''); return; }
+            toast('warn', (res && res.error) || 'The rule was not added.');
+            allow.disabled = false;
+            allow.textContent = 'Allow on this network';
+          })
+          .catch(() => {
+            toast('warn', 'Could not reach the server.');
+            allow.disabled = false;
+            allow.textContent = 'Allow on this network';
+          });
+      });
+      allow.title = 'Windows asks for consent once, then remark adds the inbound rule itself';
+      fix.appendChild(allow);
+      if (st.firewallFix) {
+        const copy = btn('Copy command', '', () => {
+          navigator.clipboard.writeText(st.firewallFix);
+          toast('ok', 'Command copied — run it in an admin PowerShell.');
+        });
+        copy.title = st.firewallFix;
+        fix.appendChild(copy);
+      }
+      body.appendChild(fix);
+    }
 
     // group MANAGEMENT lives behind its own fold, like the gateway:
     // members, invites and document lists, separate from sharing
