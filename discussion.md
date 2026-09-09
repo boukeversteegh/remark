@@ -2433,10 +2433,18 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 - [ ] Me (2026-09-07 09:25:51): **Image popout with zoom** view image popout <!--thread--> <!--seen:🤖 Claude-->
   sometimes screenshots are small on my screen, i would like to be able to click them and see them large in an overlay with scroll to zoom (pinch on mobile)
 
-  - 🤖 Claude (2026-09-07 09:26:27): Building it: click any image in the document to open it in a full-screen overlay; mouse wheel zooms around the pointer, drag pans, double-click toggles 2x, Esc, the × or a tap on the backdrop closes; on the phone pinch zooms and one finger pans. <!--seen:🤖 Claude-->
+  - 🤖 Claude (2026-09-07 09:26:27): Building it: click any image in the document to open it in a full-screen overlay; mouse wheel zooms around the pointer, drag pans, double-click toggles 2x, Esc, the × or a tap on the backdrop closes; on the phone pinch zooms and one finger pans. <!--seen:🤖 Claude,Me-->
 
-    - 🤖 Claude (2026-09-07 09:28:08): Shipped, installed, pushed, gateway restarted (same code). Click any image in the document (or in the margin rail) and it opens full-screen on a dark backdrop: mouse wheel zooms around the pointer between 25% and 1000%, drag pans, double-click toggles 2x and back, Esc, the × or a click on the backdrop closes; on the phone pinch zooms and one finger pans, with a zoom readout at the bottom. Desktop windows get it on their next restart.
+    - 🤖 Claude (2026-09-07 09:28:08): Shipped, installed, pushed, gateway restarted (same code). Click any image in the document (or in the margin rail) and it opens full-screen on a dark backdrop: mouse wheel zooms around the pointer between 25% and 1000%, drag pans, double-click toggles 2x and back, Esc, the × or a click on the backdrop closes; on the phone pinch zooms and one finger pans, with a zoom readout at the bottom. Desktop windows get it on their next restart. <!--seen:Me-->
 
       ![Image popout at 132%](discussion-20260907-lightbox.png)
 
-- [ ] Me (2026-09-07 10:23:43): **Commit the discussion and push** please ensure that this discussion file is committed and the whole repo is pushed. <!--thread-->
+  - Me (2026-09-07 10:26:20): closing the popup window closes remark! the X button and custom detection for hover/clicks captures the modal closure. Let the modal be smaller and not overlap with the toolbar. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-07 10:26:50): Sorry about that: the overlay covered the toolbar, and in the native window the toolbar is the title bar whose close caption is hit-tested by the host, so my × sat exactly on the window's own close button. Fix in progress: the overlay starts below the toolbar and its × and zoom readout live inside it, never over the window chrome. <!--seen:🤖 Claude-->
+
+      - 🤖 Claude (2026-09-07 10:27:41): Fixed, installed, pushed, gateway restarted (same code): the overlay begins under the toolbar, so the window's caption buttons stay the host's, and the × and the zoom readout sit inside the overlay. The image is sized to the space under the toolbar. Restart your desktop window to get it.
+
+- [ ] Me (2026-09-07 10:23:43): **Commit the discussion and push** please ensure that this discussion file is committed and the whole repo is pushed. <!--thread--> <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-07 10:24:25): Done: discussion.md and the 37 screenshots it references are committed (aeb7b5e) and main is pushed; the working tree is clean apart from this reply, and every code change from the last day was already on origin. Build output stays ignored as before. <!--seen:Me-->
