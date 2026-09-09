@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	qrcode "github.com/skip2/go-qrcode"
 )
 
 //go:embed ui
@@ -331,6 +333,31 @@ func prefsSetKey(key string, v any) {
 }
 
 func handleGetPrefs(w http.ResponseWriter, r *http.Request) {
+	// a group member gets a synthetic prefs blob: the group, its documents
+	// as the landing list, and NOTHING of the owner's profile — members
+	// name themselves on their own device
+	if gid := r.Header.Get("X-Remark-Group"); gid != "" {
+		g, ok := groupByID(gid)
+		if !ok {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		var owner string
+		prefsGetKey("me", &owner)
+		docs := g.Docs
+		if docs == nil {
+			docs = []string{}
+		}
+		jsonOut(w, http.StatusOK, map[string]any{
+			"gateway": true,
+			"recents": docs,
+			"group": map[string]any{
+				"id": g.ID, "name": g.Name, "owner": owner,
+				"members": groupMemberNames(g),
+			},
+		})
+		return
+	}
 	prefsMu.Lock()
 	defer prefsMu.Unlock()
 	b, err := os.ReadFile(prefsPath())
@@ -481,6 +508,143 @@ func newMux() *http.ServeMux {
 		w.Header().Set("Content-Type", "image/png")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Write(png)
+	}))
+	// group sharing management (a window's Phone panel): the registry is a
+	// shared file the gateway re-reads per request, so every change below
+	// reaches a running gateway at once, no restart
+	mux.HandleFunc("GET /api/groups", authed(func(w http.ResponseWriter, r *http.Request) {
+		rec, alive := gatewayReadRecord()
+		out := []map[string]any{}
+		for _, g := range gatewayGroups() {
+			out = append(out, groupJSON(rec, alive, g))
+		}
+		jsonOut(w, http.StatusOK, out)
+	}))
+	mux.HandleFunc("POST /api/groups/new", authed(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ Name string `json:"name"` }
+		json.NewDecoder(r.Body).Decode(&body)
+		if strings.TrimSpace(body.Name) == "" {
+			jsonOut(w, http.StatusBadRequest, map[string]string{"error": "missing name"})
+			return
+		}
+		rec, alive := gatewayReadRecord()
+		jsonOut(w, http.StatusOK, groupJSON(rec, alive, groupNew(strings.TrimSpace(body.Name))))
+	}))
+	mux.HandleFunc("POST /api/groups/delete", authed(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ ID string `json:"id"` }
+		json.NewDecoder(r.Body).Decode(&body)
+		jsonOut(w, http.StatusOK, map[string]bool{"ok": groupDelete(body.ID)})
+	}))
+	mux.HandleFunc("POST /api/groups/doc", authed(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			ID   string `json:"id"`
+			Path string `json:"path"`
+			On   bool   `json:"on"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		g, ok := groupToggleDoc(body.ID, body.Path, body.On)
+		if !ok {
+			jsonOut(w, http.StatusNotFound, map[string]string{"error": "no such group"})
+			return
+		}
+		rec, alive := gatewayReadRecord()
+		jsonOut(w, http.StatusOK, groupJSON(rec, alive, g))
+	}))
+	mux.HandleFunc("POST /api/groups/member/remove", authed(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		g, ok := groupRemoveMember(body.ID, body.Name)
+		if !ok {
+			jsonOut(w, http.StatusNotFound, map[string]string{"error": "no such group"})
+			return
+		}
+		rec, alive := gatewayReadRecord()
+		jsonOut(w, http.StatusOK, groupJSON(rec, alive, g))
+	}))
+	mux.HandleFunc("POST /api/groups/rotate", authed(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ ID string `json:"id"` }
+		json.NewDecoder(r.Body).Decode(&body)
+		g, ok := groupRotate(body.ID)
+		if !ok {
+			jsonOut(w, http.StatusNotFound, map[string]string{"error": "no such group"})
+			return
+		}
+		rec, alive := gatewayReadRecord()
+		jsonOut(w, http.StatusOK, groupJSON(rec, alive, g))
+	}))
+	mux.HandleFunc("GET /api/groups/qr.png", authed(func(w http.ResponseWriter, r *http.Request) {
+		g, ok := groupByID(r.URL.Query().Get("id"))
+		if !ok {
+			http.Error(w, "no such group", http.StatusNotFound)
+			return
+		}
+		// a stopped gateway has no live port: the code would encode a URL
+		// nobody can open
+		rec, alive := gatewayReadRecord()
+		if !alive {
+			http.Error(w, "gateway not running", http.StatusNotFound)
+			return
+		}
+		png, err := qrcode.Encode(groupURL(rec, g), qrcode.Medium, 320)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(png)
+	}))
+	// a group member's own view of the group, and joining it by name; both
+	// only reachable with a group token (the gateway wrapper sets the header)
+	mux.HandleFunc("GET /api/group", authed(func(w http.ResponseWriter, r *http.Request) {
+		g, ok := groupByID(r.Header.Get("X-Remark-Group"))
+		if !ok {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		var owner string
+		prefsGetKey("me", &owner)
+		docs := g.Docs
+		if docs == nil {
+			docs = []string{}
+		}
+		jsonOut(w, http.StatusOK, map[string]any{
+			"id": g.ID, "name": g.Name, "owner": owner,
+			"members": groupMemberNames(g), "docs": docs,
+		})
+	}))
+	mux.HandleFunc("POST /api/group/join", authed(func(w http.ResponseWriter, r *http.Request) {
+		gid := r.Header.Get("X-Remark-Group")
+		var body struct{ Name string `json:"name"` }
+		json.NewDecoder(r.Body).Decode(&body)
+		g, ok := groupJoin(gid, body.Name)
+		if !ok {
+			jsonOut(w, http.StatusBadRequest, map[string]string{"error": "missing group or name"})
+			return
+		}
+		jsonOut(w, http.StatusOK, map[string]any{"ok": true, "members": groupMemberNames(g)})
+	}))
+	// the native Open-with dialog for the current document: the system's
+	// own configured-apps list, nothing to scrape or cache
+	mux.HandleFunc("POST /api/openwith", authed(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Query().Get("path")
+		abs, err := filepath.Abs(p)
+		if p == "" || err != nil {
+			jsonOut(w, http.StatusBadRequest, map[string]string{"error": "path required"})
+			return
+		}
+		// owned by the window when there is one, so the dialog lands on the
+		// window's monitor; a bare -serve process falls back to the shell
+		if !openWithDialog(abs) {
+			if err := exec.Command("rundll32.exe", "shell32.dll,OpenAs_RunDLL", abs).Start(); err != nil {
+				jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+		}
+		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 	}))
 	// direct messages: open <name>'s channel in its own window, addressed to
 	// one running instance (sid) — that window stamps what it sends with

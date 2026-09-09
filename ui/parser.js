@@ -6,10 +6,10 @@
 //
 //     - Other: a nested reply (plain item, not resolvable)
 //
-// A checkbox item nested inside a thread is always a comment; a PLAIN "- "
-// item is a comment only when its text carries an author prefix or a
-// <!--thread-->/<!--rv--> marker — otherwise it is ordinary body list
-// content of the enclosing comment. A top-level item (either form) is a
+// A nested item of EITHER form is a comment only when its text carries an
+// authored timestamp (or "(now)") or a <!--thread-->/<!--rv--> marker —
+// otherwise it is ordinary body list content of the enclosing comment
+// (bare "- [ ]" task boxes included). A top-level item (either form) is a
 // thread root when it carries the marker, or (for files written by hand)
 // when it starts with a short "Author:" prefix. Ordinary task lists (e.g.
 // an agent's task log) are left alone and rendered as plain markdown.
@@ -48,8 +48,16 @@
   // "#123" is not a tag and neither is a "#r<digits>" comment reference.
   // Tags are case-insensitive and canonicalised to lower case. The Go side
   // (tags.go) carries the same regex — keep the two in step.
-  var TAG_RE = /(^|[^\w&\/#])#([A-Za-z][\w-]*)/g;
-  var TAG_REF_RE = /^r\d{8,}$/;
+  // a tag starts the text or follows whitespace — "#x" glued to anything
+  // (word chars, "(", link targets, url anchors) is not a tag
+  var TAG_RE = /(^|\s)#([A-Za-z][\w-]*)/g;
+  // "-#tag" in a bare-tag reply is a NEGATION: it removes the tag from the
+  // parent's effective set (the author's text is never edited). The "-"
+  // also keeps TAG_RE from reading the token as a positive tag.
+  var TAG_NEG_RE = /(^|\s)-#([A-Za-z][\w-]*)/g;
+  var TAG_REF_RE = /^r\d*$/; // "#r…" comment references, and a bare "#r"
+  // hex colors ("#eaf3ff") are not tags: 3-8 hex chars with a digit in them
+  var TAG_HEX_RE = /^(?=[a-f0-9]*\d)[a-f0-9]{3,8}$/;
   var TAG_CODE_RE = /`[^`\n]*`/g;
   var TAG_URL_RE = /https?:\/\/\S+/g;
 
@@ -73,7 +81,23 @@
     TAG_RE.lastIndex = 0;
     while ((m = TAG_RE.exec(s))) {
       var t = m[2].replace(/-+$/, '').toLowerCase();
-      if (!t || TAG_REF_RE.test(t) || seen[t]) continue;
+      if (!t || TAG_REF_RE.test(t) || TAG_HEX_RE.test(t) || seen[t]) continue;
+      seen[t] = true;
+      out.push(t);
+    }
+    return out;
+  }
+
+  // negations: the "-#tag" tokens of a text, canonicalised like tags
+  function extractNegTags(text) {
+    var seen = {};
+    var out = [];
+    var s = tagScannable(text || '');
+    var m;
+    TAG_NEG_RE.lastIndex = 0;
+    while ((m = TAG_NEG_RE.exec(s))) {
+      var t = m[2].replace(/-+$/, '').toLowerCase();
+      if (!t || TAG_REF_RE.test(t) || TAG_HEX_RE.test(t) || seen[t]) continue;
       seen[t] = true;
       out.push(t);
     }
@@ -81,13 +105,15 @@
   }
 
   // a body that is nothing but tags (whitespace separated): a "reader tag"
-  // reply, which tags its parent instead of being a comment of its own
+  // reply, which tags its parent instead of being a comment of its own.
+  // "-#tag" tokens count too: a reply may mix additions and removals
   function isBareTags(text) {
     var s = (text || '').trim();
     if (!s) return false;
     var words = s.split(/\s+/);
     for (var i = 0; i < words.length; i++) {
       var w = words[i];
+      if (w.charAt(0) === '-') w = w.slice(1);
       if (!/^#[A-Za-z][\w-]*$/.test(w) || TAG_REF_RE.test(w.slice(1))) return false;
     }
     return true;
@@ -223,7 +249,10 @@
       if (!inFence && ind <= rootIndent) break;
 
       var im = !inFence && matchItemForm(line);
-      if (im && im.indent > rootIndent && (im.resolvable || isCommentText(im.text))) {
+      // the timestamp (or marker) is what marks a nested line as a comment —
+      // brackets alone are not enough, or a task list pasted into a body
+      // would read as unauthored comments and get auto-stamped
+      if (im && im.indent > rootIndent && isCommentText(im.text)) {
         var iind = im.indent;
         while (stack.length > 1 && stack[stack.length - 1].indent >= iind) stack.pop();
         var parent = stack[stack.length - 1];
@@ -334,6 +363,7 @@
     item.bare = !isRoot && isBareTags(item.rawBody);
     item.ownTags = item.bare ? [] : extractTags(item.rawBody);
     item.bareTags = item.bare ? extractTags(item.rawBody) : [];
+    item.bareNegs = item.bare ? extractNegTags(item.rawBody) : [];
     var byTag = {};
     item.tags = [];
     var claim = function (t, author, authored) {
@@ -347,8 +377,20 @@
       else if (author && e.by.indexOf(author) === -1) e.by.push(author);
     };
     item.ownTags.forEach(function (t) { claim(t, item.author, true); });
+    // a "-#tag" in a bare reply negates the tag no matter the order the
+    // replies sit in: the entry stays (a struck chip shows who removed it)
+    // but leaves the effective set that filters and counts are built from
+    var negBy = {};
     item.children.forEach(function (c) {
-      if (c.bare) c.bareTags.forEach(function (t) { claim(t, c.author, false); });
+      if (!c.bare) return;
+      c.bareTags.forEach(function (t) { claim(t, c.author, false); });
+      c.bareNegs.forEach(function (t) {
+        var l = negBy[t] = negBy[t] || [];
+        if (c.author && l.indexOf(c.author) === -1) l.push(c.author);
+      });
+    });
+    item.tags.forEach(function (e) {
+      if (negBy[e.tag]) { e.negated = true; e.negBy = negBy[e.tag]; }
     });
   }
 
@@ -373,10 +415,16 @@
           nos2.shift();
         }
       }
+      // fence-aware, mirroring mdChunks in the renderer: blank lines inside
+      // a fenced code block do not end the paragraph, so a fence with empty
+      // lines is ONE anchor whose lastNo is its closing line — an
+      // interjection after it can never land inside the block
       var cur = null;
+      var inFence = false;
       for (var i = 0; i < lines2.length; i++) {
         var t = lines2[i];
-        if (t.trim() === '') { cur = null; continue; }
+        if (FENCE_RE.test(t)) inFence = !inFence;
+        if (!inFence && t.trim() === '') { cur = null; continue; }
         if (!cur) {
           cur = { text: t, lastNo: nos2[i] };
           out.push(cur);
@@ -715,7 +763,7 @@
           var bi = doc.blocks.indexOf(anchor);
           while (bi + 1 < doc.blocks.length && doc.blocks[bi + 1].type === 'thread') bi++;
           insertLine = doc.blocks[bi].endLine + 1;
-        } else if (op.sectionHash) {
+        } else if (insertLine < 0 && op.sectionHash) {
           var sec = findByHash(doc.blocks.filter(function (b) { return b.type === 'heading'; }), op.sectionHash, 0);
           if (sec) {
             var si = doc.blocks.indexOf(sec);
@@ -735,6 +783,32 @@
         var nl = [''].concat(commentLines(0, false, op.author, op.text, op.time, true, op.opener !== false));
         if (op.extra) nl[1] += ' ' + op.extra; // e.g. a DM's <!--to:sid--> address, first line only
         Array.prototype.splice.apply(lines, [insertLine, 0].concat(nl));
+        text = lines.join('\n');
+        r.ok = true;
+
+      } else if (op.type === 'move') {
+        // relocate a whole thread block (root + subtree) next to another
+        // thread: before its block (op.before true) or after it. Both are
+        // ROOT items — reordering siblings and moving into another anchor
+        // group are the same operation, the position says it all
+        var mit = findByHash(doc.items, op.hash, op.occ);
+        if (!mit || mit.parent) { r.reason = 'the thread being moved is gone from the file'; results.push(r); continue; }
+        var ref = findByHash(doc.items, op.refHash, op.refOcc || 0);
+        if (!ref || ref.parent) { r.reason = 'the drop target is gone from the file'; results.push(r); continue; }
+        if (mit === ref) { r.ok = true; results.push(r); continue; }
+        var ms = mit.startLine, me = subtreeEnd(mit);
+        var block = lines.slice(ms, me + 1);
+        // swallow the blank line that separated it, as delete does
+        var rs = ms;
+        if (rs > 0 && isBlank(lines[rs - 1]) && (me + 1 >= lines.length || isBlank(lines[me + 1]))) rs--;
+        var removedLen = me - rs + 1;
+        var insertAt = op.before ? ref.startLine : subtreeEnd(ref) + 1;
+        lines.splice(rs, removedLen);
+        if (insertAt > rs) insertAt -= removedLen;
+        var ins = block;
+        if (insertAt > 0 && !isBlank(lines[insertAt - 1])) ins = [''].concat(ins);
+        if (op.before || (insertAt < lines.length && !isBlank(lines[insertAt]))) ins = ins.concat(['']);
+        Array.prototype.splice.apply(lines, [insertAt, 0].concat(ins));
         text = lines.join('\n');
         r.ok = true;
 
@@ -770,6 +844,7 @@
     subtreeEnd: subtreeEnd,
     itemParagraphs: itemParagraphs,
     extractTags: extractTags,
+    extractNegTags: extractNegTags,
     isBareTags: isBareTags,
     MARKER: MARKER
   };

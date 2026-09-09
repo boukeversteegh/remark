@@ -5,10 +5,90 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-08
+
+### Code blocks get syntax colors
+Fenced code highlights now, in comment bodies, in the document's own prose and in the composer preview — the fence's language tag wins, detection covers untagged blocks. Bundled highlight.js (common languages) next to the other vendored libraries, so it works offline and on the phone; the colors follow the app's light and dark schemes.
+
+### Files with a UTF-8 BOM parse right
+The byte-order mark glued itself to the first line, so "# Header" at the top of such a file did not render as a heading and CLI section names came out empty. The BOM is now handled like the line-ending style: stripped before parsing everywhere (window, CLI, monitor) and put back on every save, so the file keeps its signature byte-for-byte.
+
+### Mentions light up
+"@Name" in a comment renders as a person chip when the name is a known author of the document — and your own name wears the accent, so where you are addressed stands out while scanning. Multi-word names work (the longest match wins); code, links and unknown names stay plain text.
+
+### Interjections respect code blocks
+Inserting a comment right after a fenced code block that contains empty lines landed inside the block: the renderer treated the fence as one paragraph but the file writer split it at every blank line. Both sides now share the same fence-aware rule, so the insertion point is always the fence's closing line.
+
+### Drag threads to reorder and move them
+Outline rows drag now: drop a thread among its siblings to reorder the group, or across a rule to carry it — replies and all — to another anchor group, at any position. The insertion line hugs the nearest row edge, so around a rule the end of one group and the start of the next are two distinct drops, and the destination group lights up while you hover. Desktop only.
+
+### Remove any tag with -#tag
+The × is on every tag chip now, not only your own. Removing a tag you do not own — one in someone else's text, or a reader tag placed by someone else — writes a small -#tag reply instead of touching their words: the tag stops counting for everyone (filters, the Tags panel, the outline, monitors), and the chip stays as a struck-through trace naming who removed it. The remover's ×, or simply adding the tag back, restores it. Bare-tag replies can mix additions and removals; grep still finds both.
+
+### remark seen marks a comment read from the CLI
+remark seen <file> <sel> -as <name> writes your read-marker at once. The guidance for agents changed with it: mark a comment the moment it reaches you, not when the work it asks for is finished — a long build must not look like an unread message.
+
+### Open in another app
+A toolbar button next to Sharing summons Windows' own Open-with dialog for the current file — the system's configured app list, always current, owned by the remark window so it appears on the window's monitor. Desktop only; the gateway refuses it like everything that opens things on the host.
+
+### The outline groups threads by their anchor
+A thin rule in the outline separates threads that attach to different content; rows without a rule between them are direct siblings on the same paragraph — the shape that moving and reordering will build on. And creating a thread while in single-thread mode moves the focus onto it.
+
+### Delete your own comment
+Deleting lives inside the edit composer, where it cannot be hit by accident: Delete… turns the footer into a confirmation that spells out exactly what goes — how many comments, per author, with their resolution state — before one action removes the subtree. The CLI counterpart, remark delete <file> <sel> -as <name>, is stricter: agents may only remove their own comments and are refused when others replied.
+
+### Single-thread mode
+A toolbar toggle (next to Inline/Margin) shows one thread at a time: the board holds just the focused thread under its section heading — the scrollbar breathes again — while the outline keeps every row, the others dimmed, and a single click there switches threads without leaving the mode. Esc, the toggle or the Whole document bar (named after the thread) returns, landing back at the thread's place. The mode wins over an active tag filter; the phone keeps its one-thread view.
+
+### The sidebar resizes
+Drag the outline's right edge to give long thread titles the room they need; the width is remembered per device.
+
+### The landing page is a file list first
+The branding and actions move into a side rail on wide screens and the recent files get the room as one continuous list — each entry a headline (title, filename dim beside it) with the path underneath — with the history raised from 10 to 30 files. Clicking a thread's title now collapses it, same as the header row.
+
+### Sharing sheds the phone framing
+The sharing button is the share glyph everywhere now — toolbar, panel and the remote reader's light — and tells the document's state at a glance: gray when not shared, green when shared and reachable, red when shared but the gateway is stopped (the one moment its state matters). The panel is called Sharing, the QR and the invite link sit side by side with a Copy link button, and the phone wording is gone.
+
+### New thread while filtering; jump to a thread's end
+A tag filter no longer hides every way to start a thread — a New thread at the end of the document button stays. The thread gutter gains a second jump to the start of the last message, and the pair sits just below the visible top again.
+
+### A tag of yours can be removed
+Tags you placed get a small × on their chip: a reader tag removes your bare-tag reply, a tag in your own text is edited out of your comment.
+
 ## 2026-09-07
+
+### remark edit sets a thread's title
+`remark edit <file> <sel> -title "…"` writes the one form the window renders as a title — the bold standing alone — replacing an existing title whether it sat inline or on its own line, and moving prose that sat inline down into the body. Titles are the only edit for now.
+
+### Sharing panel: one switch per audience, management folded away
+Above the fold the Phone panel shows a switch per audience for the open document — Myself and each group — with no dependencies between them; flipping any of them on also starts the gateway, and stopping the gateway never clears the sharing itself. Group management (documents, members, invite codes) moved behind its own Groups fold, like the gateway's. And a remote reader's landing refreshes itself when you share something new — the document simply appears in their list.
+
+### Remote viewers: links, images and a connection light
+From a remote (group) session, an external link now opens in the reader's own browser — it used to ask the host to open it, which the gateway refused, silently. Pasting images works remotely within the group's documents. And the Phone button, which did nothing remotely, is now a green connection light with a signal icon (desktops join groups too); clicking it names the group and who shares it.
+
+### Every document remembers its own window and zoom
+Window bounds and zoom are stored per document: two documents on two monitors no longer fight over one remembered position (the last window moved used to win, so a restart could land on the other screen) or over one zoom level. The old shared values seed a document's first open.
+
+### A task list in a comment body stays a task list
+A nested checkbox without an author timestamp is body content, not a comment — pasting a checklist into a comment no longer turns each box into an unauthored comment that then receives your name and a stamp. An authored nested opener (`- [ ] Name (ts): …`) still works, in the window, the monitor and remark read alike.
+
+### Group sharing
+Share documents with other people, not just your own phone. The Phone panel gets a Groups section: each group holds its own set of documents behind its own key and QR, with a members list, New code and Delete — revoking one group never touches another or your own pairing. Scanning a group's code lands on a join screen where the member picks the name they will write under; it lives only on their phone, none of your preferences reach them, and they see only that group's documents. Within a group everyone sees everyone in the Authors panel; everything else — your prefs, the gateway controls, direct messages to your desktop agents — is refused to group members.
 
 ### Image popout stays below the toolbar
 The overlay no longer covers the toolbar, so its close button cannot land on the window's own close caption.
+
+### Collapse a thread from its gutter
+The empty column under a comment's caret is the caret's own region extended downwards: clicking it folds exactly the comment it belongs to (a flat reply folds alone, a parent alongside its indented subthread folds the subtree), hovering either the strip or the caret lights the caret and tints what will fold, and the view lands on the folded header. The gutter beside the reply box does nothing, and a collapsed header shows its click-to-expand on hover.
+
+### The window is titled after the document
+Alt-tab and the taskbar now show the document's first heading with the filename after it, and the title updates when you open a file from the recents list.
+
+### Updates no longer move your reading position
+When new comments or edits arrive from outside, the page keeps the text you are on exactly where it was — content above you can grow or shrink without you noticing.
+
+### remark help, and a guard against typos
+"remark help" prints the usage text instead of opening a window on a file called help, and a positional argument that is not a .md file is rejected as a probable mistyped command. remark monitor refuses to start on a path that does not exist — a monitor on one can never produce an event, yet looks exactly like a healthy quiet monitor.
 
 ### Image popout with zoom
 Click an image in the document to see it large in an overlay: wheel or pinch zooms around the pointer, drag pans, double-click toggles 2x, Esc or a tap outside closes.

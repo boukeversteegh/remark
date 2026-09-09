@@ -137,6 +137,13 @@ button { font-family: var(--font-ui); }
   max-width: 34vw;
 }
 #filename b { color: var(--fg); font-weight: 600; }
+#filename .fnfile { color: var(--muted); }
+/* the remote connection light: you are on the gateway, link is up */
+#gatewayBtn.remote {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--border));
+}
 #topbar .spacer { flex: 1; }
 
 /* caption buttons — the toolbar is the title bar inside the native window.
@@ -230,29 +237,35 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
 #landing {
   display: flex; justify-content: center; align-items: flex-start;
   position: fixed; top: 45px; left: 0; right: 0; bottom: 0;
-  overflow-y: auto; padding: 11vh 0 40px;
+  overflow-y: auto; padding: 5vh 24px 40px;
+  container: landing / inline-size;
 }
-.landing-card { max-width: 620px; width: 92%; text-align: center; }
+/* the file list is the point of this page: the branding is one compact
+   row and the list gets the room, in columns when the screen is wide */
+.landing-card { max-width: 1080px; width: 100%; min-width: 0; text-align: left; }
+.lhead { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-bottom: 16px; }
+.lbrand { min-width: 0; }
 .hero {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 72px; height: 72px; border-radius: 22px; font-size: 36px;
+  width: 46px; height: 46px; border-radius: 14px; font-size: 23px; flex: none;
   background: var(--accent-soft); color: var(--accent);
   border: 1px solid var(--accent-border);
   box-shadow: var(--shadow-card);
 }
-.landing-card h1 { font: 650 30px/1.2 var(--font-display); letter-spacing: -.02em; margin: 18px 0 6px; }
-.tagline { color: var(--muted); margin: 0 0 26px; }
+.landing-card h1 { font: 650 20px/1.2 var(--font-display); letter-spacing: -.02em; margin: 0; }
+.tagline { color: var(--muted); margin: 2px 0 0; font-size: 13px; }
 #browseBtn {
-  display: inline-flex; align-items: center; gap: 9px;
-  margin: 0 auto 16px; padding: 11px 26px;
+  display: inline-flex; align-items: center; gap: 9px; flex: none;
+  max-width: 100%; box-sizing: border-box;
+  margin-left: auto; padding: 9px 20px;
   border: 0; border-radius: 11px; background: var(--accent); color: var(--accent-fg);
   cursor: pointer; font-size: 15px; font-weight: 600; font-family: var(--font-display);
   box-shadow: 0 2px 8px rgba(9, 105, 218, .3);
 }
 #browseBtn:hover { filter: brightness(1.08); }
-#openForm { display: flex; gap: 10px; margin: 0 auto 30px; max-width: 520px; }
+#openForm { display: flex; gap: 10px; margin: 0 0 24px; max-width: 560px; }
 #openForm input {
-  flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px;
+  flex: 1; min-width: 0; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px;
   background: var(--surface); color: var(--fg); font-size: 14px; font-family: var(--font-mono);
 }
 #openForm input:focus { outline: 2px solid var(--accent); border-color: transparent; }
@@ -261,7 +274,26 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
   color: var(--accent-fg); cursor: pointer; font-size: 14px; font-weight: 600;
 }
 #openForm button:hover { filter: brightness(1.08); }
-#recent { text-align: left; max-width: 520px; margin: 0 auto; }
+#recent {
+  text-align: left; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr; /* ONE continuous list */
+  gap: 2px 16px;
+}
+/* wide screens: two page regions — the branding and actions at the side,
+   the list keeping its single vertical reading order */
+/* Use available layout width after app zoom, not the unzoomed viewport.
+   932px is the former 980px breakpoint minus the landing's side padding. */
+@container landing (min-width: 932px) {
+  .landing-card { display: flex; gap: 40px; align-items: flex-start; }
+  .lside { width: 300px; flex: none; }
+  .lhead { flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+  #browseBtn { margin-left: 0; }
+  #openForm { flex-direction: column; }
+  #recent { flex: 1; min-width: 0; margin: 0; }
+}
+#recent h3, #recent .rempty {
+  grid-column: 1 / -1;
+}
 #recent h3 {
   color: var(--faint); font-size: 11px; text-transform: uppercase;
   letter-spacing: .09em; margin: 0 0 6px 4px; font-weight: 650;
@@ -270,15 +302,30 @@ body.landing #filename, body.landing #unreadBtn { display: none; }
   display: flex; align-items: center; gap: 10px;
   padding: 9px 12px; border-radius: 10px; text-decoration: none;
   color: var(--fg); font-size: 13.5px; border: 1px solid transparent;
+  /* grid items refuse to shrink below content by default — without this
+     a long title pushes the badges past the window edge */
+  min-width: 0;
 }
 #recent a:hover { background: var(--surface); border-color: var(--border); }
 #recent a .ic { color: var(--muted); font-size: 15px; }
+/* per entry: a headline (title, filename inline after it) and the path
+   on its own dim line below — paths are long and would clip inline */
 #recent a .rmain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-#recent a .rname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#recent a .rline { display: flex; align-items: baseline; gap: 8px; min-width: 0; overflow: hidden; }
+#recent a .rname {
+  font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 0 1 auto; min-width: 0;
+}
+#recent a .rfname {
+  color: var(--faint); font-size: 12px; white-space: nowrap;
+  flex: 0 1 auto; min-width: 36px; overflow: hidden; text-overflow: ellipsis;
+}
+#recent a .rfname:empty { display: none; }
 #recent a .rfile {
   color: var(--faint); font-size: 12px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap;
 }
+#recent a .rstatus { flex: none; }
 
 .rempty { color: var(--muted); font-size: 13.5px; margin: 8px 4px; line-height: 1.5; }
 /* behind the gateway: a document picker, not a launcher */
@@ -293,7 +340,7 @@ body.gateway .tagline { margin-bottom: 18px; }
   .landing-card h1 { font-size: 22px; margin: 10px 0 4px; }
   .tagline { font-size: 13px; margin-bottom: 18px; }
   #openForm { flex-direction: column; }
-  #recent { max-width: none; }
+  #recent { max-width: none; grid-template-columns: 1fr; }
   #recent a { flex-wrap: wrap; padding: 11px 12px; border-color: var(--border-soft); margin-bottom: 6px; font-size: 15px; gap: 8px 10px; }
   /* badges on their own line: the name keeps the full width */
   #recent a .rstatus { width: 100%; order: 3; margin-left: 0; padding-left: 25px; box-sizing: border-box; }
@@ -364,8 +411,8 @@ body.mobile #tabs button {
 body.mobile #tabs button .i { font-size: 18px; }
 body.mobile #tabs button.on { color: var(--accent); }
 /* the top bar keeps the essentials */
-body.mobile #filename, body.mobile #modeSeg, body.mobile #outlineBtn, body.mobile #openBtn,
-body.mobile .me, body.mobile #gatewayBtn { display: none !important; }
+body.mobile #filename, body.mobile #modeSeg, body.mobile #focusModeBtn, body.mobile #outlineBtn, body.mobile #openBtn,
+body.mobile .me, body.mobile #gatewayBtn, body.mobile #openWithBtn { display: none !important; }
 body.mobile #topbar { gap: 6px; padding: 0 8px; }
 body.mobile .tools { gap: 2px; }
 /* status chip: icon only unless something is wrong */
@@ -435,10 +482,14 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
   position: fixed; right: 16px; top: 56px; z-index: 60; width: min(380px, calc(100vw - 32px));
   background: var(--card); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: var(--shadow-card); font-size: 13px; color: var(--fg);
+  /* never taller than the screen: the body scrolls, nothing clips */
+  display: flex; flex-direction: column; max-height: calc(100vh - 72px);
 }
 #gwpanel .gwhead { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--border-soft); }
 #gwpanel .gwhead .spacer { flex: 1; }
-#gwpanel .gwbody { padding: 8px 14px 12px; }
+#gwpanel .gwbody { padding: 8px 14px 12px; overflow-y: auto; min-height: 0; }
+#gwpanel .gwbody > .gwname { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px 0 2px; }
+#gwpanel .gwshare > .gwlabel { flex: 1; font-size: 13px; color: var(--fg); }
 #gwpanel .gwrow { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
 #gwpanel .gwrow > span { flex: 1; }
 #gwpanel .tbtn {
@@ -454,8 +505,40 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 #gwpanel .gwurl { user-select: all; }
 #gwpanel .gwqr { display: block; width: 240px; height: 240px; margin: 8px auto 4px; border-radius: 8px; background: #fff; padding: 8px; box-sizing: content-box; }
 #gwpanel .gwurl { text-align: center; font: 11px var(--font-mono); color: var(--faint); word-break: break-all; margin-bottom: 4px; }
+#gwpanel .gwurlrow { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; }
+#gwpanel .gwurlrow .gwurl { flex: 1; margin: 0; text-align: left; }
 #gwpanel .gwnote { color: var(--muted); font-size: 12px; margin: 6px 0 2px; }
 #gwpanel .gwdoc { font-size: 12.5px; padding: 2px 0; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* group sharing ----------------------------------------------------------- */
+#gwpanel .glabel { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); margin: 12px 0 4px; }
+#gwpanel .ggroup { border: 1px solid var(--border-soft); border-radius: 10px; padding: 6px 10px; margin: 4px 0; }
+#gwpanel .ggroup .ghead { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+#gwpanel .ggroup .ghead b { font-size: 13px; }
+#gwpanel .ggroup .gcount { color: var(--muted); font-size: 12px; margin-left: auto; }
+#gwpanel .ggroup .gdet { padding: 2px 0 4px; }
+#gwpanel .ggroup .gwdoc { display: flex; align-items: center; gap: 6px; }
+#gwpanel .ggroup .gwdoc .gx { margin-left: auto; padding: 0 6px; line-height: 1.2; }
+#gwpanel .gnew { display: flex; gap: 8px; margin: 6px 0 2px; }
+#gwpanel .gnew input {
+  flex: 1; min-width: 0; padding: 5px 9px; font-size: 13px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--fg);
+}
+
+/* group member landing: join screen and the "you are" row */
+.gjoin { display: flex; gap: 8px; margin-top: 12px; }
+.gjoin input {
+  flex: 1; min-width: 0; padding: 8px 12px; font-size: 15px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--fg);
+}
+.gyou { color: var(--muted); font-size: 13px; margin: 2px 0 10px; }
+.gyou b { color: var(--fg); }
+.gyou .gchange {
+  margin-left: 8px; border: 0; background: none; color: var(--accent);
+  font-size: 12px; cursor: pointer; padding: 0;
+}
 #gwpanel .wnclose { border: 0; background: none; color: var(--faint); font-size: 18px; cursor: pointer; padding: 0 4px; }
 #gwpanel .gwhead .ic { color: var(--accent); }
 /* primary: the share switch for this document */
@@ -470,7 +553,10 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 }
 #gwpanel .gwmore:hover { color: var(--fg); }
 #gwpanel .gwmore .ic.closed { transform: rotate(-90deg); }
-#gatewayBtn.on { color: var(--accent); }
+/* the sharing button: green = this document is shared and reachable,
+   red = shared but the gateway is stopped, gray = not shared */
+#gatewayBtn.on { color: var(--ok); }
+#gatewayBtn.warn { color: var(--danger); }
 .switch { position: relative; width: 40px; height: 22px; flex: none; display: inline-block; }
 .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
 .switch .knob { position: absolute; inset: 0; border-radius: 999px; background: var(--border); cursor: pointer; transition: background .15s; }
@@ -526,6 +612,29 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
   transition: opacity .12s, color .12s;
 }
 #recent a:hover .rremove { opacity: .7; }
+
+/* focus bar: names what you are looking at, next to Whole document */
+.focuslabel { margin-left: 10px; font: 650 14px var(--font-display); color: var(--fg); }
+/* while one thread has the board, the outline keeps every row: the
+   others dim, the focused one is marked */
+/* a thin rule between anchor groups: rows above and below it attach to
+   different content; rows without a rule between them are siblings */
+.osep { height: 1px; background: var(--border-soft); margin: 4px 10px 4px 22px; }
+/* dragging a thread row: the insertion line hugs the nearest row edge (the
+   two slots around a rule are distinct file positions) and the destination
+   anchor group lights up so the drop cannot be ambiguous */
+.otrow.dragging { opacity: .45; }
+.otrow.dropgroup { background: var(--accent-soft); }
+.otrow.dropbefore::after, .otrow.dropafter::after {
+  content: ''; position: absolute; left: 22px; right: 10px; height: 2px;
+  background: var(--accent); border-radius: 1px; pointer-events: none;
+}
+.otrow.dropbefore::after { top: -2px; }
+.otrow.dropafter::after { bottom: -2px; }
+.citem.collapsed { cursor: pointer; } /* the whole band expands */
+.otrow.dimfocus { opacity: .45; }
+.otrow.dimfocus:hover { opacity: 1; }
+.otrow.focused { background: var(--surface); border-radius: 8px; }
 .rremove:hover { opacity: 1 !important; color: var(--danger); }
 
 /* chat mode: a DM channel is a linear list with a pinned message box — no
@@ -534,7 +643,7 @@ body.chat .cfoot, body.chat .igap, body.chat .tgap, body.chat .addbtn, body.chat
 body.chat .rbtn, body.chat .openertoggle, body.chat .notifs, body.chat #outline .ohead:not(:first-child),
 body.chat .orow, body.chat .otrow, body.chat .obrow, body.chat .replybtn, body.chat .thread-res { display: none !important; }
 body.chat #main { padding-bottom: 150px; }
-#main.outline-open ~ #chatbox { left: 268px; } /* the Authors sidebar keeps its column */
+#main.outline-open ~ #chatbox { left: var(--outlinew, 268px); } /* the Authors sidebar keeps its column */
 #chatbox {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   padding: 10px 16px 12px; background: var(--bg2); border-top: 1px solid var(--border-soft);
@@ -623,7 +732,8 @@ body.chat #main { padding-bottom: 150px; }
 #outline {
   /* fixed, not sticky: fully decoupled from document scroll, so overscroll
      and very long documents can never drag or clip it */
-  display: none; position: fixed; left: 0; top: 45px; bottom: 0; width: 268px;
+  display: none; position: fixed; left: 0; top: 45px; bottom: 0;
+  width: var(--outlinew, 268px);
   overflow-y: auto;
   padding: 16px 10px 40px 16px;
   border-right: 1px solid var(--border-soft);
@@ -631,7 +741,23 @@ body.chat #main { padding-bottom: 150px; }
   background: var(--bg);
 }
 #main.outline-open #outline { display: block; }
-#main.outline-open { padding-left: 268px; }
+#main.outline-open { padding-left: var(--outlinew, 268px); }
+/* the sidebar's right edge drags: thread titles deserve the width you give them */
+#outlineDrag {
+  display: none; position: fixed; top: 45px; bottom: 0;
+  left: calc(var(--outlinew, 268px) - 3px); width: 7px;
+  cursor: col-resize; z-index: 45;
+}
+/* a visible grip, so the draggable edge can be FOUND, not just guessed */
+#outlineDrag::after {
+  content: ''; position: absolute; left: 2px; top: 50%; margin-top: -16px;
+  width: 3px; height: 32px; border-radius: 2px;
+  background: var(--border); transition: background .12s;
+}
+#outlineDrag:hover, #outlineDrag.dragging { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+#outlineDrag:hover::after, #outlineDrag.dragging::after { background: var(--accent); }
+#main.outline-open ~ #outlineDrag { display: block; }
+body.mobile #outlineDrag { display: none !important; }
 #outline .ohead {
   display: flex; align-items: center; gap: 7px;
   color: var(--faint); font-size: 11px; font-weight: 650;
@@ -678,6 +804,7 @@ body.chat #main { padding-bottom: 150px; }
   display: flex; align-items: center; gap: 7px;
   /* the dot sits in the section title's text column (8px pad + 20px slot
      + 7px gap); a hairline gap keeps adjacent highlight bands apart */
+  position: relative; /* anchors the drop insertion line */
   padding: 2px 8px 2px 35px; margin: 2px 0; border-radius: 7px; cursor: pointer;
   color: var(--muted); font-size: 12px; line-height: 1.5;
 }
@@ -804,6 +931,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .thread::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
   background: var(--border); opacity: .6;
+  /* above the comment cards: they are positioned (collapse rail), and an
+     unread card's opaque background would otherwise cover the bar */
+  z-index: 1;
 }
 .thread.has-unread { border-color: var(--accent-border); }
 .thread.has-unread::before { background: var(--unread); opacity: 1; }
@@ -835,7 +965,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 /* inside the wrapper the rail sits in the reserved right gutter */
 #doc .twrap .tsticky { right: -38px; }
 .ttop {
-  position: sticky; top: 64px;
+  /* the page area is the scroller (it starts below the toolbar), so the
+     sticky offset is from ITS top, not the window's */
+  position: sticky; top: 10px;
   display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 26px; font-size: 13px;
   border: 1px solid var(--border); border-radius: 8px;
@@ -844,7 +976,13 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   box-shadow: var(--shadow-card);
 }
 .ttop .ic svg { transform: rotate(180deg); }
+/* the pair splits the gutter: start clings to the top edge of the
+   thread's visible extent, end to the bottom — they can never overlap */
+.ttop.tend { margin-top: auto; top: auto; bottom: 10px; }
+.ttop.tend .ic svg { transform: none; }
+.tsticky { display: flex; flex-direction: column; align-items: center; }
 .ttop:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
+.chead { scroll-margin-top: 56px; }
 #rail .tsticky { display: none; }
 .mode-margin #doc .thread { display: none; }
 #rail .thread { position: absolute; left: 0; right: 0; margin: 0; transition: top .18s ease-out; }
@@ -893,9 +1031,38 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   padding-left: 11px; padding-right: 11px;
 }
 .citem.unread { background: var(--card-unread); }
+/* the collapse rail: every card is positioned so nested cards (later in
+   source order) paint over their parent's strip — the empty gutter below
+   each caret folds exactly the comment it belongs to, at every depth */
+.citem { position: relative; }
+.citem > .crail {
+  position: absolute; left: 0; top: 34px; bottom: 0; width: 28px;
+  cursor: pointer;
+}
+/* hovering the strip tints the comment that will fold — no extra marks,
+   just its own color a touch more intense (overlay sits under nested
+   cards, so a child keeps its own look above the parent's tint) */
+.citem.railhot::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+  border-radius: inherit;
+}
+/* the caret and the strip are ONE control — the strip is the caret's
+   region extended downwards, so hovering either lights the caret and
+   tints the comment */
+.citem.railhot > .chead .twisty { color: var(--accent); background: var(--accent-soft); }
+/* the reply box is not part of the collapse control: the foot and an open
+   editor sit above the strip (later in source, positioned), so the gutter
+   beside them does nothing */
+.citem > .cfoot, .citem > .editor { position: relative; }
+/* collapsed, the header is the expand target (it always was) — show it */
+.citem.collapsed > .chead:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); border-radius: 8px; }
 .citem.collapsed { padding-bottom: 9px; }
 .citem.collapsed > .cbody,
 .citem.collapsed > .citem,
+.citem.collapsed > .igap,
+.citem.collapsed > .cfoot,
+.citem.collapsed > .crail,
 .citem.collapsed > .editor { display: none; }
 
 /* text (author, snippet, counts) aligns on a shared baseline; controls
@@ -912,6 +1079,14 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   transition: transform .15s ease, color .12s, background .12s;
 }
 .citem.collapsed > .chead .twisty { transform: rotate(-90deg); }
+/* collapsed rows are for scanning: the stamp and action buttons step
+   aside so the text preview gets the width (state — the pill, the read
+   dot, the counts — stays) */
+.citem.collapsed > .chead .ctime,
+.citem.collapsed > .chead .crefbtn,
+.citem.collapsed > .chead .bmbtn,
+.citem.collapsed > .chead .tagadd,
+.citem.collapsed > .chead .replybtn { display: none; }
 .chead .twisty:hover { color: var(--accent); background: var(--accent-soft); }
 
 .avatar {
@@ -1131,6 +1306,32 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .cbody p { margin: .55em 0; }
 .cbody code { background: var(--code-bg); border-radius: 5px; padding: .12em .35em; font-size: .87em; font-family: var(--font-mono); }
 .cbody pre { background: var(--code-bg); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+/* syntax colors (highlight.js token classes), github-flavored for both
+   schemes; the block background stays the app's own --code-bg */
+.hljs-comment, .hljs-quote { color: #6a737d; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-type, .hljs-tag { color: #d73a49; }
+.hljs-string, .hljs-regexp { color: #032f62; }
+.hljs-number, .hljs-literal, .hljs-built_in, .hljs-builtin-name { color: #005cc5; }
+.hljs-title, .hljs-title.function_, .hljs-title.class_ { color: #6f42c1; }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-params { color: #e36209; }
+.hljs-section, .hljs-name, .hljs-symbol, .hljs-bullet { color: #22863a; }
+.hljs-meta, .hljs-doctag { color: #735c0f; }
+.hljs-addition { color: #22863a; background: rgba(52, 208, 88, .12); }
+.hljs-deletion { color: #b31d28; background: rgba(255, 88, 88, .12); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }
+@media (prefers-color-scheme: dark) {
+  .hljs-comment, .hljs-quote { color: #8b949e; }
+  .hljs-keyword, .hljs-selector-tag, .hljs-type, .hljs-tag { color: #ff7b72; }
+  .hljs-string, .hljs-regexp { color: #a5d6ff; }
+  .hljs-number, .hljs-literal, .hljs-built_in, .hljs-builtin-name { color: #79c0ff; }
+  .hljs-title, .hljs-title.function_, .hljs-title.class_ { color: #d2a8ff; }
+  .hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-params { color: #ffa657; }
+  .hljs-section, .hljs-name, .hljs-symbol, .hljs-bullet { color: #7ee787; }
+  .hljs-meta, .hljs-doctag { color: #d29922; }
+  .hljs-addition { color: #7ee787; background: rgba(46, 160, 67, .18); }
+  .hljs-deletion { color: #ffa198; background: rgba(248, 81, 73, .18); }
+}
 .cbody a { color: var(--accent); }
 .cbody ul, .cbody ol { padding-left: 1.4em; }
 
@@ -1235,6 +1436,17 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .tagchip:hover { filter: brightness(1.04); border-color: var(--accent); }
 .tagchip.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
 .tagchip.reader { border-style: dashed; }
+/* "@Name" of a known author in comment text: a person chip; your own name
+   is accented so being addressed stands out while scanning */
+.mention {
+  background: var(--accent-soft); border-radius: 6px; padding: 0 4px;
+  font-weight: 600; white-space: nowrap;
+}
+.mention.me { background: var(--accent); color: var(--accent-fg); }
+/* a "-#tag" reply took the tag off: the chip stays as a struck-through
+   trace (who removed it is in the tooltip) but no longer filters */
+.tagchip.negated { text-decoration: line-through; opacity: .5; cursor: default; }
+.tagchip.negated .tagx { text-decoration: none; }
 .tagchip .tagby {
   font-size: 9.5px; font-weight: 700; opacity: .8;
   border-left: 1px solid currentColor; padding-left: 5px; margin-left: 1px; line-height: 1;

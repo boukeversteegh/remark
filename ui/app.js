@@ -107,8 +107,23 @@ function mdChunks(mdText) {
 }
 function mdInline(text) { return DOMPurify.sanitize(marked.parseInline(text)); }
 
-function normEol(s) { return s.replace(/\r\n/g, '\n'); }
-function denormEol(s) { return S.eol === '\r\n' ? s.replace(/\n/g, '\r\n') : s; }
+// fenced code gets colors after render: the fence's language tag wins,
+// detection is the fallback; sanitized HTML goes in, hljs spans come out
+if (window.hljs) hljs.configure({ ignoreUnescapedHTML: true });
+function highlightIn(rootNode) {
+  if (!window.hljs) return;
+  for (const c of rootNode.querySelectorAll('pre code')) {
+    try { hljs.highlightElement(c); } catch (e) { /* an odd block stays plain */ }
+  }
+}
+
+// the BOM travels like the EOL style: stripped before parsing, restored on
+// save, so the file keeps its signature and "# Header" is line one's start
+function normEol(s) { return s.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n'); }
+function denormEol(s) {
+  const t = S.eol === '\r\n' ? s.replace(/\n/g, '\r\n') : s;
+  return S.bom ? '\uFEFF' + t : t;
+}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // local-time stamp embedded into new comments as plain text: "2026-09-02 14:32"
@@ -155,27 +170,36 @@ let PREFS = {};
 // behind the gateway the phone shares the PC's identity (name, aliases)
 // but not its screen: the layout keys live on the device, and the PC's
 // values for them are ignored, so neither side rearranges the other
-const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct'];
-const isDevicePref = k => DEVICE_PREFS.includes(k);
+const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct', 'outlineW'];
+// a group member's EVERYTHING lives on their device: name included, and
+// nothing is ever posted back to the owner's prefs (the gateway refuses it)
+const isDevicePref = k => DEVICE_PREFS.includes(k) || !!(PREFS && PREFS.group);
 function devicePrefs() {
-  try { return JSON.parse(localStorage.getItem('remark:prefs:phone') || '{}'); } catch (e) { return {}; }
+  const key = PREFS && PREFS.group ? 'remark:prefs:group:' + PREFS.group.id : 'remark:prefs:phone';
+  try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) { return {}; }
 }
 async function loadPrefs() {
   const r = await api('GET', '/api/prefs');
   PREFS = r.json || {};
   if (PREFS.gateway) {
+    // keys the server injected are the session's identity, not layout —
+    // restore them BEFORE merging device prefs, because isDevicePref()
+    // depends on PREFS.group being present
+    const keep = { gateway: true, group: PREFS.group, recents: PREFS.recents };
     const d = devicePrefs();
     for (const k of Object.keys(PREFS)) if (isDevicePref(k)) delete PREFS[k];
-    for (const k of Object.keys(d)) if (isDevicePref(k)) PREFS[k] = d[k];
+    for (const k of Object.keys(keep)) if (keep[k] !== undefined) PREFS[k] = keep[k];
+    for (const k of Object.keys(d)) if (isDevicePref(k) && !(k in keep)) PREFS[k] = d[k];
   }
 }
 function setPref(k, v) {
   if (v === undefined) v = null;
   PREFS[k] = v;
   if (PREFS.gateway && isDevicePref(k)) {
+    const key = PREFS.group ? 'remark:prefs:group:' + PREFS.group.id : 'remark:prefs:phone';
     const d = devicePrefs();
     d[k] = v;
-    try { localStorage.setItem('remark:prefs:phone', JSON.stringify(d)); } catch (e) {}
+    try { localStorage.setItem(key, JSON.stringify(d)); } catch (e) {}
     return;
   }
   api('POST', '/api/prefs', { [k]: v });
@@ -340,7 +364,7 @@ function threadStats(root) {
 function subtreeTags(root) {
   const out = new Set();
   (function walk(it) {
-    if (!it.bare) for (const e of it.tags || []) out.add(e.tag);
+    if (!it.bare) for (const e of it.tags || []) if (!e.negated) out.add(e.tag);
     it.children.forEach(walk);
   })(root);
   return out;
@@ -356,7 +380,7 @@ function docTagCounts() {
   const counts = new Map();
   for (const it of (S.parsed && S.parsed.items) || []) {
     if (it.bare) continue;
-    for (const e of it.tags || []) counts.set(e.tag, (counts.get(e.tag) || 0) + 1);
+    for (const e of it.tags || []) if (!e.negated) counts.set(e.tag, (counts.get(e.tag) || 0) + 1);
   }
   return counts;
 }
@@ -368,7 +392,7 @@ function toggleTag(tag) {
   if (S.tagFilter.size && S.parsed) {
     // the filter lands on the tagged comments: unfold the path to each
     for (const it of S.parsed.items) {
-      if (it.bare || !(it.tags || []).some(e => S.tagFilter.has(e.tag))) continue;
+      if (it.bare || !(it.tags || []).some(e => !e.negated && S.tagFilter.has(e.tag))) continue;
       for (let p = it; p; p = p.parent) S.collapsed.set(p.key, false);
     }
     if (S.mobile) { S.focusThread = null; setTab('doc'); }
@@ -386,7 +410,8 @@ function tagInitial(name) {
 // the comment it filters on click and a reader tag of yours can be taken off
 function tagChip(e, item) {
   const chip = document.createElement('button');
-  chip.className = 'tagchip' + (S.tagFilter.has(e.tag) ? ' on' : '') + (e.authored ? '' : ' reader');
+  chip.className = 'tagchip' + (S.tagFilter.has(e.tag) ? ' on' : '') + (e.authored ? '' : ' reader') +
+    (e.negated ? ' negated' : '');
   chip.appendChild(document.createTextNode('#' + e.tag));
   if (!e.authored && e.by && e.by.length) {
     const who = document.createElement('span');
@@ -394,26 +419,85 @@ function tagChip(e, item) {
     who.textContent = e.by.map(tagInitial).join('');
     chip.appendChild(who);
   }
+  if (e.negated) {
+    // struck through: a "-#tag" reply took it off; only the remover's ×
+    // (or re-adding the tag) brings it back — filters and counts skip it
+    chip.title = 'Removed by ' + (e.negBy || []).join(', ');
+    if (item && (e.negBy || []).some(isMe)) {
+      const x = document.createElement('span');
+      x.className = 'tagx';
+      x.textContent = '×';
+      x.title = 'Restore #' + e.tag;
+      x.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const mine = item.children.find(c => c.bare && isMe(c.author) && c.bareNegs.includes(e.tag));
+        if (mine) rewriteMyBare(item, mine, mine.bareTags, mine.bareNegs.filter(t => t !== e.tag));
+      });
+      chip.appendChild(x);
+    }
+    return chip;
+  }
   chip.title = (e.authored ? 'In the text' : 'Tagged by ' + (e.by || []).join(', ')) +
     (S.tagFilter.has(e.tag) ? ' — click to stop filtering by #' + e.tag : ' — click to show only threads with #' + e.tag);
   chip.addEventListener('click', ev => { ev.stopPropagation(); toggleTag(e.tag); });
-  if (item && !e.authored && (e.by || []).some(isMe)) {
+  // every tag on a comment can be taken off: your own participations go
+  // away (your text is edited, your bare-reply token dropped) and whatever
+  // remains from others is negated with a "-#tag" in your bare reply —
+  // their words and replies are never touched
+  if (item) {
     const x = document.createElement('span');
     x.className = 'tagx';
     x.textContent = '×';
-    x.title = 'Remove your #' + e.tag + ' from this comment';
+    x.title = 'Remove #' + e.tag + ' from this comment';
     x.addEventListener('click', ev => {
       ev.stopPropagation();
-      const mine = item.children.find(c => c.bare && isMe(c.author) && c.bareTags.includes(e.tag));
-      if (!mine) return;
-      const rest = mine.bareTags.filter(t => t !== e.tag);
-      submitOps([rest.length
-        ? { type: 'edit', hash: mine.hash, occ: mine.occ, text: rest.map(t => '#' + t).join(' ') }
-        : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
+      removeTag(item, e);
     });
     chip.appendChild(x);
   }
   return chip;
+}
+// my bare-tag reply under item rewritten to carry exactly adds + negs;
+// emptied out, the reply goes with it
+function rewriteMyBare(item, mine, adds, negs) {
+  const text = adds.map(t => '#' + t).concat(negs.map(t => '-#' + t)).join(' ');
+  submitOps([text
+    ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
+    : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
+}
+function removeTag(item, e) {
+  const t = e.tag;
+  const ops = [];
+  // written in my own text: the token is edited out, tidying the line
+  if (e.authored && isMe(item.author)) {
+    const rx = new RegExp('(^|\\s)#' + t + '(?![\\w-])', 'gi');
+    let text = item.rawBody.replace(rx, '$1');
+    text = text.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n')
+      .replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+    ops.push({ type: 'edit', hash: item.hash, occ: item.occ, text });
+  }
+  // the tag would survive without me (someone else's text or reader tag):
+  // a "-#tag" in my bare reply removes it without touching their words
+  const needNeg = (e.authored && !isMe(item.author)) || (e.by || []).some(a => !isMe(a));
+  const mine = item.children.find(c => c.bare && isMe(c.author));
+  const adds = mine ? mine.bareTags.filter(x => x !== t) : [];
+  const negs = mine ? mine.bareNegs.slice() : [];
+  if (needNeg && negs.indexOf(t) === -1) negs.push(t);
+  if (mine) {
+    if (adds.length !== mine.bareTags.length || negs.length !== mine.bareNegs.length) {
+      const text = adds.map(x => '#' + x).concat(negs.map(x => '-#' + x)).join(' ');
+      ops.push(text
+        ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
+        : { type: 'delete', hash: mine.hash, occ: mine.occ });
+    }
+  } else if (needNeg) {
+    ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me, text: '-#' + t, time: uniqueStamp(), opener: false });
+    if (!seenByMe(item)) {
+      S.optimisticSeen.set(item.key, true);
+      ops.push({ type: 'seen', hash: item.hash, occ: item.occ, reader: S.me, on: true });
+    }
+  }
+  if (ops.length) submitOps(ops);
 }
 // "+ tag" on a comment: a tiny input in the header; Enter writes the tag —
 // into your own text (appended, on the tag row at the end) or, on someone
@@ -448,9 +532,19 @@ function tagAddButton(item) {
   return btn;
 }
 function addTags(item, tags) {
-  const have = new Set((item.tags || []).map(e => e.tag));
+  // negated tags do not count as present: adding one back retracts your
+  // "-#tag" (the underlying tag is still there, so nothing else to write)
+  const have = new Set((item.tags || []).filter(e => !e.negated).map(e => e.tag));
   const add = tags.filter(t => !have.has(t));
   if (!add.length) { toast('ok', 'Already tagged #' + tags.join(' #')); return; }
+  const mineBare = item.children.find(c => c.bare && isMe(c.author));
+  if (mineBare && add.some(t => mineBare.bareNegs.includes(t))) {
+    const negs = mineBare.bareNegs.filter(t => !add.includes(t));
+    const adds = mineBare.bareTags.concat(add.filter(t =>
+      !mineBare.bareNegs.includes(t) && !mineBare.bareTags.includes(t)));
+    rewriteMyBare(item, mineBare, adds, negs);
+    return;
+  }
   const ops = [];
   if (isMe(item.author)) {
     const lines = item.rawBody.split('\n');
@@ -462,7 +556,7 @@ function addTags(item, tags) {
   } else {
     const mine = item.children.find(c => c.bare && isMe(c.author));
     if (mine) {
-      ops.push({ type: 'edit', hash: mine.hash, occ: mine.occ, text: mine.bareTags.concat(add).map(t => '#' + t).join(' ') });
+      ops.push({ type: 'edit', hash: mine.hash, occ: mine.occ, text: mine.bareTags.concat(add).map(t => '#' + t).concat(mine.bareNegs.map(t => '-#' + t)).join(' ') });
     } else {
       ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me, text: add.map(t => '#' + t).join(' '), time: uniqueStamp(), opener: false });
       if (!seenByMe(item)) {
@@ -504,6 +598,60 @@ function linkTags(rootNode) {
       frag.appendChild(a);
       last = start + 1 + tag.length;
     }
+    frag.appendChild(document.createTextNode(s.slice(last)));
+    n.parentNode.replaceChild(frag, n);
+  }
+}
+// "@Name" in rendered comment text becomes a mention chip when the name is
+// a known author (longest name first, so multi-word names win); your own
+// name is accented so being addressed stands out. Code and links stay put.
+function docAuthors() {
+  const names = new Set();
+  for (const it of (S.parsed && S.parsed.items) || []) if (it.author) names.add(it.author);
+  if (S.me) names.add(S.me);
+  return [...names].sort((a, b) => b.length - a.length);
+}
+function linkMentions(rootNode) {
+  const names = docAuthors();
+  if (!names.length) return;
+  const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    if (n.parentElement && n.parentElement.closest('code, pre, a')) continue;
+    if (n.nodeValue.indexOf('@') !== -1) hits.push(n);
+  }
+  for (const n of hits) {
+    const s = n.nodeValue;
+    const frag = document.createDocumentFragment();
+    let last = 0, pos = 0, changed = false;
+    for (;;) {
+      const at = s.indexOf('@', pos);
+      if (at === -1) break;
+      const prev = at > 0 ? s[at - 1] : ' ';
+      let matched = null;
+      if (!/[\w@]/.test(prev)) {
+        for (const nm of names) {
+          if (!s.startsWith(nm, at + 1)) continue;
+          // a name ending in a word char must not continue into one:
+          // "@Me" inside "@Meta" is not a mention of Me
+          const after = s[at + 1 + nm.length];
+          if (after !== undefined && /\w/.test(after) && /\w$/.test(nm)) continue;
+          matched = nm;
+          break;
+        }
+      }
+      if (!matched) { pos = at + 1; continue; }
+      frag.appendChild(document.createTextNode(s.slice(last, at)));
+      const sp = document.createElement('span');
+      sp.className = 'mention' + (isMe(matched) ? ' me' : '');
+      sp.textContent = '@' + matched;
+      sp.title = isMe(matched) ? 'You are addressed here' : 'Mention of ' + matched;
+      frag.appendChild(sp);
+      last = pos = at + 1 + matched.length;
+      changed = true;
+    }
+    if (!changed) continue;
     frag.appendChild(document.createTextNode(s.slice(last)));
     n.parentNode.replaceChild(frag, n);
   }
@@ -648,34 +796,47 @@ function render() {
     }
   };
 
-  // focus: one thread alone (the phone opens a thread from Notifications
-  // this way) — its section heading, the thread, and a bar back to the
-  // whole document
+  // focus: the board shows ONE thread (under its section heading) — that
+  // is what rescues the scrollbar — while the outline keeps every row,
+  // the others dimmed, for switching. A bar on top is the way back.
   let focusKeep = null;
   if (S.focusThread) {
-    focusKeep = new Set();
-    let lastHeading = null;
-    for (const b of parsed.blocks) {
-      if (b.type === 'heading') lastHeading = b;
-      if (b.type === 'thread' && b.thread.time === S.focusThread) {
-        if (lastHeading) focusKeep.add(lastHeading);
-        focusKeep.add(b);
+    const froot = parsed.blocks.find(b => b.type === 'thread' && b.thread.time === S.focusThread);
+    if (!froot) {
+      // gone — unless it is a just-created thread whose save has not
+      // landed yet; that one gets a grace until the next parse has it
+      if (!S.focusPending) S.focusThread = null;
+    } else {
+      S.focusPending = false;
+      focusKeep = new Set();
+      let lastHeading = null;
+      for (const b of parsed.blocks) {
+        if (b.type === 'heading') lastHeading = b;
+        if (b === froot) {
+          if (lastHeading) focusKeep.add(lastHeading);
+          focusKeep.add(b);
+        }
       }
-    }
-    if (!focusKeep.size) { S.focusThread = null; focusKeep = null; } // the thread is gone
-    else {
       const back = document.createElement('button');
       back.className = 'focusback';
       back.innerHTML = iconHTML('corner-down-right');
       back.appendChild(document.createTextNode('Whole document'));
-      back.addEventListener('click', () => { S.focusThread = null; render(); });
+      back.addEventListener('click', () => exitFocus());
       doc.appendChild(back);
+      if (froot.thread.title) {
+        const lbl = document.createElement('span');
+        lbl.className = 'focuslabel';
+        lbl.textContent = froot.thread.title;
+        doc.appendChild(lbl);
+      }
     }
   }
   // tag filter: only the threads carrying every active tag, under their
-  // section headings, with a bar naming the tags and a way back
+  // section headings, with a bar naming the tags and a way back — a
+  // FOCUS wins over it while active, so a focused thread never vanishes
+  // for lacking the filtered tag
   let tagKeep = null;
-  if (S.tagFilter.size) {
+  if (S.tagFilter.size && !S.focusThread) {
     tagKeep = new Set();
     let lastHeading = null;
     for (const b of parsed.blocks) {
@@ -722,14 +883,15 @@ function render() {
         // there in the file — same affordance as between paragraphs
         if (prevThreadBlock) {
           const pt = prevThreadBlock;
+          const nkey = 'new:' + pt.thread.key;
           const tgap = document.createElement('div');
           tgap.className = 'igap tgap';
           tgap.title = 'Insert a thread between these two';
           tgap.innerHTML = '<span class="iglabel">— insert thread —</span>';
-          tgap.addEventListener('click', () => toggleEditor('new:' + pt.key));
+          tgap.addEventListener('click', () => toggleEditor(nkey));
           doc.appendChild(tgap);
-          if (S.editorsOpen.has('new:' + pt.key)) {
-            doc.appendChild(buildEditor('new:' + pt.key, pt));
+          if (S.editorsOpen.has(nkey)) {
+            doc.appendChild(buildEditor(nkey, pt));
           }
         }
         doc.appendChild(card);
@@ -742,6 +904,7 @@ function render() {
     el.className = 'block';
     el.dataset.key = block.key;
     el.innerHTML = md(block.text);
+    highlightIn(el);
     const btn = document.createElement('button');
     btn.className = 'addbtn';
     btn.title = 'Comment on this part';
@@ -757,6 +920,35 @@ function render() {
     }
   }
   endCluster();
+
+  // a tag filter hides the paragraphs — and with them every new-thread
+  // affordance. Keep one: a new thread at the end of the document.
+  if (tagKeep && S.mode !== 'margin' && parsed.blocks.length) {
+    const target = parsed.blocks[parsed.blocks.length - 1];
+    const nkey = 'new:' + (target.type === 'thread' ? target.thread.key : target.key);
+    if (S.editorsOpen.has(nkey)) {
+      doc.appendChild(buildEditor(nkey, target));
+    } else {
+      const nb = document.createElement('button');
+      nb.className = 'newthreadbtn';
+      nb.innerHTML = iconHTML('message-square-plus');
+      nb.appendChild(document.createTextNode('New thread at the end of the document'));
+      nb.addEventListener('click', () => toggleEditor(nkey));
+      doc.appendChild(nb);
+    }
+  }
+  // an open composer whose anchor block did not render (its paragraph is
+  // hidden by a tag filter or focus view) still needs a home: it appears
+  // at the end, and its ops keep targeting the anchor, so the thread
+  // lands where it was asked for — the outline's per-section + works
+  // whatever is on screen
+  for (const k of S.editorsOpen) {
+    if (!k.startsWith('new:')) continue;
+    if (doc.querySelector('.editor[data-key="' + CSS.escape(k) + '"]')) continue;
+    const target = parsed.blocks.find(b =>
+      'new:' + (b.type === 'thread' ? b.thread.key : b.key) === k);
+    if (target) doc.appendChild(buildEditor(k, target));
+  }
 
   renderConflicts();
   updateUnreadUI();
@@ -900,6 +1092,17 @@ function buildThread(block) {
     card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   rail2.appendChild(topBtn);
+  // …and its mirror: jump to the start of the LAST message in the thread
+  const endBtn = document.createElement('button');
+  endBtn.className = 'ttop tend';
+  endBtn.title = 'Scroll to the last message of this thread';
+  endBtn.innerHTML = iconHTML('chevron-down');
+  endBtn.addEventListener('click', () => {
+    const heads = card.querySelectorAll('.citem > .chead');
+    const last = heads[heads.length - 1];
+    (last || card).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  rail2.appendChild(endBtn);
   // the card clips its contents (overflow: hidden for the rounded corners),
   // so the gutter rail must live OUTSIDE it — a positioning wrapper carries
   // both. Margin mode has no gutter rail and keeps the bare card.
@@ -996,6 +1199,41 @@ function buildItem(item, opts) {
   // markdown can reference a comment as [](#r20260903221807)
   if (item.time) el.id = 'r' + item.time.replace(/\D/g, '');
 
+  // the empty gutter under a caret collapses the comment it belongs to —
+  // no scrolling back up to the caret from the bottom of a long one. One
+  // strip per card: nested cards are positioned, so each covers its
+  // parent's strip with its own. Flat replies under a root thus fold
+  // individually, while a parent's rail running alongside its indented
+  // subthread folds the whole subtree — the strip you click is always
+  // exactly the thing that folds, and the hover lights its full extent.
+  if (!collapsed) {
+    const rail = document.createElement('div');
+    rail.className = 'crail';
+    rail.title = 'Collapse';
+    rail.addEventListener('mouseenter', () => el.classList.add('railhot'));
+    rail.addEventListener('mouseleave', () => el.classList.remove('railhot'));
+    rail.addEventListener('click', () => {
+      S.collapsed.set(item.key, true);
+      persistCollapse(item.key, true);
+      render();
+      // land on the header of what was just folded, not a random spot below
+      const hd = item.time && document.getElementById('r' + item.time.replace(/\D/g, ''));
+      if (hd) hd.scrollIntoView({ block: 'nearest' });
+    });
+    el.appendChild(rail);
+  }
+
+  // collapsed, the WHOLE band between the dividers expands — the padding
+  // around the compact head included, not just the head's own strip
+  if (collapsed) {
+    el.addEventListener('click', e => {
+      if (e.target.closest('button, input, a, .chead')) return;
+      S.collapsed.set(item.key, false);
+      persistCollapse(item.key, false);
+      render();
+    });
+  }
+
   const head = document.createElement('div');
   head.className = 'chead';
   // the whole header row toggles collapse; buttons inside keep their own action
@@ -1015,6 +1253,12 @@ function buildItem(item, opts) {
     persistCollapse(item.key, !collapsed);
     render();
   });
+  // caret and gutter strip are one control: hovering the caret previews
+  // the same fold the strip does
+  if (!collapsed) {
+    tw.addEventListener('mouseenter', () => el.classList.add('railhot'));
+    tw.addEventListener('mouseleave', () => el.classList.remove('railhot'));
+  }
   head.appendChild(tw);
 
   head.appendChild(avatarEl(item.author));
@@ -1082,6 +1326,14 @@ function buildItem(item, opts) {
     tt.className = 'ctitlebar';
     tt.textContent = item.title;
     tt.title = item.title;
+    // the title is the biggest thing on the card — it collapses the
+    // thread just like the header row under it
+    tt.addEventListener('click', e => {
+      if (e.target.closest('button, input, a')) return;
+      S.collapsed.set(item.key, !collapsed);
+      persistCollapse(item.key, !collapsed);
+      render();
+    });
     el.appendChild(tt); // before the head, which is appended later
   } else if (collapsed) {
     const snip = document.createElement('span');
@@ -1109,7 +1361,9 @@ function buildItem(item, opts) {
     head.appendChild(nc);
   }
 
-  // own comments get a hover-revealed edit pencil in the header corner
+  // own comments get a hover-revealed edit pencil in the header corner;
+  // deleting lives INSIDE the edit composer (a bare header button is too
+  // easy to hit) — see the Delete… in buildEditor's bar
   const editing = S.editorsOpen.has('edit:' + item.key) && isMe(item.author);
   if (!collapsed && isMe(item.author) && !editing) {
     const eb = document.createElement('button');
@@ -1214,6 +1468,7 @@ function buildItem(item, opts) {
     list.lastElementChild.appendChild(w);
   };
   let lastBody = null;
+  let lastTextSeg = null; // the text segment behind lastBody, for source indents
   let lastParaHash = null; // the paragraph an interjection after it anchors on
   let pendingLi = null; // cards awaiting the list continuation in the next text
   for (let si = 0; si < item.segments.length; si++) {
@@ -1234,7 +1489,9 @@ function buildItem(item, opts) {
         const pe = document.createElement('div');
         pe.className = 'cpara';
         pe.innerHTML = md(chunk);
+        highlightIn(pe);
         if (chunk.indexOf('#') !== -1) linkTags(pe);
+        if (chunk.indexOf('@') !== -1) linkMentions(pe);
         body.appendChild(pe);
         // interject zone BETWEEN paragraphs only — a single-paragraph
         // comment has no in-between, so it gets none (reply covers it)
@@ -1267,6 +1524,7 @@ function buildItem(item, opts) {
       }
       el.appendChild(body);
       lastBody = body;
+      lastTextSeg = seg;
     } else {
       if (seg.item.bare && !seg.item.children.length) continue; // a reader tag: chip on this comment, not a card
       const nxt = item.segments[si + 1];
@@ -1276,14 +1534,33 @@ function buildItem(item, opts) {
       const card = buildItem(seg.item, { interjected: textFollows });
       if (textFollows) card.classList.add('interjected'); // indented at every level, root included
       const tl = trailingList(lastBody);
+      // a card hangs under the final list item ONLY when the raw markdown
+      // nests it there — its bullet deeper than the list's own bullets.
+      // A reply at the parent's child indent is never part of the list,
+      // however deep the body happens to be indented (hand-written bodies
+      // often are, which used to swallow the reply into the list and
+      // render it mid-body like an interjection). Body lines are stored
+      // dedented by item.indent + 2, so that base recovers source indents.
+      const lastLiIndent = (() => {
+        if (!tl) return null;
+        const ls = (lastTextSeg && lastTextSeg.part && lastTextSeg.part.lines) || [];
+        for (let li = ls.length - 1; li >= 0; li--) {
+          const mm = ls[li].match(/^(\s*)(?:[-*+]|\d+[.)])\s/);
+          if (mm) return item.indent + 2 + mm[1].length;
+        }
+        return null;
+      })();
+      const nestedInLi = lastLiIndent != null && seg.item.indent > lastLiIndent;
       const nxtFirst = nxt && nxt.type === 'text'
         ? (nxt.md.split('\n').find(l => l.trim() !== '') || '') : '';
-      if (tl && /^ {0,3}(?:[-*+]|\d+[.)])\s/.test(nxtFirst)) {
+      if (tl && nestedInLi && /^ {0,3}(?:[-*+]|\d+[.)])\s/.test(nxtFirst)) {
         (pendingLi = pendingLi || { list: tl, cards: [] }).cards.push(card);
-      } else if (tl && !nxt) {
+      } else if (tl && nestedInLi && !nxt) {
         hangInLi(tl, card); // nested under the final list item
       } else {
         el.appendChild(card);
+        lastBody = null; // the list no longer trails: later cards stay out of it
+        lastTextSeg = null;
         // the seam survives an interjection: another comment can be placed
         // at the same point, landing after the ones already there. Anchored
         // on the paragraph before them (what the parser positions by);
@@ -1434,7 +1711,7 @@ function buildEditor(key, target) {
   const isNewThread = !isReply && !isInterject && !isEdit;
   const tKey = key + ':title';
   const wrap = document.createElement('div');
-  wrap.className = 'editor' + (isNewThread ? ' newthread' : '');
+  wrap.className = 'editor' + (isNewThread ? ' newthread' : '') + (isEdit ? ' editedit' : '');
   wrap.dataset.key = key;
 
   // new threads get an optional title line (never auto-focused); editing a
@@ -1554,6 +1831,7 @@ function buildEditor(key, target) {
     if (previewing) {
       const titleText = titleIn ? titleIn.value.trim() : '';
       preview.innerHTML = md((titleText ? '**' + titleText + '**\n\n' : '') + (ta.value || '*nothing to preview*'));
+      highlightIn(preview);
       preview.style.display = '';
       ta.style.display = 'none';
       previewBtn.textContent = 'Edit';
@@ -1733,6 +2011,13 @@ function buildEditor(key, target) {
         ops.push({ type: 'seen', hash: sib.hash, occ: sib.occ, reader: S.me, on: true });
       }
     }
+    // in single-thread mode a freshly created thread is what you came to
+    // write: the focus follows it (pending until the save lands — the
+    // renderer must not mistake the not-yet-written thread for a deleted one)
+    if (S.focusThread && isNewThread && op && op.time) {
+      S.focusThread = op.time;
+      S.focusPending = true;
+    }
     submitOps(ops);
     render();
   }
@@ -1842,16 +2127,68 @@ function renderConflicts() {
 // unread navigation
 // ---------------------------------------------------------------------------
 let unreadCursor = -1;
+// the pill counts and cycles only what is on screen: in focus mode the
+// focused thread, under a tag filter the matching threads
+function visibleUnread() {
+  if (!S.parsed) return [];
+  return S.parsed.items.filter(it => {
+    if (!isUnread(it)) return false;
+    let r = it;
+    while (r.parent) r = r.parent;
+    if (S.focusThread) return r.time === S.focusThread;
+    if (S.tagFilter.size) return threadMatchesFilter(r);
+    return true;
+  });
+}
 function updateUnreadUI() {
-  const unread = S.parsed ? S.parsed.items.filter(isUnread) : [];
+  const unread = visibleUnread();
   const btn = $('#unreadBtn');
   btn.classList.toggle('hidden', unread.length === 0);
   btn.innerHTML = iconHTML('bell-dot');
   btn.appendChild(document.createTextNode(unread.length + ' unread'));
-  document.title = (unread.length ? '(' + unread.length + ') ' : '') + (S.path.split(/[\\/]/).pop() || 'remark');
+  setAppTitle((unread.length ? '(' + unread.length + ') ' : '') + docDisplayName());
+  updateFilenameUI();
+  const fm = $('#focusModeBtn');
+  if (fm) fm.classList.toggle('active', !!S.focusThread);
+}
+
+// the document is named by its first heading; the filename disambiguates
+function docTitle() {
+  const h = S.parsed && S.parsed.blocks.find(b => b.type === 'heading');
+  return h ? h.headingText.replace(/[#*_`\[\]]/g, '').trim() : '';
+}
+function docDisplayName() {
+  const base = (S.path && S.path.split(/[\\/]/).pop()) || 'remark';
+  const title = docTitle();
+  return title && title !== base ? title + ' — ' + base : base;
+}
+// the toolbar names the document the same way: title first, file after
+function updateFilenameUI() {
+  const fn = $('#filename');
+  if (!fn || !S.path) return;
+  const title = docTitle();
+  const base = splitPath(S.path).base;
+  fn.textContent = '';
+  const bb = document.createElement('b');
+  bb.textContent = title || base;
+  fn.appendChild(bb);
+  if (title && title !== base) {
+    const dim = document.createElement('span');
+    dim.className = 'fnfile';
+    dim.textContent = ' — ' + base;
+    fn.appendChild(dim);
+  }
+  fn.title = S.path;
+}
+
+// document.title names the tab; the native window (alt-tab, taskbar)
+// follows through the host bind when running in the app shell
+function setAppTitle(t) {
+  document.title = t;
+  try { if (window.__remarkTitle) window.__remarkTitle(t); } catch (e) { }
 }
 function jumpUnread() {
-  const unread = S.parsed.items.filter(isUnread);
+  const unread = visibleUnread();
   if (!unread.length) return;
   unreadCursor = (unreadCursor + 1) % unread.length;
   revealItem(unread[unreadCursor]);
@@ -1935,6 +2272,12 @@ function buildPresence() {
       walk(it.children);
     }
   })(S.parsed.items);
+  // in a group everyone sees everyone: registered members get a row even
+  // before their first comment
+  for (const m of (PREFS.group && PREFS.group.members) || []) {
+    const k = claim(m);
+    if (k && !rows.has(k)) rows.set(k, { online: false });
+  }
   // presence is per INSTANCE: the first live process of a name sits on the
   // name's row; every further live process of the same name gets a row of
   // its own right under it, so two "Claude"s show as two rows, not one
@@ -2021,7 +2364,7 @@ function buildPresence() {
     row.appendChild(st);
     // Message: open this instance's channel in its own window, addressed to
     // it (only that monitor is woken; the channel file is shared history)
-    if (r.online && r.sid && !r.isMe && !S.chat) {
+    if (r.online && r.sid && !r.isMe && !S.chat && !PREFS.group) {
       const msg = document.createElement('button');
       msg.className = 'pmore pmsg';
       msg.title = 'Message this instance directly';
@@ -2258,43 +2601,78 @@ function showGateway() {
   if (old) { old.remove(); return; }
   const panel = document.createElement('div');
   panel.id = 'gwpanel';
-  panel.innerHTML = '<div class="gwhead">' + iconHTML('smartphone') + '<b>Phone</b><span class="spacer"></span><button class="wnclose" title="Close">\u00d7</button></div><div class="gwbody">loading\u2026</div>';
+  panel.innerHTML = '<div class="gwhead">' + iconHTML('share-2') + '<b>Sharing</b><span class="spacer"></span><button class="wnclose" title="Close">\u00d7</button></div><div class="gwbody">loading\u2026</div>';
   panel.querySelector('.wnclose').addEventListener('click', () => panel.remove());
+  // the height cap is computed, not declared: inside a zoomed body 100vh
+  // does not track the real viewport, so px divided by the zoom do
+  panel.style.maxHeight = Math.round(innerHeight / (S.zoom || 1) - 72) + 'px';
   document.body.appendChild(panel);
   const q = '?path=' + encodeURIComponent(S.path || '') + '&t=' + TOKEN;
   const call = (ep, extra) => fetch('/api/gateway' + ep + q + (extra || ''), { method: ep ? 'POST' : 'GET' })
     .then(r => r.json()).then(render).catch(() => { panel.querySelector('.gwbody').textContent = 'Could not reach the server.'; });
-  // the gateway itself is secondary: folded away unless asked for
-  let manage = false;
+  // groups: sharing with other people — their registry rides along with
+  // every render so a change (join, new code) shows on the next refresh
+  let groups = [], openGid = null, lastSt = null;
+  const loadGroups = () => fetch('/api/groups?t=' + TOKEN).then(r => r.json())
+    .then(g => { groups = Array.isArray(g) ? g : []; }).catch(() => {});
+  const gpost = (ep, bodyObj) => fetch('/api/groups' + ep + '?t=' + TOKEN, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyObj),
+  }).then(r => r.json()).then(loadGroups).then(() => { if (lastSt) render(lastSt); });
+  // management (groups, the gateway itself) is secondary: folded away
+  let manage = false, manageGroups = false;
   function render(st) {
+    lastSt = st;
     const body = panel.querySelector('.gwbody');
     body.innerHTML = '';
     if (st.error) { body.textContent = st.error; return; }
     const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
     const btn = (text, cls, fn) => { const b = el('button', 'tbtn ' + (cls || ''), text); b.addEventListener('click', fn); return b; };
     const shared = !!st.shared;
-    gatewayButtonState(shared && !!st.running);
+    const here = p => S.path && p.replace(/\//g, '\\').toLowerCase() === S.path.replace(/\//g, '\\').toLowerCase();
+    const sharedGroups = S.path ? groups.filter(g => g.docs.some(here)) : [];
+    const sharedAny = shared || sharedGroups.length > 0;
+    gatewayButtonState(sharedAny, !!st.running);
 
-    // primary: is THIS document on the phone?
-    const top = el('div', 'gwshare');
-    top.appendChild(el('span', 'gwname', S.path ? S.path.split(/[\\/]/).pop() : 'No document open'));
-    top.appendChild(el('span', 'gwlabel', 'Shared'));
-    const sw = el('label', 'switch');
-    const chk = el('input'); chk.type = 'checkbox'; chk.checked = shared; chk.disabled = !S.path;
-    sw.appendChild(chk); sw.appendChild(el('span', 'knob'));
-    chk.addEventListener('change', () => {
-      const on = chk.checked;
-      call('/share', '&on=' + (on ? '1' : '0')).then(() => { if (on && !st.running) call('/start'); });
+    // above the fold: one flat toggle per audience for THIS document —
+    // Myself (your own phone) and each group. No dependencies between them;
+    // turning any of them on also starts the gateway (a UX courtesy —
+    // stopping the gateway never clears the sharing itself)
+    if (!S.path) body.appendChild(el('div', 'gwname', 'No document open'));
+    const startIfOff = () => { if (!st.running) call('/start'); };
+    const shareRow = (label, on, toggle) => {
+      const row = el('div', 'gwshare');
+      row.appendChild(el('span', 'gwlabel', label));
+      const sw = el('label', 'switch');
+      const chk = el('input'); chk.type = 'checkbox'; chk.checked = on; chk.disabled = !S.path;
+      sw.appendChild(chk); sw.appendChild(el('span', 'knob'));
+      chk.addEventListener('change', () => toggle(chk.checked));
+      row.appendChild(sw);
+      body.appendChild(row);
+    };
+    shareRow('My devices', shared, on => {
+      call('/share', '&on=' + (on ? '1' : '0')).then(() => { if (on) startIfOff(); });
     });
-    top.appendChild(sw);
-    body.appendChild(top);
-    const status = el('div', 'gwstatus' + (shared && st.running ? ' on' : ''));
+    for (const g of groups) {
+      shareRow(g.name, S.path ? g.docs.some(here) : false, on => {
+        gpost('/doc', { id: g.id, path: S.path, on }).then(() => { if (on) startIfOff(); });
+      });
+    }
+    const status = el('div', 'gwstatus' + (sharedAny && st.running ? ' on' : ''));
     status.textContent = !S.path ? 'Open a document to share it.'
-      : shared && st.running ? 'On the phone: open it from the list there.'
-      : shared ? 'Marked shared, but the gateway is not running: start it below.'
-      : st.running ? 'Not on the phone. Flip the switch to share it.'
-      : 'Not on the phone. Flipping the switch also starts the gateway.';
+      : sharedAny && st.running ? 'Shared and reachable — readers open it from their list.'
+      : sharedAny ? 'Marked shared, but the gateway is not running: start it below.'
+      : st.running ? 'Not shared. Flip a switch to share it.'
+      : 'Not shared. Flipping a switch also starts the gateway.';
     body.appendChild(status);
+
+    // group MANAGEMENT lives behind its own fold, like the gateway:
+    // members, invites and document lists, separate from sharing
+    const gmore = el('button', 'gwmore');
+    gmore.innerHTML = iconHTML('chevron-down', manageGroups ? '' : 'closed') +
+      '<span>Groups' + (groups.length ? ' (' + groups.length + ')' : '') + '</span>';
+    gmore.addEventListener('click', () => { manageGroups = !manageGroups; render(st); });
+    body.appendChild(gmore);
+    if (manageGroups) renderGroups(st);
 
     // secondary: the gateway
     const more = el('button', 'gwmore');
@@ -2302,6 +2680,98 @@ function showGateway() {
     more.addEventListener('click', () => { manage = !manage; render(st); });
     body.appendChild(more);
     if (!manage) return;
+    renderGateway(st);
+  }
+
+  function renderGroups(st) {
+    const body = panel.querySelector('.gwbody');
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const btn = (text, cls, fn) => { const b = el('button', 'tbtn ' + (cls || ''), text); b.addEventListener('click', fn); return b; };
+    const here = p => S.path && p.replace(/\//g, '\\').toLowerCase() === S.path.replace(/\//g, '\\').toLowerCase();
+    for (const g of groups) {
+      const grow = el('div', 'ggroup' + (openGid === g.id ? ' gopen' : ''));
+      const gh = el('div', 'ghead');
+      gh.appendChild(el('b', null, g.name));
+      gh.appendChild(el('span', 'gcount',
+        g.members.length + ' member' + (g.members.length === 1 ? '' : 's') +
+        ' · ' + g.docs.length + ' document' + (g.docs.length === 1 ? '' : 's')));
+      gh.addEventListener('click', () => { openGid = openGid === g.id ? null : g.id; render(st); });
+      grow.appendChild(gh);
+      if (openGid === g.id) {
+        const det = el('div', 'gdet');
+        det.appendChild(el('div', 'glabel', 'Documents'));
+        if (!g.docs.length) det.appendChild(el('div', 'gwnote', 'Nothing shared with this group — the toggles above do that.'));
+        for (const d of g.docs) {
+          const r2 = el('div', 'gwdoc', d.split(/[\\/]/).pop() + (here(d) ? ' — this one' : ''));
+          r2.title = d;
+          const x = btn('×', 'gx quiet', () => gpost('/doc', { id: g.id, path: d, on: false }));
+          x.title = 'Take out of the group';
+          r2.appendChild(x);
+          det.appendChild(r2);
+        }
+        det.appendChild(el('div', 'glabel', 'Members'));
+        if (!g.members.length) det.appendChild(el('div', 'gwnote', 'Nobody yet — have them scan the code below.'));
+        for (const m of g.members) {
+          const r3 = el('div', 'gwdoc', m);
+          const x = btn('×', 'gx quiet', () => {
+            if (confirm('Remove ' + m + ' from ' + g.name + '? They can rejoin with the current code.')) {
+              gpost('/member/remove', { id: g.id, name: m });
+            }
+          });
+          x.title = 'Remove from the group';
+          r3.appendChild(x);
+          det.appendChild(r3);
+        }
+        det.appendChild(el('div', 'glabel', 'Invite'));
+        // no gateway, no code: a stopped gateway has no live port, so the
+        // QR would encode a link nobody can open
+        if (!st.running) {
+          det.appendChild(el('div', 'gwnote', 'Start the gateway below — the invite code appears once it runs.'));
+        } else {
+          const img = el('img', 'gwqr');
+          img.src = '/api/groups/qr.png?id=' + encodeURIComponent(g.id) + '&t=' + TOKEN + '&r=' + Date.now();
+          img.alt = 'group QR';
+          det.appendChild(img);
+          // the QR and the link are the same invite: scan one, send the other
+          const ur = el('div', 'gwurlrow');
+          ur.appendChild(el('div', 'gwurl', g.url || ''));
+          ur.appendChild(btn('Copy link', 'quiet', () =>
+            navigator.clipboard.writeText(g.url).then(() => toast('ok', 'Invite link copied'))));
+          det.appendChild(ur);
+        }
+        const rr = el('div', 'gwrow');
+        rr.appendChild(el('span', null, 'Members scan once; a new code locks out everyone who scanned this one.'));
+        rr.appendChild(btn('New code', 'quiet', () => {
+          if (confirm('Issue a new code for ' + g.name + '? Every member must scan again.')) gpost('/rotate', { id: g.id });
+        }));
+        det.appendChild(rr);
+        const dr = el('div', 'gwrow');
+        dr.appendChild(el('span', null, ''));
+        dr.appendChild(btn('Delete group', 'quiet', () => {
+          if (confirm('Delete ' + g.name + '? Its code stops working at once.')) { openGid = null; gpost('/delete', { id: g.id }); }
+        }));
+        det.appendChild(dr);
+        grow.appendChild(det);
+      }
+      body.appendChild(grow);
+    }
+    const ng = el('div', 'gnew');
+    const ninp = el('input');
+    ninp.placeholder = 'New group…';
+    const nbtn = btn('Create', 'quiet', () => {
+      const n = ninp.value.trim();
+      if (n) gpost('/new', { name: n }).then(() => { openGid = (groups.find(x => x.name === n) || {}).id || openGid; if (lastSt) render(lastSt); });
+    });
+    ninp.addEventListener('keydown', ev => { if (ev.key === 'Enter') nbtn.click(); });
+    ng.appendChild(ninp);
+    ng.appendChild(nbtn);
+    body.appendChild(ng);
+  }
+
+  function renderGateway(st) {
+    const body = panel.querySelector('.gwbody');
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const btn = (text, cls, fn) => { const b = el('button', 'tbtn ' + (cls || ''), text); b.addEventListener('click', fn); return b; };
     const row = (label, ctrl) => {
       const d = el('div', 'gwrow'); d.appendChild(el('span', null, label)); if (ctrl) d.appendChild(ctrl); body.appendChild(d);
     };
@@ -2311,13 +2781,17 @@ function showGateway() {
       img.src = '/api/gateway/qr.png?t=' + TOKEN + '&r=' + Date.now();
       img.alt = 'pairing QR';
       body.appendChild(img);
-      body.appendChild(el('div', 'gwurl', st.url || ''));
+      const ur = el('div', 'gwurlrow');
+      ur.appendChild(el('div', 'gwurl', st.url || ''));
+      ur.appendChild(btn('Copy link', 'quiet', () =>
+        navigator.clipboard.writeText(st.url || '').then(() => toast('ok', 'Link copied'))));
+      body.appendChild(ur);
       if (st.addrs && st.addrs.length > 1) body.appendChild(el('div', 'gwnote', 'Also reachable on: ' + st.addrs.slice(1).join(', ')));
-      row('Scan once with the phone; the code survives restarts.', btn('New code', 'quiet', () => {
-        if (confirm('Issue a new pairing code? Every paired phone must scan again.')) call('/rotate');
+      row('Scan the QR or open the link once; the code survives restarts.', btn('New code', 'quiet', () => {
+        if (confirm('Issue a new pairing code? Every paired device must scan again.')) call('/rotate');
       }));
     } else {
-      row('The gateway serves your shared documents to the paired phone over your network or VPN.', btn('Start', '', () => call('/start')));
+      row('The gateway serves your shared documents to paired devices over your network or VPN.', btn('Start', '', () => call('/start')));
     }
     const docs = st.docs || [];
     if (docs.length) {
@@ -2329,21 +2803,62 @@ function showGateway() {
       }
     }
   }
-  call('');
+  loadGroups().then(() => call(''));
 }
-// the toolbar button lights up while this document is on the phone
-function gatewayButtonState(on) {
+// the sharing button tells the document's state at a glance: green when
+// shared and reachable, red when shared but the gateway is stopped (the
+// one moment the gateway state matters), gray when not shared
+function gatewayButtonState(shared, running) {
   const b = $('#gatewayBtn');
-  if (b) { b.classList.toggle('on', !!on); b.title = on ? 'Shared with the phone' : 'Phone \u2014 share this document'; }
+  if (!b) return;
+  b.classList.toggle('on', !!(shared && running));
+  b.classList.toggle('warn', !!(shared && !running));
+  b.title = shared && running ? 'Shared \u2014 readers can reach it'
+    : shared ? 'Sharing unavailable \u2014 the gateway is stopped, start it inside'
+    : 'Not shared \u2014 click to share this document';
+}
+// through the gateway the Phone panel makes no sense — this session IS the
+// remote side. The button becomes a connection light instead: green, a
+// signal icon (desktop browsers join groups too, not just phones), and a
+// click says what you are connected to.
+function wireRemoteBadge() {
+  const ow = $('#openWithBtn');
+  if (ow) ow.remove(); // apps open on the HOST — nothing to offer remotely
+  const b = $('#gatewayBtn');
+  if (!b) return;
+  const nb = b.cloneNode(false); // drops the desktop panel click handler
+  b.replaceWith(nb);
+  nb.innerHTML = iconHTML('share-2');
+  nb.classList.add('remote');
+  nb.title = 'Connected remotely';
+  nb.addEventListener('click', () => {
+    const g = PREFS.group;
+    const esc2 = s => String(s || '').replace(/[<>&]/g, '');
+    toast('ok', g
+      ? '<b>Connected remotely</b> — group ' + esc2(g.name) + (g.owner ? ', shared by ' + esc2(g.owner) : '')
+      : '<b>Connected remotely</b> — this device reads the host over the gateway.');
+  });
 }
 function gatewayProbe() {
-  if (!S.path) return;
+  if (PREFS.gateway || !S.path) return;
   fetch('/api/gateway?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN).then(r => r.json())
-    .then(st => gatewayButtonState(st && st.running && st.shared)).catch(() => {});
+    .then(st => gatewayButtonState(!!(st && (st.sharedAny || st.shared)), !!(st && st.running))).catch(() => {});
 }
 window.addEventListener('DOMContentLoaded', () => {
+  // Open in…: the native Open-with dialog — the system's own app list
+  const ow = $('#openWithBtn');
+  if (ow) {
+    ow.innerHTML = iconHTML('external-link');
+    ow.addEventListener('click', () => {
+      if (!S.path) return;
+      fetch('/api/openwith?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN, { method: 'POST' })
+        .then(r => r.json())
+        .then(j => { if (j && j.error) toast('warn', 'Could not open the dialog: ' + String(j.error).replace(/[<>&]/g, '')); })
+        .catch(() => toast('warn', 'Could not reach the server.'));
+    });
+  }
   const b = $('#gatewayBtn');
-  if (b) { b.innerHTML = iconHTML('smartphone'); b.addEventListener('click', showGateway); }
+  if (b) { b.innerHTML = iconHTML('share-2'); b.addEventListener('click', showGateway); }
   setTimeout(gatewayProbe, 1500);
 });
 
@@ -2628,6 +3143,128 @@ function buildNotifications() {
   return wrap;
 }
 
+// leaving a focus puts you back at the thread's place in the document
+function exitFocus() {
+  const t = S.focusThread;
+  S.focusThread = null;
+  S.focusPending = false;
+  render();
+  const el = t && document.getElementById('r' + t.replace(/\D/g, ''));
+  if (el) el.scrollIntoView({ block: 'center' });
+}
+// Esc leaves a focused thread — unless you are typing somewhere
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !S.focusThread) return;
+  if (e.target.closest && e.target.closest('textarea, input, [contenteditable]')) return;
+  e.preventDefault();
+  exitFocus();
+});
+
+// the sidebar's right edge drags to resize it; the width is a device
+// preference so a phone never inherits a monitor-sized sidebar
+function wireOutlineResize() {
+  if (S.mobile || $('#outlineDrag')) return;
+  const h = document.createElement('div');
+  h.id = 'outlineDrag';
+  h.title = 'Drag to resize the sidebar';
+  document.body.appendChild(h);
+  const apply = w => document.documentElement.style.setProperty('--outlinew', w + 'px');
+  if (PREFS.outlineW) apply(PREFS.outlineW);
+  h.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    try { h.setPointerCapture(e.pointerId); } catch (err) { }
+    h.classList.add('dragging');
+    let w = PREFS.outlineW || 268;
+    const move = ev => {
+      w = Math.round(Math.min(520, Math.max(180, ev.clientX / (S.zoom || 1))));
+      apply(w);
+      scheduleLayout();
+    };
+    const up = () => {
+      h.classList.remove('dragging');
+      h.removeEventListener('pointermove', move);
+      h.removeEventListener('pointerup', up);
+      setPref('outlineW', w);
+    };
+    h.addEventListener('pointermove', move);
+    h.addEventListener('pointerup', up);
+  });
+}
+
+// single-thread mode: the toolbar toggle enters on the thread the scroll
+// spy marks current (else the first), and leaves back to the whole document
+function toggleFocusMode() {
+  if (S.focusThread) { exitFocus(); return; }
+  let time = null;
+  const act = $('#outline .otrow.active[data-spy-time]') || $('#outline .otrow[data-spy-time]');
+  if (act && S.parsed) {
+    const it = S.parsed.items.find(i => i.time && i.time.replace(/\D/g, '') === act.dataset.spyTime);
+    time = it && it.time;
+  }
+  if (!time && S.parsed) {
+    const tb = S.parsed.blocks.find(b => b.type === 'thread' && b.thread.time);
+    time = tb && tb.thread.time;
+  }
+  if (!time) { toast('warn', 'No thread to focus.'); return; }
+  S.focusThread = time;
+  render();
+  const el = document.getElementById('r' + time.replace(/\D/g, ''));
+  if (el) el.scrollIntoView({ block: 'start' });
+}
+window.addEventListener('DOMContentLoaded', () => {
+  const b = $('#focusModeBtn');
+  if (b) { b.innerHTML = iconHTML('focus'); b.addEventListener('click', toggleFocusMode); }
+});
+
+// drag & drop between outline rows: the insertion line sits on the edge of
+// the nearest row, so between two groups the two slots (end of the upper
+// group, start of the lower) are distinct — the rule between them is the
+// divide — and the destination group lights up so the drop is unambiguous
+function clearOutlineDrop() {
+  const nav = $('#outline');
+  if (!nav) return;
+  for (const el of nav.querySelectorAll('.dropbefore, .dropafter, .dropgroup')) {
+    el.classList.remove('dropbefore', 'dropafter', 'dropgroup');
+  }
+}
+function wireOutlineDrop(nav) {
+  nav.addEventListener('dragover', ev => {
+    if (!S.dragThread) return;
+    const rows = [...nav.querySelectorAll('.otrow[data-th-hash]')]
+      .filter(r => !r.classList.contains('dragging'));
+    if (!rows.length) return;
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'move';
+    let best = null, bestDist = Infinity, before = false;
+    for (const row of rows) {
+      const rc = row.getBoundingClientRect();
+      const dTop = Math.abs(ev.clientY - rc.top), dBot = Math.abs(ev.clientY - rc.bottom);
+      if (dTop < bestDist) { best = row; bestDist = dTop; before = true; }
+      if (dBot < bestDist) { best = row; bestDist = dBot; before = false; }
+    }
+    clearOutlineDrop();
+    if (!best) return;
+    best.classList.add(before ? 'dropbefore' : 'dropafter');
+    for (const row of rows) {
+      if (row.dataset.dgroup === best.dataset.dgroup) row.classList.add('dropgroup');
+    }
+    S.dropAt = { hash: best.dataset.thHash, occ: +best.dataset.thOcc || 0, before };
+  });
+  nav.addEventListener('drop', ev => {
+    if (!S.dragThread || !S.dropAt) return;
+    ev.preventDefault();
+    const src = S.dragThread, at = S.dropAt;
+    S.dragThread = null;
+    S.dropAt = null;
+    clearOutlineDrop();
+    if (src.hash === at.hash && src.occ === at.occ) return;
+    submitOps([{ type: 'move', hash: src.hash, occ: src.occ, refHash: at.hash, refOcc: at.occ, before: at.before }]);
+  });
+  nav.addEventListener('dragleave', ev => {
+    if (ev.target === nav) clearOutlineDrop();
+  });
+}
+
 function buildOutline() {
   const nav = $('#outline');
   nav.innerHTML = '';
@@ -2677,17 +3314,28 @@ function buildOutline() {
   };
 
   let current = null;
+  let lastAnchor = null; // the block the following threads attach to
   const sections = [];
   for (const b of S.parsed.blocks) {
     if (b.type === 'heading') {
       current = { block: b, unread: [], threads: [] };
       sections.push(current);
+      lastAnchor = b.key;
     } else if (b.type === 'thread' && current) {
       collectUnread(b.thread, current.unread);
-      current.threads.push(b.thread);
+      // anchor from the FULL document: grouping stays true even when
+      // filters hide rows in between
+      current.threads.push({ th: b.thread, anchor: lastAnchor });
+    } else if (b.type !== 'thread') {
+      lastAnchor = b.key;
     }
   }
 
+  let dragGroup = 0; // visible anchor-group ids, for the drop highlight
+  if (!nav.dataset.dropWired) {
+    nav.dataset.dropWired = '1';
+    wireOutlineDrop(nav);
+  }
   for (const sec of sections) {
     const row = document.createElement('div');
     row.className = 'orow l' + sec.block.level;
@@ -2753,16 +3401,27 @@ function buildOutline() {
     nav.appendChild(row);
 
     // the section's threads, jumpable, with a status dot; "open" filter
-    // hides fully-processed ones (upgrades to resolve-items once agreed)
-    for (const th of sec.threads) {
+    // hides fully-processed ones (upgrades to resolve-items once agreed).
+    // A thin rule separates anchor groups: threads on the SAME paragraph
+    // are direct siblings — drag a row to reorder among them or to carry
+    // the thread into another group; threads across a rule attach to
+    // different content.
+    let prevAnchor;
+    for (const { th, anchor } of sec.threads) {
       const stats = threadStats(th);
       const open = threadOpen(th);
       const marks = bookmarkedIn(th);
-      // a bookmarked thread is always listed, whatever the filter says
-      if (!S.outlineAll && !open && !marks.length) continue;
-      if (!threadMatchesFilter(th)) continue; // the tag filter narrows the outline too
+      // a bookmarked thread is always listed, whatever the filter says.
+      // Focus mode never REVEALS rows the filters would hide — it only
+      // dims the ones already there (plus the focused thread itself).
+      const isFocused = S.focusThread && th.time === S.focusThread;
+      if (!isFocused) {
+        if (!S.outlineAll && !open && !marks.length) continue;
+        if (!threadMatchesFilter(th)) continue; // the tag filter narrows the outline too
+      }
       const trow = document.createElement('div');
-      trow.className = 'otrow' + (marks.length ? ' bookmarked' : '');
+      trow.className = 'otrow' + (marks.length ? ' bookmarked' : '') +
+        (S.focusThread ? (th.time === S.focusThread ? ' focused' : ' dimfocus') : '');
       if (th.time) trow.dataset.spyTime = th.time.replace(/\D/g, ''); // scroll spy: the root's anchor
       const dot = document.createElement('span');
       dot.className = 'ostat ' + (stats.unread ? 'unread' : open ? 'open' : 'done');
@@ -2798,10 +3457,44 @@ function buildOutline() {
         trow.appendChild(ic);
       }
       trow.addEventListener('click', () => {
+        // in single-thread mode a click SWITCHES the focus to this thread
+        if (S.focusThread && !S.mobile && th.time) {
+          S.focusThread = th.time;
+          render();
+          return;
+        }
         const unreadHere = [];
         collectUnread(th, unreadHere);
         openFromPanel(unreadHere[0] || th, th);
       });
+      if (prevAnchor === undefined) {
+        dragGroup++; // a section starts its own first group
+      } else if (anchor !== prevAnchor) {
+        const sep = document.createElement('div');
+        sep.className = 'osep';
+        nav.appendChild(sep);
+        dragGroup++;
+      }
+      prevAnchor = anchor;
+      // drag a thread row: within its group to reorder siblings, across a
+      // rule to move the thread to that anchor group, at any position
+      trow.dataset.thHash = th.hash;
+      trow.dataset.thOcc = String(th.occ || 0);
+      trow.dataset.dgroup = String(dragGroup);
+      if (!S.mobile && th.hash) {
+        trow.draggable = true;
+        trow.addEventListener('dragstart', ev => {
+          S.dragThread = { hash: th.hash, occ: th.occ || 0 };
+          trow.classList.add('dragging');
+          ev.dataTransfer.setData('text/plain', th.title || th.time || '');
+          ev.dataTransfer.effectAllowed = 'move';
+        });
+        trow.addEventListener('dragend', () => {
+          S.dragThread = null;
+          trow.classList.remove('dragging');
+          clearOutlineDrop();
+        });
+      }
       nav.appendChild(trow);
       // one line per bookmarked comment, nested under its thread
       for (const it of marks) {
@@ -2960,7 +3653,10 @@ function wireDivider() {
 // ---------------------------------------------------------------------------
 // live updates
 // ---------------------------------------------------------------------------
-function detectEol() { S.eol = S.doc.content.includes('\r\n') ? '\r\n' : '\n'; }
+function detectEol() {
+  S.eol = S.doc.content.includes('\r\n') ? '\r\n' : '\n';
+  S.bom = S.doc.content.charCodeAt(0) === 0xFEFF;
+}
 
 // remark stamps hand-typed comments itself: a bare item gets the local
 // user's name + time, an authored-but-unstamped item gets the time — a
@@ -2984,6 +3680,41 @@ function scheduleAutoStamp() {
   }, 2500);
 }
 
+// an external update must not move the text the reader is on: remember the
+// first identifiable element starting below the topbar and put it back at
+// the same screen position after the re-render
+function captureScrollAnchor() {
+  const m = scroller();
+  if (!m || m.scrollTop < 5) return null; // pinned to the top stays at the top
+  const base = m.getBoundingClientRect().top;
+  for (const el of document.querySelectorAll('.citem[id], .block[data-key]')) {
+    const r = el.getBoundingClientRect();
+    if (r.top >= base && r.height > 0) {
+      return { id: el.id || '', key: (el.dataset && el.dataset.key) || '', top: r.top };
+    }
+  }
+  // reading past the last anchor: keep the distance to the end of the page
+  return { end: m.scrollHeight - m.scrollTop };
+}
+function restoreScrollAnchor(a) {
+  const m = scroller();
+  if (!a || !m) return;
+  if (a.end != null) {
+    m.scrollTop = m.scrollHeight - a.end;
+    return;
+  }
+  const el = a.id ? document.getElementById(a.id)
+    : document.querySelector('.block[data-key="' + CSS.escape(a.key) + '"]');
+  if (!el) return;
+  // iterate: with CSS zoom active, rect pixels and scrollTop units differ
+  // by the zoom factor — each pass closes the remaining gap
+  for (let i = 0; i < 4; i++) {
+    const d = el.getBoundingClientRect().top - a.top;
+    if (Math.abs(d) < 0.5) break;
+    m.scrollTop += d;
+  }
+}
+
 function openEvents() {
   const es = new EventSource('/api/events?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN);
   es.onmessage = e => {
@@ -2991,7 +3722,9 @@ function openEvents() {
     if (S.doc && state.hash === S.doc.hash) return;
     S.doc = { content: state.content, hash: state.hash };
     detectEol();
+    const anchor = captureScrollAnchor();
     render();
+    restoreScrollAnchor(anchor);
     if (!S.saving) idleStatus();
     scheduleAutoStamp();
   };
@@ -3006,14 +3739,56 @@ function recents() {
   return Array.isArray(PREFS.recents) ? PREFS.recents : [];
 }
 function addRecent(p) {
-  setPref('recents', [p].concat(recents().filter(x => x !== p)).slice(0, 10));
+  // the landing shows them in columns now, so history can be generous
+  setPref('recents', [p].concat(recents().filter(x => x !== p)).slice(0, 30));
 }
 function splitPath(p) {
   const i = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'));
   return { dir: i >= 0 ? p.slice(0, i + 1) : '', base: p.slice(i + 1) };
 }
 
+// first visit to a group: the join screen — the group's name, who shares
+// it, and a field for YOUR name; the name lives only on this phone and
+// signs your comments and read-marks
+function showGroupJoin() {
+  setAppTitle(PREFS.group.name + ' — remark');
+  document.body.classList.add('landing', 'gateway');
+  $('#brandmark').innerHTML = iconHTML('notebook-pen');
+  $('#landing').classList.remove('hidden');
+  $('#heroIcon').innerHTML = iconHTML('notebook-pen');
+  const g = PREFS.group;
+  const div = $('#recent');
+  div.innerHTML = '<h3></h3><p class="rempty"></p>';
+  div.querySelector('h3').textContent = g.name;
+  div.querySelector('.rempty').textContent =
+    (g.owner ? g.owner + ' shares documents with this group. ' : '') +
+    'Pick the name you will write under — it stays on this phone.';
+  const row = document.createElement('div');
+  row.className = 'gjoin';
+  const inp = document.createElement('input');
+  inp.placeholder = 'Your name';
+  const join = document.createElement('button');
+  join.className = 'tbtn';
+  join.textContent = 'Join';
+  const go = () => {
+    const name = inp.value.trim();
+    if (!name) { inp.focus(); return; }
+    api('POST', '/api/group/join', { name }).then(r => {
+      if (!r.json || r.json.error) { toast('warn', 'Could not join the group.'); return; }
+      setPref('me', name);
+      location.reload();
+    }).catch(() => toast('warn', 'Could not reach the gateway.'));
+  };
+  join.addEventListener('click', go);
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  row.appendChild(inp);
+  row.appendChild(join);
+  div.appendChild(row);
+  inp.focus();
+}
+
 function showLanding() {
+  setAppTitle(PREFS.group ? PREFS.group.name + ' — remark' : 'remark');
   document.body.classList.add('landing');
   $('#brandmark').innerHTML = iconHTML('notebook-pen');
   $('#landing').classList.remove('hidden');
@@ -3026,14 +3801,47 @@ function showLanding() {
   // can only open what the PC shared, so no browsing, no pasted paths, and
   // nothing to remove; the list is the whole page
   const gw = !!PREFS.gateway;
+  const grp = PREFS.group;
   document.body.classList.toggle('gateway', gw);
   const list = recents();
   if (gw && !list.length) {
-    $('#recent').innerHTML = '<h3>Shared documents</h3><p class="rempty">Nothing shared yet. On the PC, open a document and choose "Put on the phone" under Gateway.</p>';
+    $('#recent').innerHTML = '<h3></h3><p class="rempty"></p>';
+    $('#recent h3').textContent = grp ? grp.name : 'Shared documents';
+    $('#recent .rempty').textContent = grp
+      ? 'Nothing shared with this group yet.'
+      : 'Nothing shared yet. On the PC, open a document and flip a switch under Sharing.';
+  }
+  // remotely the shared list changes under you (the owner flips a switch):
+  // watch for it and refresh, so a newly shared document just appears
+  if (gw) {
+    const before = JSON.stringify(recents());
+    setInterval(async () => {
+      try {
+        const r = await api('GET', '/api/prefs');
+        if (JSON.stringify((r.json && r.json.recents) || []) !== before) location.reload();
+      } catch (e) { }
+    }, 5000);
+  }
+  // inside a group the header names the group, and you can re-pick your name
+  if (grp) {
+    const yr = document.createElement('p');
+    yr.className = 'gyou';
+    yr.append('You are ');
+    const b = document.createElement('b');
+    b.textContent = PREFS.me || '';
+    yr.appendChild(b);
+    const ch = document.createElement('button');
+    ch.className = 'gchange';
+    ch.textContent = 'change';
+    ch.addEventListener('click', () => { setPref('me', ''); location.reload(); });
+    yr.appendChild(ch);
+    const rec = $('#recent');
+    rec.parentElement.insertBefore(yr, rec);
   }
   if (list.length) {
     const div = $('#recent');
-    div.innerHTML = '<h3>' + (gw ? 'Shared documents' : 'Recent files') + '</h3>';
+    div.innerHTML = '<h3></h3>';
+    div.querySelector('h3').textContent = grp ? grp.name : (gw ? 'Shared documents' : 'Recent files');
     for (const p of list) {
       const a = document.createElement('a');
       a.href = '/?t=' + TOKEN + '&f=' + encodeURIComponent(p);
@@ -3043,13 +3851,21 @@ function showLanding() {
       // status load below has the content), filename and folder under it
       const main = document.createElement('span');
       main.className = 'rmain';
+      // headline: the title with the filename inline after it; the path
+      // gets its own line below — paths are long and would clip inline
+      const line = document.createElement('span');
+      line.className = 'rline';
       const name = document.createElement('span');
       name.className = 'rname';
       name.textContent = base;
+      const fname = document.createElement('span');
+      fname.className = 'rfname';
+      line.appendChild(name);
+      line.appendChild(fname);
       const dd = document.createElement('span');
       dd.className = 'rfile';
       dd.textContent = dir.replace(/[\\/]+$/, '');
-      main.appendChild(name);
+      main.appendChild(line);
       main.appendChild(dd);
       a.appendChild(main);
       const stat = document.createElement('span');
@@ -3078,7 +3894,7 @@ function showLanding() {
           const h1 = /^#\s+(.+?)\s*$/m.exec(st.content);
           if (h1 && h1[1].trim() && h1[1].trim() !== base) {
             name.textContent = h1[1].trim();
-            dd.textContent = base + ' \u00b7 ' + dir.replace(/[\\/]+$/, '');
+            fname.textContent = base;
           }
           const doc2 = RvParser.parse(st.content.replace(/\r\n/g, '\n'));
           const me = PREFS.me || 'Me';
@@ -3141,7 +3957,12 @@ function phoneZoom() {
 function setZoom(z) {
   S.zoom = Math.min(2.5, Math.max(0.5, Math.round(z * 10) / 10));
   if (mobileQuery.matches) { try { localStorage.setItem('remark:zoom:phone', String(S.zoom)); } catch (e) {} }
-  else setPref('zoom', S.zoom);
+  else {
+    // per document, so two windows never fight over one number; the plain
+    // key stays as the seed for documents opened for the first time
+    setPref('zoom', S.zoom);
+    if (S.path) setPref('zoom:' + S.path, S.zoom);
+  }
   applyZoom();
   setStatus('ok', Math.round(S.zoom * 100) + '%');
   clearTimeout(zoomStatusTimer);
@@ -3443,6 +4264,9 @@ document.addEventListener('click', e => {
   }
   if (/^(https?:|mailto:)/i.test(href)) {
     e.preventDefault();
+    // remotely the HOST must not open windows — the reader's own browser
+    // handles the link (openurl is refused through the gateway anyway)
+    if (PREFS.gateway) { window.open(href, '_blank', 'noopener'); return; }
     fetch('/api/openurl?u=' + encodeURIComponent(href) + '&t=' + TOKEN);
   } else if (href.startsWith('/?') || href.startsWith('?') ||
              href.startsWith(location.origin + '/?')) {
@@ -3451,6 +4275,10 @@ document.addEventListener('click', e => {
     // a relative link: markdown opens in a second remark window, any other
     // local file in its default app — this window itself never navigates
     e.preventDefault();
+    if (PREFS.gateway) {
+      toast('warn', 'That link points at a file on the host — only shared documents are reachable remotely.');
+      return;
+    }
     if (!S.path) return;
     fetch('/api/openfile?path=' + encodeURIComponent(S.path) +
           '&href=' + encodeURIComponent(href) + '&t=' + TOKEN)
@@ -3510,12 +4338,21 @@ function dismissSplash() {
 
 async function init() {
   await loadPrefs();
+  if (PREFS.gateway) wireRemoteBadge();
+  // a group member without a name yet picks one first — nothing else works
+  // until the comments they will write can be signed
+  if (PREFS.group && !(PREFS.me || '').trim()) {
+    showGroupJoin();
+    dismissSplash();
+    return;
+  }
   S.me = PREFS.me || 'Me';
   S.mode = PREFS.mode || 'inline';
   S.outline = PREFS.outline !== undefined ? PREFS.outline : true;
   S.outlineAll = !!PREFS.outlineAll;
   S.hideResolved = !!PREFS.hideResolved;
-  S.zoom = mobileQuery.matches ? phoneZoom() : (PREFS.zoom || 1);
+  S.zoom = mobileQuery.matches ? phoneZoom()
+    : (S.path && PREFS['zoom:' + S.path]) || PREFS.zoom || 1;
   try {
     S.collapsedSaved = JSON.parse(localStorage.getItem('remark:collapsed:' + S.path) || '{}');
   } catch (e) { S.collapsedSaved = {}; }
@@ -3533,6 +4370,7 @@ async function init() {
   fn.title = S.path;
   wireTopbar();
   wireDivider();
+  wireOutlineResize();
   new ResizeObserver(scheduleLayout).observe($('#doc'));
   new ResizeObserver(scheduleLayout).observe($('#rail'));
   loadDrafts();
@@ -3544,7 +4382,7 @@ async function init() {
     $('#doc code').textContent = S.path + ' — ' + ((res.json && res.json.error) || res.status);
     return;
   }
-  addRecent(S.path);
+  if (!PREFS.gateway) addRecent(S.path); // behind the gateway the list is the shared docs, not history
   S.doc = { content: res.json.content, hash: res.json.hash };
   detectEol();
   render();

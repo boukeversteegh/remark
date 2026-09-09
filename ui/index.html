@@ -23,6 +23,7 @@
   <div id="filename" title=""></div>
   <div class="spacer"></div>
   <button id="unreadBtn" class="pill unread-pill hidden" title="Jump to the next unread comment"></button>
+  <button id="focusModeBtn" class="iconbtn" title="Single-thread view"></button>
   <div class="seg" id="modeSeg">
     <button data-mode="inline" title="Comments in the document flow"></button>
     <button data-mode="margin" title="Comments in a side margin, like Word review"></button>
@@ -31,6 +32,7 @@
     <button id="hideResolvedBtn" class="iconbtn" title="Hide resolved threads"></button>
     <button id="collapseAll" class="iconbtn" title="Collapse all threads"></button>
     <button id="expandAll" class="iconbtn" title="Expand all threads"></button>
+    <button id="openWithBtn" class="iconbtn" title="Open in another app…"></button>
     <button id="gatewayBtn" class="iconbtn" title="Gateway — put this document on your phone"></button>
   </div>
   <label class="me" title="Comments you write are signed with this name">as<input id="meInput" size="9" spellcheck="false"></label>
@@ -48,14 +50,20 @@
 
 <div id="landing" class="hidden">
   <div class="landing-card">
-    <div class="hero" id="heroIcon"></div>
-    <h1>remark</h1>
-    <p class="tagline">A discussion tool built on top of markdown — threads live in the file, conflict-free, in plain text.</p>
-    <button id="browseBtn" type="button"></button>
-    <form id="openForm">
-      <input id="pathInput" placeholder="…or paste a path: D:\path\to\review.md" spellcheck="false">
-      <button type="submit">Open</button>
-    </form>
+    <div class="lside">
+      <div class="lhead">
+        <div class="hero" id="heroIcon"></div>
+        <div class="lbrand">
+          <h1>remark</h1>
+          <p class="tagline">A discussion tool built on top of markdown — threads live in the file, conflict-free, in plain text.</p>
+        </div>
+        <button id="browseBtn" type="button"></button>
+      </div>
+      <form id="openForm">
+        <input id="pathInput" placeholder="…or paste a path: D:\path\to\review.md" spellcheck="false">
+        <button type="submit">Open</button>
+      </form>
+    </div>
     <div id="recent"></div>
   </div>
 </div>
@@ -73,6 +81,7 @@
 
 <script src="/vendor/marked.js"></script>
 <script src="/vendor/purify.js"></script>
+<script src="/vendor/highlight.js"></script>
 <script src="/icons.js"></script>
 <script src="/parser.js"></script>
 <script src="/app.js"></script>

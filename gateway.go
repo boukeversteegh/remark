@@ -26,6 +26,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -215,11 +216,24 @@ func gatewayURL(rec gatewayRecord) string {
 
 // gatewayHandler wraps the normal mux: every document path in a request
 // must be registered, and endpoints that spawn or end processes on the PC
-// are off — the phone reads and writes documents, nothing more.
+// are off — the phone reads and writes documents, nothing more. A request
+// carrying a group token gets the tighter group treatment instead.
 func gatewayHandler(mux http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Del("X-Remark-Group") // group context is set HERE, never by a client
+		// /g/<id>?k=<key> is the join link a group's QR encodes: hand the
+		// browser the composite token and land it on the normal page (a
+		// wrong key composes an invalid token, which shows the pairing page)
+		if id, ok := strings.CutPrefix(r.URL.Path, "/g/"); ok {
+			http.Redirect(w, r, "/?t="+url.QueryEscape(id+"."+r.URL.Query().Get("k")), http.StatusFound)
+			return
+		}
+		if grp, ok := groupByToken(r.URL.Query().Get("t")); ok {
+			gatewayGroupServe(mux, grp, w, r)
+			return
+		}
 		switch r.URL.Path {
-		case "/api/openfile", "/api/openurl", "/api/dm", "/api/restart", "/api/gateway/start", "/api/gateway/stop":
+		case "/api/openfile", "/api/openurl", "/api/openwith", "/api/dm", "/api/restart", "/api/gateway/start", "/api/gateway/stop":
 			http.Error(w, "not available through the gateway", http.StatusForbidden)
 			return
 		}
@@ -246,6 +260,48 @@ func gatewayHandler(mux http.Handler) http.Handler {
 	})
 }
 
+// gatewayGroupServe handles a request authenticated with a group token:
+// reading and writing the group's documents plus the group's own info and
+// join endpoints — never the owner's prefs, the gateway controls, other
+// documents or anything that touches the PC. After the checks the token is
+// rewritten to the real one, so the inner handlers' auth passes without
+// knowing about groups; the group id travels in a header this wrapper owns.
+func gatewayGroupServe(mux http.Handler, grp gatewayGroup, w http.ResponseWriter, r *http.Request) {
+	p := r.URL.Path
+	apiAllowed := map[string]bool{
+		"/api/file": true, "/api/events": true, "/api/uiready": true,
+		"/api/presence": true, "/api/asset": true, "/api/image": true,
+		"/api/group": true, "/api/group/join": true,
+	}
+	if strings.HasPrefix(p, "/api/") && !apiAllowed[p] &&
+		!(p == "/api/prefs" && r.Method == "GET") {
+		http.Error(w, "not available to group members", http.StatusForbidden)
+		return
+	}
+	q := r.URL.Query()
+	for _, k := range []string{"path", "f"} {
+		if pp := q.Get(k); pp != "" && !groupAllows(grp, pp) {
+			http.Error(w, "this document is not shared with your group", http.StatusForbidden)
+			return
+		}
+	}
+	if r.Method == "POST" && p == "/api/file" {
+		var body struct {
+			Path string `json:"path"`
+		}
+		b, _ := readBodyPeek(r)
+		json.Unmarshal(b, &body)
+		if !groupAllows(grp, body.Path) {
+			http.Error(w, "this document is not shared with your group", http.StatusForbidden)
+			return
+		}
+	}
+	r.Header.Set("X-Remark-Group", grp.ID)
+	q.Set("t", token)
+	r.URL.RawQuery = q.Encode()
+	mux.ServeHTTP(w, r)
+}
+
 func runGateway(args []string) {
 	sub := ""
 	if len(args) > 0 {
@@ -261,6 +317,9 @@ func runGateway(args []string) {
 		}
 		for _, d := range gatewayDocs() {
 			fmt.Println("  on the phone:", d)
+		}
+		for _, g := range gatewayGroups() {
+			fmt.Printf("  group %q: %d document(s), %d member(s)\n", g.Name, len(g.Docs), len(g.Members))
 		}
 		return
 	case "stop":
@@ -445,7 +504,18 @@ func gatewayStatusJSON(doc string) map[string]any {
 		out["hostPinned"] = rec.Host != ""
 	}
 	if doc != "" {
-		out["shared"] = gatewayAllows(doc)
+		own := gatewayAllows(doc)
+		out["shared"] = own
+		any := own
+		if !any {
+			for _, g := range gatewayGroups() {
+				if groupAllows(g, doc) {
+					any = true
+					break
+				}
+			}
+		}
+		out["sharedAny"] = any
 	}
 	if out["docs"] == nil {
 		out["docs"] = []string{}

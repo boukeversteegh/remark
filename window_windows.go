@@ -26,6 +26,8 @@ var (
 	pSendMessageW          = user32.NewProc("SendMessageW")
 	kernel32               = syscall.NewLazyDLL("kernel32.dll")
 	pGetModuleHandleW      = kernel32.NewProc("GetModuleHandleW")
+	shell32dlg             = syscall.NewLazyDLL("shell32.dll")
+	pSHOpenWithDialog      = shell32dlg.NewProc("SHOpenWithDialog")
 	pGetWindowPlacement    = user32.NewProc("GetWindowPlacement")
 	pSetWindowPlacement    = user32.NewProc("SetWindowPlacement")
 	pGetSystemMetrics      = user32.NewProc("GetSystemMetrics")
@@ -61,7 +63,8 @@ var (
 )
 
 // window placement persisted to prefs so size/position (and maximized
-// state) survive restarts; the most recently moved window wins.
+// state) survive restarts — per document (main sets winKey), with the
+// legacy shared "win" key as the seed for a document's first open.
 type winPlacement struct {
 	Cmd int32 `json:"cmd"` // 1 = normal, 3 = maximized
 	X   int32 `json:"x"`
@@ -102,9 +105,45 @@ func workAreaSize(x, y, r, b int32) (int32, int32, bool) {
 	return mi.workR - mi.workL, mi.workB - mi.workT, true
 }
 
+// the window's handle and UI dispatcher, so dialogs opened by server
+// endpoints can be OWNED by the window — landing on its monitor instead
+// of wherever a detached process feels like
+var (
+	mainHwnd   uintptr
+	uiDispatch func(func())
+)
+
+// openWithDialog shows the native Open-with dialog owned by the window;
+// false when no window is up (a -serve process), so callers can fall back.
+func openWithDialog(path string) bool {
+	if uiDispatch == nil || mainHwnd == 0 {
+		return false
+	}
+	f, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return false
+	}
+	type openAsInfo struct {
+		file, class *uint16
+		flags       uint32
+	}
+	uiDispatch(func() {
+		info := openAsInfo{file: f, flags: 0x1 | 0x4} // OAIF_ALLOW_REGISTRATION | OAIF_EXEC
+		pSHOpenWithDialog.Call(mainHwnd, uintptr(unsafe.Pointer(&info)))
+	})
+	return true
+}
+
+func winGet(p *winPlacement) bool {
+	if prefsGetKey(winKey, p) {
+		return true
+	}
+	return winKey != "win" && prefsGetKey("win", p)
+}
+
 func restoreWindowBounds(hwnd uintptr) bool {
 	var p winPlacement
-	if !prefsGetKey("win", &p) || p.R-p.X < 400 || p.B-p.Y < 300 {
+	if !winGet(&p) || p.R-p.X < 400 || p.B-p.Y < 300 {
 		return false
 	}
 	// ignore stale bounds that fall outside the current virtual screen
@@ -146,7 +185,7 @@ func trackWindowBounds(hwnd uintptr, stop chan struct{}) {
 			}
 			if cur != last {
 				last = cur
-				prefsSetKey("win", cur)
+				prefsSetKey(winKey, cur)
 			}
 		}
 	}
@@ -390,7 +429,7 @@ func runWindow(url, title string) bool {
 	// creation only repositions it — no visible resize jump on launch
 	width, height := 1280, 940
 	var p winPlacement
-	if prefsGetKey("win", &p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
+	if winGet(&p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
 		width, height = int(p.R-p.X), int(p.B-p.Y)
 	}
 	// the library shows its window DURING creation and pumps messages while
@@ -426,6 +465,8 @@ func runWindow(url, title string) bool {
 	}
 	defer w.Destroy()
 	hwnd := uintptr(w.Window())
+	mainHwnd = hwnd
+	uiDispatch = w.Dispatch
 	// the window stays VISIBLE but off-screen: WebView2 keeps rendering
 	// there, so the reveal is a pure move of already-painted content
 	styleTitleBar(hwnd)
@@ -435,6 +476,13 @@ func runWindow(url, title string) bool {
 	brush, _, _ := pCreateSolidBrush.Call(themeBGR())
 	pSetClassLongPtrW.Call(hwnd, ^uintptr(9) /*GCLP_HBRBACKGROUND=-10*/, brush)
 	setWebViewBackground(w)
+	// the page owns the window title: its document.title (first heading —
+	// filename) is pushed here so alt-tab and the taskbar follow along
+	w.Bind("__remarkTitle", func(t string) {
+		if t != "" {
+			w.SetTitle(t)
+		}
+	})
 	stop := make(chan struct{})
 	defer close(stop)
 	go func() {
@@ -448,7 +496,7 @@ func runWindow(url, title string) bool {
 		// and let the page lay out and paint where nobody can see it.
 		tw, th := int32(width), int32(height)
 		var p winPlacement
-		if prefsGetKey("win", &p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
+		if winGet(&p) && p.R-p.X >= 400 && p.B-p.Y >= 300 {
 			tw, th = p.R-p.X, p.B-p.Y
 			if p.Cmd == 3 {
 				if ww, wh, ok := workAreaSize(p.X, p.Y, p.R, p.B); ok {
