@@ -641,7 +641,6 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 .extlink { display: inline-flex; vertical-align: baseline; margin-left: 3px; }
 .extlink svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; opacity: .55; }
 a:hover .extlink svg { opacity: 1; }
-.citem.collapsed { cursor: pointer; } /* the whole band expands */
 .otrow.dimfocus { opacity: .45; }
 .otrow.dimfocus:hover { opacity: 1; }
 .otrow.focused { background: var(--surface); border-radius: 8px; }
@@ -949,6 +948,9 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .thread.has-unread::before { background: var(--unread); opacity: 1; }
 /* open (unresolved) but fully read: amber edge, matching the Open pill */
 .thread.is-open::before { background: #d29922; opacity: .8; }
+/* settled: a green ribbon, so a finished thread reads as finished without
+   being opened — the same green as the Resolved pill */
+.thread.is-resolved::before { background: var(--ok); opacity: .85; }
 /* your own comment still awaiting a reply (open threads only) */
 .citem.unreplied { box-shadow: inset 3px 0 0 rgba(210, 153, 34, .5); }
 #doc .twrap { position: relative; margin: 14px 44px 20px 0; }
@@ -1065,8 +1067,6 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
    editor sit above the strip (later in source, positioned), so the gutter
    beside them does nothing */
 .citem > .cfoot, .citem > .editor { position: relative; }
-/* collapsed, the header is the expand target (it always was) — show it */
-.citem.collapsed > .chead:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); border-radius: 8px; }
 .citem.collapsed { padding-bottom: 9px; }
 .citem.collapsed > .cbody,
 .citem.collapsed > .citem,
@@ -1078,6 +1078,13 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 /* text (author, snippet, counts) aligns on a shared baseline; controls
    (twisty, avatar, dot, pills, buttons) center themselves in the row */
 .chead { display: flex; align-items: baseline; gap: 8px; font-size: 13px; min-height: 24px; cursor: pointer; }
+/* the header IS the collapse control, and it is one region: it stretches back
+   over the card's padding so the row and the space around it are a single
+   target — no text-line-plus-background seam. Collapsed, it takes the bottom
+   padding too, so the whole band is the control. Hovering it tints the entire
+   comment, the same unit the gutter strip folds. */
+.chead { margin: -10px -14px 0 -11px; padding: 10px 14px 0 11px; }
+.citem.collapsed > .chead { margin-bottom: -9px; padding-bottom: 9px; }
 .chead .twisty, .chead .avatar, .chead .udot,
 .chead .rstat, .chead .replybtn, .chead .newchip { align-self: center; }
 .chead .rcount { align-self: baseline; }
@@ -1455,13 +1462,15 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .tagchip:hover { filter: brightness(1.04); border-color: var(--accent); }
 .tagchip.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
 .tagchip.reader { border-style: dashed; }
-/* "@Name" of a known author in comment text: a person chip; your own name
-   is accented so being addressed stands out while scanning */
+/* "@Name" of a known author in comment text: the tag chip's shape, quieter —
+   it sits inside a sentence, so it must read as a word with a tint, never as
+   a button. Your own name comes through at full strength. */
 .mention {
-  background: var(--accent-soft); border-radius: 6px; padding: 0 4px;
-  font-weight: 600; white-space: nowrap;
+  border: 1px solid var(--accent-border); background: var(--accent-soft); color: var(--accent);
+  border-radius: 999px; padding: 0 6px;
+  font-weight: 600; font-size: .9em; white-space: nowrap; opacity: .7;
 }
-.mention.me { background: var(--accent); color: var(--accent-fg); }
+.mention.me { opacity: 1; }
 /* a "-#tag" reply took the tag off: the chip stays as a struck-through
    trace (who removed it is in the tooltip) but no longer filters */
 .tagchip.negated { text-decoration: line-through; opacity: .5; cursor: default; }

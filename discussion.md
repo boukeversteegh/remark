@@ -2496,9 +2496,9 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Me (2026-09-07 10:26:20): closing the popup window closes remark! the X button and custom detection for hover/clicks captures the modal closure. Let the modal be smaller and not overlap with the toolbar. <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-07 10:26:50): Sorry about that: the overlay covered the toolbar, and in the native window the toolbar is the title bar whose close caption is hit-tested by the host, so my × sat exactly on the window's own close button. Fix in progress: the overlay starts below the toolbar and its × and zoom readout live inside it, never over the window chrome. <!--seen:🤖 Claude-->
+    - 🤖 Claude (2026-09-07 10:26:50): Sorry about that: the overlay covered the toolbar, and in the native window the toolbar is the title bar whose close caption is hit-tested by the host, so my × sat exactly on the window's own close button. Fix in progress: the overlay starts below the toolbar and its × and zoom readout live inside it, never over the window chrome. <!--seen:🤖 Claude,Bouke-->
 
-      - 🤖 Claude (2026-09-07 10:27:41): Fixed, installed, pushed, gateway restarted (same code): the overlay begins under the toolbar, so the window's caption buttons stay the host's, and the × and the zoom readout sit inside the overlay. The image is sized to the space under the toolbar. Restart your desktop window to get it.
+      - 🤖 Claude (2026-09-07 10:27:41): Fixed, installed, pushed, gateway restarted (same code): the overlay begins under the toolbar, so the window's caption buttons stay the host's, and the × and the zoom readout sit inside the overlay. The image is sized to the space under the toolbar. Restart your desktop window to get it. <!--seen:Bouke-->
 
 - [x] Me (2026-09-07 10:23:43): **Commit the discussion and push** <!--thread--> <!--seen:🤖 Claude-->
   please ensure that this discussion file is committed and the whole repo is pushed.
@@ -2960,9 +2960,20 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 13:59:15): the collapsed comment can only be expanded by an inner region, there is unclickable padding around it. please make the whole area between the dividers clickable <!--seen:🤖 Claude,Codex-->
 
-    - 🤖 Claude (2026-09-08 14:00:25): Claiming - will make the whole band between the dividers expand the comment, in the same build as the thread reordering I am on. <!--seen:Codex-->
+    - 🤖 Claude (2026-09-08 14:00:25): Claiming - will make the whole band between the dividers expand the comment, in the same build as the thread reordering I am on. <!--seen:Codex,Bouke-->
 
-    - 🤖 Claude (2026-09-08 14:06:02): Fixed in the same install: a collapsed comment now expands from anywhere between the dividers - the padding band included, with the pointer cursor across the whole area. Test added. <!--seen:Codex-->
+    - 🤖 Claude (2026-09-08 14:06:02): Fixed in the same install: a collapsed comment now expands from anywhere between the dividers - the padding band included, with the pointer cursor across the whole area. Test added. <!--seen:Codex,Bouke-->
+
+    - Bouke (2026-09-10 12:25:20): its still separate regions, the text-line plus a clikcable background, i want this to be one solid unit. <!--seen:🤖 Claude-->
+      also it should work the same when expanded. the expanded version also doesn't accept clicks in the padding. btw the expanded version also shows no hilight from the comment header, although the margin collapse button does highlight the whole comment. highlighting the whole comment makes sense.
+
+      - 🤖 Claude (2026-09-10 12:40:59): Rebuilt, and this time it is one unit rather than a row with a backdrop. The header element itself now stretches back over the card's padding, so the text line and the space around it are the same element: one click target, one highlight, no seam. That fixed the expanded case for free — clicking the padding folds an open comment, which it never did before.
+
+        Hovering the band now tints the whole comment, exactly like the gutter strip you pointed at. You were right that this is the sensible reading: the thing that lights up is the thing that will fold.
+
+        One real bug fell out of it. The old padding-click handler was quietly doing a second job: clicking an "insert comment" gap inside a folded comment happened to unfold it as a side effect. With the handler gone, opening an interjection composer in a folded comment left you with a composer you could not see, because a folded comment hides its body. Composers now keep their comment unfolded whatever kind they are — that hole was there for anything but a reply or an edit box.
+
+        The test drives the band in both states, checks the highlight covers the comment, checks the header really does reach the card edges, and covers the composer case.
 
 - [x] Bouke (2026-09-08 12:02:57): **Collapsed comment leaks interjection gaps** <!--thread--> <!--seen:🤖 Claude,Codex-->
   a collapsed comment with interjection comments doesn't fully collapse, it shows empty lines and inject comment affordances
@@ -3028,7 +3039,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 13:33:09): Built and installed (your window will offer the restart). Sending a new-thread composer while in single-thread mode moves the focus straight onto the thread you just created — with a grace so the mode does not blink while the save lands. Test covers it: create from the outline's + while focused, the board shows only the newborn. <!--seen:Codex,Bouke-->
 
-- [ ] Bouke (2026-09-08 13:28:18): **Outline: group threads by anchor** <!--thread--> <!--seen:Codex,🤖 Claude-->
+- [x] Bouke (2026-09-08 13:28:18): **Outline: group threads by anchor** <!--thread--> <!--seen:Codex,🤖 Claude-->
   i want to be able to move an entire thread to a different section, and to be able to reorder threads when they share an anchor. lets start by visualizing in the outline which threads are direct siblings by adding separators. this is so that threads that attach to different content group together, and you can re-order among them. Moving a thread to a different anchor point would require exposing anchor points in the section outline and that would make it much more complex right now.
 
   - Codex (2026-09-08 13:29:28): A thin separator between anchor groups fits this first step: threads attached to the same paragraph stay together with no divider between them, and a divider appears when the anchor changes. One detail matters under filters: determine group membership from the full document before hiding rows, so two visible threads do not appear to be siblings just because the content between them is filtered out. That gives the later reorder action a clear boundary: move within this group. Moving to another section can stay a separate action with an explicit destination, without exposing every paragraph anchor in the outline yet. <!--seen:Bouke-->
@@ -3041,7 +3052,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-08 13:57:47): Claiming. Plan: drag an outline row - within its group to reorder siblings, across a rule into another group to move the thread there, at any position; a drop indicator shows where it lands. In the file the whole thread block relocates (after the target group's anchor content, at the chosen slot among its threads), so nothing changes but position - the anchor grouping from the first slice is what makes the drop targets. Desktop first; the phone keeps reading order. Building with a test. <!--seen:Bouke,Codex-->
 
-    - 🤖 Claude (2026-09-08 14:06:01): Built and installed - after your restart, outline rows drag. Within a group the drop reorders siblings; across a rule the thread moves - replies and all - to that anchor group, at whatever position you drop it. The insertion line hugs the nearest row edge, so just around a rule the end of the upper group and the start of the lower one are two distinct drops, and per Codex's suggestion the destination group highlights while you hover so it is never ambiguous. In the file the whole block simply relocates (a new op in the same client-side pipeline as every write, so concurrent edits retry safely); anchor membership keeps following position, nothing else changes. Test thread-move drives a real drag and checks the file; 30 of 30 pass. <!--seen:Codex-->
+    - 🤖 Claude (2026-09-08 14:06:01): Built and installed - after your restart, outline rows drag. Within a group the drop reorders siblings; across a rule the thread moves - replies and all - to that anchor group, at whatever position you drop it. The insertion line hugs the nearest row edge, so just around a rule the end of the upper group and the start of the lower one are two distinct drops, and per Codex's suggestion the destination group highlights while you hover so it is never ambiguous. In the file the whole block simply relocates (a new op in the same client-side pipeline as every write, so concurrent edits retry safely); anchor membership keeps following position, nothing else changes. Test thread-move drives a real drag and checks the file; 30 of 30 pass. <!--seen:Codex,Bouke-->
 
   - Codex (2026-09-08 13:58:00): That extends the grouping naturally: show an insertion line between rows, including before the first and after the last row of each group. At a separator, make the destination group visibly highlight so a drop cannot ambiguously mean the end of one group or the start of the next. The move should carry the entire thread unchanged, keeping timestamps, replies and read/resolution state. Under filters, anchor the drop before or after the specific visible thread rather than rewriting the visible list, so hidden siblings keep their order. A useful regression is to add a reply while dragging, then drop: the new reply must travel with its thread too. <!--seen:Bouke-->
 
@@ -3076,7 +3087,11 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 14:33:38): Claiming. Plan: @Name in comment text renders as a mention chip - highlighted like a tag chip but person-styled, matched against the authors present in the document (and the presence list), longest name first so multi-word names win; your own name gets a stronger accent so you see where you are addressed. Inside code, links and URLs nothing changes. Test and changelog included. <!--seen:Bouke-->
 
-  - 🤖 Claude (2026-09-08 14:37:36): Built and installed. @Name renders as a person chip whenever the name is a known author of the document - matched longest-first so multi-word names like mine win, with a word-boundary guard so @Meta never counts as @Me and mail@bob.example stays an address. Your own name wears the stronger accent, so where YOU are addressed jumps out while scanning; code spans, code blocks and links are left alone, and unknown names stay plain text. Test mentions covers all of it; 32 of 32 pass.
+  - 🤖 Claude (2026-09-08 14:37:36): Built and installed. @Name renders as a person chip whenever the name is a known author of the document - matched longest-first so multi-word names like mine win, with a word-boundary guard so @Meta never counts as @Me and mail@bob.example stays an address. Your own name wears the stronger accent, so where YOU are addressed jumps out while scanning; code spans, code blocks and links are left alone, and unknown names stay plain text. Test mentions covers all of it; 32 of 32 pass. <!--seen:Bouke-->
+
+  - Bouke (2026-09-10 12:23:16): Oof, it looks like a button, not a small chip. please make it look like a tag #mention with some opacity, or less intense. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-10 12:41:00): Toned down and installed. A mention now takes the tag chip's shape - the same pill, border and accent - but at lower intensity, so it reads as a tinted word inside the sentence instead of a control sitting on top of it. The solid accent fill on your own name is gone; being addressed now shows as full strength of the same quiet chip rather than a different, louder thing.
 
 - [x] Bouke (2026-09-08 15:57:58): **UTF-8 BOM breaks the first header** <!--thread--> <!--seen:🤖 Claude-->
   UTF-BOM not handled. When BOM is present, the first `# Header` doesn't render as a real header.
@@ -3092,7 +3107,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 16:06:51): Claiming. Plan: bundle highlight.js next to marked and DOMPurify in ui/vendor (everything stays offline), highlight fenced blocks after render - the fence's language tag wins, detection as fallback - with a color theme wired to the app's own light and dark variables. Test and changelog included. <!--seen:Bouke-->
 
-  - 🤖 Claude (2026-09-08 16:11:49): Built and installed. Fenced code highlights everywhere it renders - comment bodies, the document's own prose, and the composer preview - with the fence's language tag deciding and detection covering untagged blocks. highlight.js (the common-languages build) is bundled next to marked and DOMPurify in ui/vendor, so it works offline and over the gateway on the phone; the colors are a github-flavored set tied to the app's light and dark schemes, on the app's own code background. Test asserts colored tokens in both a tagged Go block in a comment and a Python block in prose; 34 of 34 pass.
+  - 🤖 Claude (2026-09-08 16:11:49): Built and installed. Fenced code highlights everywhere it renders - comment bodies, the document's own prose, and the composer preview - with the fence's language tag deciding and detection covering untagged blocks. highlight.js (the common-languages build) is bundled next to marked and DOMPurify in ui/vendor, so it works offline and over the gateway on the phone; the colors are a github-flavored set tied to the app's light and dark schemes, on the app's own code background. Test asserts colored tokens in both a tagged Go block in a comment and a Python block in prose; 34 of 34 pass. <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-09 12:17:17): **Code-block-only reply mangles the markdown** <!--thread--> <!--seen:🤖 Claude-->
   another instance of a previously fixed bug.
@@ -3148,12 +3163,16 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   - an argument should be added like --subthread to nest the reply. the help text should include guidance on when to use it, for example when replying to an older comment buried between others, or when the comment is offtopic from the main line of conversation or would disrupt the main flow, or when it can be answered later at a lower priority or is just a FYI/side-note. etc.
   - when replying to interjections, the behavior should be the same as the interface currently does (i.e. interjections are not considered to have a parent, their parent is the anchor in the text, so they only receive child comments, if i'm not mistaken this is how it currently works)
 
-- [ ] Bouke (2026-09-10 10:26:12): **An opened bookmark must show its thread** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-10 10:26:12): **An opened bookmark must show its thread** <!--thread--> <!--seen:🤖 Claude-->
   when opening a bookmarked thread that's already resolved and "Show resolved" is off, I don't see the thread. Please ensure that opened bookmarks always show the thread
 
-  - 🤖 Claude (2026-09-10 10:26:31): Claiming. The outline already lists a bookmarked thread whatever the filters say, but opening it lands you on a thread the board is hiding - so the reveal has to reach the board too. Fixing that, with a test.
+  - 🤖 Claude (2026-09-10 10:26:31): Claiming. The outline already lists a bookmarked thread whatever the filters say, but opening it lands you on a thread the board is hiding - so the reveal has to reach the board too. Fixing that, with a test. <!--seen:Bouke-->
 
-  - 🤖 Claude (2026-09-10 10:48:09): Fixed and installed. Being sent to a comment now outranks the resolved filter: the outline was already listing your bookmarked thread, but the board had dropped it, so the jump landed on nothing at all. The exemption is per thread and lasts until you toggle Show resolved again - the filter itself is untouched, and nothing else resolved comes back into view. It applies to every explicit jump, not just bookmarks: notifications and #r links had the same hole. I checked the test actually catches the bug by reverting the fix - it fails with the thread absent from the board, exactly your report.
+  - 🤖 Claude (2026-09-10 10:48:09): Fixed and installed. Being sent to a comment now outranks the resolved filter: the outline was already listing your bookmarked thread, but the board had dropped it, so the jump landed on nothing at all. The exemption is per thread and lasts until you toggle Show resolved again - the filter itself is untouched, and nothing else resolved comes back into view. It applies to every explicit jump, not just bookmarks: notifications and #r links had the same hole. I checked the test actually catches the bug by reverting the fix - it fails with the thread absent from the board, exactly your report. <!--seen:Bouke-->
+
+  - Bouke (2026-09-10 12:26:07): ah i think you've solved it now by having bookmarks always show up, opened or not. i think this is also fine, perhaps? but except in focus mode. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-10 12:41:18): One correction so you know what to expect: bookmarked threads do NOT always show up on the board. The outline lists them whatever the filters say - that part is older - and what changed is that OPENING one now shows it on the board too, where before the jump landed on a thread the filter had dropped. The exemption covers only the thread you opened, and only until you toggle Show resolved again. On focus mode you are right to ask, and it already behaves: focus is applied before the resolved filter, so a revealed thread never widens single-thread mode. I pinned that with an assertion rather than leaving it to luck - revealing a resolved bookmark and then focusing another thread shows exactly one thread.
 
 - [ ] Bouke (2026-09-10 10:36:32): **Monitor tells an agent to mark seen first** <!--thread--> <!--seen:🤖 Claude-->
   please provide guidance in monitor events. upon the first event that notifies of a new comment, include a message that they should immediately mark the comment as seen, before responding. no need to repeat this each time.
@@ -3174,3 +3193,10 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     Every link that leaves remark now carries the toolbar's open-in glyph, small and quiet, inside the link so it wraps and clicks along with the text: external links, mailto, and relative links that open a file in its own app. In-document anchors (`#r…` comment references and heading jumps) stay bare — they scroll here rather than leaving, so the glyph would be a lie.
 
     The test drives all three click styles and asserts the host is asked to open the URL each time, that no second window ever appears and this one never navigates, and that the glyph is on the external links but not on the anchors. I checked it actually catches the bug by disabling the new handler: the middle click then reaches the host not at all.
+
+- [ ] Bouke (2026-09-10 12:27:44): **Resolved threads wear a green ribbon** <!--thread--> <!--seen:🤖 Claude-->
+  please give resolved threads a green ribbon
+
+  - 🤖 Claude (2026-09-10 12:29:29): Claiming - a green edge down the thread card so a settled thread reads as settled at a glance, without opening it.
+
+  - 🤖 Claude (2026-09-10 12:41:01): Installed. The thread's left edge already carried state - blue when something is unread, amber while it is open and read - so resolved took the green that matches the Resolved pill. Unread still wins over both, since an unread reply in a settled thread is the thing you want to see. A thread written without a checkbox keeps the neutral edge: it has no resolution to report.

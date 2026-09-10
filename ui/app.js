@@ -1090,9 +1090,10 @@ function buildThread(block) {
   const root = block.thread;
   const card = document.createElement('div');
   // left-edge state: blue = has unread, amber = open (unresolved) but all
-  // read, neutral = resolved or status-free
+  // read, green = settled, neutral = no resolution status at all
   const stripe = threadStats(root).unread ? ' has-unread'
-    : (root.resolvable && !effChecked(root) ? ' is-open' : '');
+    : !root.resolvable ? ''
+    : effChecked(root) ? ' is-resolved' : ' is-open';
   card.className = 'thread' + stripe;
   card.dataset.rootKey = root.key;
   card.appendChild(buildItem(root));
@@ -1150,6 +1151,9 @@ function buildThread(block) {
 function hasOpenEditor(item) {
   if (S.editorsOpen.has('reply:' + item.key)) return true;
   if (S.editorsOpen.has('edit:' + item.key)) return true;
+  // an interjection composer sits INSIDE the body ("ipara:<key>:<para>"), so
+  // a folded comment holding one would hide the box you just opened
+  for (const k of S.editorsOpen) if (k.startsWith('ipara:' + item.key + ':')) return true;
   return item.children.some(hasOpenEditor);
 }
 
@@ -1256,26 +1260,21 @@ function buildItem(item, opts) {
     el.appendChild(rail);
   }
 
-  // collapsed, the WHOLE band between the dividers expands — the padding
-  // around the compact head included, not just the head's own strip
-  if (collapsed) {
-    el.addEventListener('click', e => {
-      if (e.target.closest('button, input, a, .chead')) return;
-      S.collapsed.set(item.key, false);
-      persistCollapse(item.key, false);
-      render();
-    });
-  }
-
   const head = document.createElement('div');
   head.className = 'chead';
-  // the whole header row toggles collapse; buttons inside keep their own action
+  // the header spans the card's padding (see .chead in the stylesheet), so
+  // this one listener covers the whole band in both states; buttons inside
+  // keep their own action
   head.addEventListener('click', e => {
     if (e.target.closest('button, input, a')) return;
     S.collapsed.set(item.key, !collapsed);
     persistCollapse(item.key, !collapsed);
     render();
   });
+  // hovering it tints the comment that will fold — the same whole-card
+  // highlight the gutter strip gives, so the control reads as one thing
+  head.addEventListener('mouseenter', () => el.classList.add('railhot'));
+  head.addEventListener('mouseleave', () => el.classList.remove('railhot'));
 
   const tw = document.createElement('button');
   tw.className = 'twisty';

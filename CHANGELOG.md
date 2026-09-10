@@ -7,6 +7,15 @@ eye; nothing depends on them.
 
 ## 2026-09-10
 
+### A resolved thread wears a green ribbon
+The thread's left edge already carried its state — blue with unread, amber while open — and settled threads now get the green to match the Resolved pill, so a finished thread reads as finished without being opened.
+
+### The comment header and its padding are one control
+Folded or open, the header now stretches over the card's padding: one region, one click target, one highlight. Clicking anywhere in that band folds or unfolds the comment (the padding used to do nothing when the comment was open), and hovering it tints the whole comment, the same unit the gutter strip folds. A composer opened inside a folded comment now unfolds it, instead of opening a box you cannot see.
+
+### Mentions read as words, not buttons
+An @mention takes the tag chip's shape at lower intensity, so it sits inside a sentence instead of standing on it; your own name comes through at full strength.
+
 ### Middle-click a link and your browser opens it
 Middle-clicking a link — the habit of opening things in a new tab — used to spawn a second remark window, which is not a browser and cannot be one. Middle-click and Ctrl-click now take the same road as a plain click: out to your default browser. Every link that leaves remark also wears the toolbar's open-in glyph, so you can see where it goes before you click.
 

@@ -52,6 +52,20 @@ module.exports = async ctx => {
   assert(after.threads.some(t => t.includes('Live')), 'the rest of the document is unchanged');
   assert(after.stillHiding, 'the filter itself is untouched — only this thread is exempt');
 
+  // single-thread mode still shows exactly one thread: a revealed thread is
+  // exempt from the resolved filter, never from focus
+  await page.evaluate(() => { S.focusThread = '2026-09-01 11:00:00'; render(); });
+  await page.waitForTimeout(300);
+  const focused = await page.evaluate(() => ({
+    count: document.querySelectorAll('#doc .thread').length,
+    revealed: !!document.getElementById('r20260901100000'),
+    live: !!document.getElementById('r20260901110000'),
+  }));
+  assert(focused.count === 1 && !focused.revealed && focused.live,
+    'focus mode is not widened by a revealed thread: ' + JSON.stringify(focused));
+  await page.evaluate(() => { S.focusThread = null; render(); });
+  await page.waitForTimeout(200);
+
   // toggling the filter clears the exemption again
   await page.evaluate(() => document.getElementById('hideResolvedBtn').click());
   await page.waitForTimeout(200);
