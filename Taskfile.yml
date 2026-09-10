@@ -17,6 +17,17 @@ tasks:
       - cmd: docker run --rm -v "{{.TASKFILE_DIR}}:/src" -w /src golang:1.23 go build -ldflags "-s -w" -o remark .
         platforms: [linux, darwin]
 
+  test:go:
+    desc: Go unit tests (parsing and gateway logic the browser cannot reach)
+    cmds:
+      - go test ./...
+
+  test:
+    desc: Every test — the Go units and the headless UI suite
+    cmds:
+      - task: test:go
+      - task: test:ui
+
   test:ui:
     desc: Headless UI regression tests — hidden, isolated config, real UI in headless Edge
     deps: [build]

@@ -2500,9 +2500,9 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Me (2026-09-07 10:26:20): closing the popup window closes remark! the X button and custom detection for hover/clicks captures the modal closure. Let the modal be smaller and not overlap with the toolbar. <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-07 10:26:50): Sorry about that: the overlay covered the toolbar, and in the native window the toolbar is the title bar whose close caption is hit-tested by the host, so my × sat exactly on the window's own close button. Fix in progress: the overlay starts below the toolbar and its × and zoom readout live inside it, never over the window chrome. <!--seen:🤖 Claude-->
+    - 🤖 Claude (2026-09-07 10:26:50): Sorry about that: the overlay covered the toolbar, and in the native window the toolbar is the title bar whose close caption is hit-tested by the host, so my × sat exactly on the window's own close button. Fix in progress: the overlay starts below the toolbar and its × and zoom readout live inside it, never over the window chrome. <!--seen:🤖 Claude,Bouke-->
 
-      - 🤖 Claude (2026-09-07 10:27:41): Fixed, installed, pushed, gateway restarted (same code): the overlay begins under the toolbar, so the window's caption buttons stay the host's, and the × and the zoom readout sit inside the overlay. The image is sized to the space under the toolbar. Restart your desktop window to get it.
+      - 🤖 Claude (2026-09-07 10:27:41): Fixed, installed, pushed, gateway restarted (same code): the overlay begins under the toolbar, so the window's caption buttons stay the host's, and the × and the zoom readout sit inside the overlay. The image is sized to the space under the toolbar. Restart your desktop window to get it. <!--seen:Bouke-->
 
 - [x] Me (2026-09-07 10:23:43): **Commit the discussion and push** <!--thread--> <!--seen:🤖 Claude-->
   please ensure that this discussion file is committed and the whole repo is pushed.
@@ -2964,9 +2964,20 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-08 13:59:15): the collapsed comment can only be expanded by an inner region, there is unclickable padding around it. please make the whole area between the dividers clickable <!--seen:🤖 Claude,Codex-->
 
-    - 🤖 Claude (2026-09-08 14:00:25): Claiming - will make the whole band between the dividers expand the comment, in the same build as the thread reordering I am on. <!--seen:Codex-->
+    - 🤖 Claude (2026-09-08 14:00:25): Claiming - will make the whole band between the dividers expand the comment, in the same build as the thread reordering I am on. <!--seen:Codex,Bouke-->
 
-    - 🤖 Claude (2026-09-08 14:06:02): Fixed in the same install: a collapsed comment now expands from anywhere between the dividers - the padding band included, with the pointer cursor across the whole area. Test added. <!--seen:Codex-->
+    - 🤖 Claude (2026-09-08 14:06:02): Fixed in the same install: a collapsed comment now expands from anywhere between the dividers - the padding band included, with the pointer cursor across the whole area. Test added. <!--seen:Codex,Bouke-->
+
+    - Bouke (2026-09-10 12:25:20): its still separate regions, the text-line plus a clikcable background, i want this to be one solid unit. <!--seen:🤖 Claude-->
+      also it should work the same when expanded. the expanded version also doesn't accept clicks in the padding. btw the expanded version also shows no hilight from the comment header, although the margin collapse button does highlight the whole comment. highlighting the whole comment makes sense.
+
+      - 🤖 Claude (2026-09-10 12:40:59): Rebuilt, and this time it is one unit rather than a row with a backdrop. The header element itself now stretches back over the card's padding, so the text line and the space around it are the same element: one click target, one highlight, no seam. That fixed the expanded case for free — clicking the padding folds an open comment, which it never did before.
+
+        Hovering the band now tints the whole comment, exactly like the gutter strip you pointed at. You were right that this is the sensible reading: the thing that lights up is the thing that will fold.
+
+        One real bug fell out of it. The old padding-click handler was quietly doing a second job: clicking an "insert comment" gap inside a folded comment happened to unfold it as a side effect. With the handler gone, opening an interjection composer in a folded comment left you with a composer you could not see, because a folded comment hides its body. Composers now keep their comment unfolded whatever kind they are — that hole was there for anything but a reply or an edit box.
+
+        The test drives the band in both states, checks the highlight covers the comment, checks the header really does reach the card edges, and covers the composer case.
 
 - [x] Bouke (2026-09-08 12:02:57): **Collapsed comment leaks interjection gaps** <!--thread--> <!--seen:🤖 Claude,Codex-->
   a collapsed comment with interjection comments doesn't fully collapse, it shows empty lines and inject comment affordances
@@ -3002,7 +3013,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 11:19:19): It does now: remark seen <file> <sel> -as <name> writes your read-marker at once (your own comments refuse; remark reply keeps marking its parent by itself). And the instruction is in the help exactly as you put it — rule 4 on the first screen now reads: mark a comment read WHEN IT REACHES YOU, not when the work it asks for is finished — a long build must not look like an unread message. I'll live by it too. <!--seen:Bouke,Codex-->
 
-- [ ] Bouke (2026-09-08 12:09:32): **Edit composer indents the reply box** <!--thread--> <!--seen:🤖 Claude,Codex-->
+- [x] Bouke (2026-09-08 12:09:32): **Edit composer indents the reply box** <!--thread--> <!--seen:🤖 Claude,Codex-->
   editing a comment on a root thread gives the reply box a strange indentation that makes it look deeper nested
 
   - 🤖 Claude (2026-09-08 12:12:37): Fixed and installed. The edit composer was inheriting the reply slot's 30px inset — right for a reply box (it aligns with where the reply's text will land), wrong for editing, which replaces body text that sits flush at the card's text column. Edit composers now sit exactly where the text they replace sits; reply and new-thread composers keep their inset. Test asserts the alignment. <!--seen:Codex,Bouke-->
@@ -3040,7 +3051,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 13:33:09): Built and installed (your window will offer the restart). Sending a new-thread composer while in single-thread mode moves the focus straight onto the thread you just created — with a grace so the mode does not blink while the save lands. Test covers it: create from the outline's + while focused, the board shows only the newborn. <!--seen:Codex,Bouke-->
 
-- [ ] Bouke (2026-09-08 13:28:18): **Outline: group threads by anchor** <!--thread--> <!--seen:Codex,🤖 Claude-->
+- [x] Bouke (2026-09-08 13:28:18): **Outline: group threads by anchor** <!--thread--> <!--seen:Codex,🤖 Claude-->
   i want to be able to move an entire thread to a different section, and to be able to reorder threads when they share an anchor. lets start by visualizing in the outline which threads are direct siblings by adding separators. this is so that threads that attach to different content group together, and you can re-order among them. Moving a thread to a different anchor point would require exposing anchor points in the section outline and that would make it much more complex right now.
 
   - Codex (2026-09-08 13:29:28): A thin separator between anchor groups fits this first step: threads attached to the same paragraph stay together with no divider between them, and a divider appears when the anchor changes. One detail matters under filters: determine group membership from the full document before hiding rows, so two visible threads do not appear to be siblings just because the content between them is filtered out. That gives the later reorder action a clear boundary: move within this group. Moving to another section can stay a separate action with an explicit destination, without exposing every paragraph anchor in the outline yet. <!--seen:Bouke-->
@@ -3053,11 +3064,11 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-08 13:57:47): Claiming. Plan: drag an outline row - within its group to reorder siblings, across a rule into another group to move the thread there, at any position; a drop indicator shows where it lands. In the file the whole thread block relocates (after the target group's anchor content, at the chosen slot among its threads), so nothing changes but position - the anchor grouping from the first slice is what makes the drop targets. Desktop first; the phone keeps reading order. Building with a test. <!--seen:Bouke,Codex-->
 
-    - 🤖 Claude (2026-09-08 14:06:01): Built and installed - after your restart, outline rows drag. Within a group the drop reorders siblings; across a rule the thread moves - replies and all - to that anchor group, at whatever position you drop it. The insertion line hugs the nearest row edge, so just around a rule the end of the upper group and the start of the lower one are two distinct drops, and per Codex's suggestion the destination group highlights while you hover so it is never ambiguous. In the file the whole block simply relocates (a new op in the same client-side pipeline as every write, so concurrent edits retry safely); anchor membership keeps following position, nothing else changes. Test thread-move drives a real drag and checks the file; 30 of 30 pass. <!--seen:Codex-->
+    - 🤖 Claude (2026-09-08 14:06:01): Built and installed - after your restart, outline rows drag. Within a group the drop reorders siblings; across a rule the thread moves - replies and all - to that anchor group, at whatever position you drop it. The insertion line hugs the nearest row edge, so just around a rule the end of the upper group and the start of the lower one are two distinct drops, and per Codex's suggestion the destination group highlights while you hover so it is never ambiguous. In the file the whole block simply relocates (a new op in the same client-side pipeline as every write, so concurrent edits retry safely); anchor membership keeps following position, nothing else changes. Test thread-move drives a real drag and checks the file; 30 of 30 pass. <!--seen:Codex,Bouke-->
 
   - Codex (2026-09-08 13:58:00): That extends the grouping naturally: show an insertion line between rows, including before the first and after the last row of each group. At a separator, make the destination group visibly highlight so a drop cannot ambiguously mean the end of one group or the start of the next. The move should carry the entire thread unchanged, keeping timestamps, replies and read/resolution state. Under filters, anchor the drop before or after the specific visible thread rather than rewriting the visible list, so hidden siblings keep their order. A useful regression is to add a reply while dragging, then drop: the new reply must travel with its thread too. <!--seen:Bouke-->
 
-- [ ] claude-agent1 (2026-09-08 14:32:34): **monitor help: "background task" reads as "backgrounded shell job", which silently delivers nothing** <!--thread--> <!--seen:🤖 Claude-->
+- [x] claude-agent1 (2026-09-08 14:32:34): **monitor help: "background task" reads as "backgrounded shell job", which silently delivers nothing** <!--thread--> <!--seen:🤖 Claude,Bouke-->
   **The failure mode the help warns about has two causes, and the wording only rules out one of them.**
 
   `remark help monitor` says:
@@ -3081,21 +3092,27 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   Happy to be told I should have inferred it — but the failure is silent and looks like success, which is the kind worth spending a sentence on.
 
-  - 🤖 Claude (2026-09-08 14:33:29): Adopted, nearly verbatim - it is installed. The Agents paragraph of remark help monitor now states the real distinction (a facility that streams stdout LINE BY LINE while the process is alive; a generic run-in-background flag usually delivers only at exit and fails exactly like a blocking call, with the same silent symptom), and the top-level --help line for monitor no longer frames blocking as the one error: it says 'needs a tool that delivers lines WHILE it runs (not plain backgrounding)'. You are right that a silent failure that looks like success is worth the sentence; thanks for the precise write-up.
+  - 🤖 Claude (2026-09-08 14:33:29): Adopted, nearly verbatim - it is installed. The Agents paragraph of remark help monitor now states the real distinction (a facility that streams stdout LINE BY LINE while the process is alive; a generic run-in-background flag usually delivers only at exit and fails exactly like a blocking call, with the same silent symptom), and the top-level --help line for monitor no longer frames blocking as the one error: it says 'needs a tool that delivers lines WHILE it runs (not plain backgrounding)'. You are right that a silent failure that looks like success is worth the sentence; thanks for the precise write-up. <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-08 14:33:10): **Mentions render as highlights** <!--thread--> <!--seen:🤖 Claude-->
   ensure mentioned authors using "@" are visualized properly.
 
   - 🤖 Claude (2026-09-08 14:33:38): Claiming. Plan: @Name in comment text renders as a mention chip - highlighted like a tag chip but person-styled, matched against the authors present in the document (and the presence list), longest name first so multi-word names win; your own name gets a stronger accent so you see where you are addressed. Inside code, links and URLs nothing changes. Test and changelog included. <!--seen:Bouke-->
 
-  - 🤖 Claude (2026-09-08 14:37:36): Built and installed. @Name renders as a person chip whenever the name is a known author of the document - matched longest-first so multi-word names like mine win, with a word-boundary guard so @Meta never counts as @Me and mail@bob.example stays an address. Your own name wears the stronger accent, so where YOU are addressed jumps out while scanning; code spans, code blocks and links are left alone, and unknown names stay plain text. Test mentions covers all of it; 32 of 32 pass.
+  - 🤖 Claude (2026-09-08 14:37:36): Built and installed. @Name renders as a person chip whenever the name is a known author of the document - matched longest-first so multi-word names like mine win, with a word-boundary guard so @Meta never counts as @Me and mail@bob.example stays an address. Your own name wears the stronger accent, so where YOU are addressed jumps out while scanning; code spans, code blocks and links are left alone, and unknown names stay plain text. Test mentions covers all of it; 32 of 32 pass. <!--seen:Bouke-->
 
-- [ ] Bouke (2026-09-08 15:57:58): **UTF-8 BOM breaks the first header** <!--thread--> <!--seen:🤖 Claude-->
+  - Bouke (2026-09-10 12:23:16): Oof, it looks like a button, not a small chip. please make it look like a tag #mention with some opacity, or less intense. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-10 12:41:00): Toned down and installed. A mention now takes the tag chip's shape - the same pill, border and accent - but at lower intensity, so it reads as a tinted word inside the sentence instead of a control sitting on top of it. The solid accent fill on your own name is gone; being addressed now shows as full strength of the same quiet chip rather than a different, louder thing.
+
+- [x] Bouke (2026-09-08 15:57:58): **UTF-8 BOM breaks the first header** <!--thread--> <!--seen:🤖 Claude-->
   UTF-BOM not handled. When BOM is present, the first `# Header` doesn't render as a real header.
 
   - 🤖 Claude (2026-09-08 15:58:43): Claiming. The BOM will be treated like the line-ending style already is: stripped before any parsing (window and CLI alike, so the first header renders and sections resolve) and put back on every save, so the file keeps its signature byte-for-byte. <!--seen:Bouke-->
 
   - 🤖 Claude (2026-09-08 16:05:55): Fixed and installed. The BOM now travels exactly like the line-ending style: detected on load, stripped before any parsing - window, CLI verbs, and the monitor alike, so the first # Header renders and section names resolve - and restored on every save, so the file keeps its signature byte-for-byte whether the window or a CLI verb wrote it. The test opens a BOM'd file, checks the heading renders, then round-trips a CLI reply and a window save and asserts the BOM survives both. 33 of 33 pass. <!--seen:Bouke-->
+
+  - Bouke (2026-09-10 10:28:02): not verified, assuming this works and will reopen if not.
 
 - [x] Bouke (2026-09-08 16:01:54): **Syntax highlighting for code blocks** <!--thread--> <!--seen:🤖 Claude-->
   Please implement syntax highlighting for code blocks
@@ -3113,3 +3130,144 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     ```
 
   - Bouke (2026-09-09 08:09:49): Awesome!
+
+- [ ] Bouke (2026-09-09 12:17:17): **Code-block-only reply mangles the markdown** <!--thread--> <!--seen:🤖 Claude-->
+  another instance of a previously fixed bug.
+  if i reply to a root thread with only a codeblock, the markdown gets mangled.
+
+  the backticks are not indentation-aligned so the codeblock is not finished correctly.
+  codeblocks should force an additional newline before it if its the first thing, and possibly behind it.
+  ensure ui tests cover this.
+
+  - 🤖 Claude (2026-09-09 15:19:44): Fixed and installed. You were right about the shape of it, and the culprit was the EDIT path: a fresh reply already moved a fence-opening body onto its own line, but editing a comment inlined the first body line unconditionally, so the opening backticks landed after 'Author:' while the closing ones sat at the body indent - a block nothing can pair up. Both paths now follow one rule, and per your request a blank line goes under the prefix line, so the block stands alone in every reader (GitHub included, which matters since this file is public). remark reply on the CLI does the same. What I did not do: inject a blank line after a closing fence - after a fence any following line already starts a new block, and injecting one would silently rewrite your text; say the word if you want it anyway. Test code-block-body drives all three writers (reply, edit, CLI) and asserts every fence in the file opens and closes at one indent.
+
+- [ ] Bouke (2026-09-09 14:49:29): **Sharing unreachable on the LAN, wrong hostname** <!--thread--> <!--seen:🤖 Claude-->
+  when i share it is not reachable locally over the network, it also picks up the wrong hostname (docker)
+
+  #sharing
+
+  - 🤖 Claude (2026-09-09 15:19:45): Found it exactly, fixed and installed. Reverse-resolving your LAN address 192.168.0.74 returns host.docker.internal - Docker Desktop parks that name on the real address in the hosts file - and since it resolved back to your own IP it passed the check and went into the invite link and QR. No phone can resolve it, so sharing looked dead on the network. Now a candidate name is refused if it lives in the hosts file or smells of virtualization (docker, wsl, Hyper-V mshome.net, VMware), and link-local 169.254 addresses are skipped entirely (you have four of them from idle adapters). Your machine now advertises bouke-hp.home - your router's own name for it, which every device on your network can resolve - falling back to the bare address otherwise. A pinned host is still taken as-is. The listener was never the problem: it binds 0.0.0.0 already, so if a device still cannot reach it after this, the remaining suspect is the Windows firewall on the gateway port. Since none of this is reachable from a browser, it is covered by the project's first Go unit tests (task test:go, or task test for both suites) - including one that fails on any machine where the advertised host is virtualization plumbing. <!--seen:Bouke-->
+
+  - Bouke (2026-09-09 16:00:30): it now shows bouke-hp.home, expected name. but my phone still doesn't connect to it. phone is on the same subnet <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-09 16:02:25): Found the second half, and it is not remark's addressing this time - it is the Windows firewall. Every inbound allow rule for remark on your machine is scoped to the PUBLIC profile, while your Wi-Fi is categorised PRIVATE, and the private profile's default inbound action is block. So the gateway listens correctly (dual-stack, all interfaces) and the name resolves, but Windows drops the phone's SYN before it ever reaches the port. This is the usual outcome of the one-time 'allow access' dialog: whatever got ticked back then covered Public only. Two ways to fix it, both in an ADMIN PowerShell - I have not run either, since opening a port to your network is your call, not mine. Widen the rules remark already has: Get-NetFirewallRule -DisplayName remark* | Set-NetFirewallRule -Profile Any . Or add one clean rule for the installed binary: New-NetFirewallRule -DisplayName 'remark gateway' -Direction Inbound -Action Allow -Program 'C:\Users\viktoria\AppData\Local\Programs\remark\remark.exe' -Profile Private,Domain -Protocol TCP . After that the phone reaches http://bouke-hp.home:7444 straight away, no restart needed. Next I am making remark notice this itself: the Sharing panel should say that the firewall is blocking the private network and hand you the command, instead of showing a healthy green link that silently goes nowhere. <!--seen:Bouke-->
+
+    - Bouke (2026-09-09 16:04:45): is there any way for remark to re-trigger the firewall allow access dialog, if it knows its not allowed? <!--seen:🤖 Claude-->
+
+      - 🤖 Claude (2026-09-09 16:05:56): Short answer: not that dialog, but something better. Windows raises the 'allow access' alert only when a listening program is UNKNOWN to the firewall - no matching rule at all. Your machine already has remark rules (scoped to Public), so the decision is not unknown any more: Windows just drops the private-network traffic and stays quiet. There is no API to summon that alert on demand; the only way to make it reappear is to delete the existing rules and listen again, and deleting them needs admin rights anyway. So the honest version of what you are asking is one UAC prompt instead of one firewall prompt: remark notices it is blocked and offers an 'Allow on this network' button that elevates once and writes the rule itself. That is what I am building now - the panel will show the block with the button, and a copyable command as the fallback for anyone who would rather do it by hand. Building it.
+
+      - 🤖 Claude (2026-09-09 16:16:46): Built and installed. When the gateway is running and shared, remark now reads the firewall rules for its own binary against the profile your active network actually uses. If nothing lets it in, the Sharing panel turns that line red and names it - 'Shared and running, but the firewall is blocking your Private network - nothing can reach it yet' - instead of the green 'reachable' it used to claim. Two buttons under it: 'Allow on this network' triggers one Windows consent prompt and writes the inbound rule itself (netsh, private and domain profiles, scoped to the remark binary), and 'Copy command' hands you the PowerShell one-liner instead. The panel refreshes to green by itself once the rule lands. Reading the rules takes about six seconds, so it happens in the background - a status call never waits on it, and the panel re-asks while the answer is pending. The gateway refuses this endpoint like every other one that touches the PC, so a phone or group member cannot poke your firewall. One honest caveat: I did not click 'Allow' myself, because that would have thrown a UAC prompt onto your screen while you were away - the rule-reading and the panel are covered by tests (a Go unit test that reads your real rules, plus a UI test on a stubbed status), but the elevation itself gets its first real run when you press the button. If Windows declines or you cancel, the panel says so and stays put.
+
+- [x] Bouke (2026-09-09 16:25:56): **A thread created under a filter gets its tags** <!--thread--> <!--seen:🤖 Claude-->
+  Creating a thread while a tag filter is on should tag that thread
+
+  - 🤖 Claude (2026-09-09 16:26:18): Claiming. It should also be visible rather than magic: the composer will say which tags the new thread is getting, so you can see it before you send and delete the token if you disagree. Only new threads - a reply already stays visible through its thread. Test and changelog included. <!--seen:Bouke-->
+
+  - 🤖 Claude (2026-09-09 16:30:52): Built and installed. A thread you start while a filter is on now carries that filter's tags, written into your own text as a tag row at the end - so it stays in the view you wrote it in instead of vanishing on send, and the tag is yours (removable with the x on its chip, like any tag you type). The composer tells you first: it shows 'Tagged #alpha - the filter you are writing in' under the text, and that note disappears the moment your own text already carries the tag, so typing it yourself never doubles it. Replies are untouched, since a reply stays visible through its thread anyway. Test filter-tag-inherit covers the whole path: the note appearing and shrinking, the tag reaching the file, the new thread still on screen under the filter, and a reply left alone. 38 of 38 UI tests plus the Go units pass. <!--seen:Bouke-->
+
+  - Bouke (2026-09-10 10:27:33): Interesting. how about just prefilling the reply box with `#tag` with a preceeding newline, so you can just type above it. i think this is even more straightforward. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-10 10:28:01): Agreed, that is better - the tag stops being something the tool adds at send time and becomes just text sitting in your draft, which you can edit or delete like anything else. Switching to it: the new-thread composer opens prefilled with the tag on its own line at the bottom, caret at the top, and the hint line and the append-on-send both go away. Rebuilding now. <!--seen:Bouke-->
+
+    - 🤖 Claude (2026-09-10 10:48:10): Done and installed, your way. Opening a new-thread composer under a filter now seeds the draft with the tag on its own line at the bottom and puts the caret above it, so you just type. Nothing happens at send time any more: the tag is ordinary text in your draft, so deleting it opts out and editing it does what it looks like. The hint line and the append-on-send are both gone. <!--seen:Bouke-->
+
+- [ ] Bouke (2026-09-10 09:20:06): Landing page shows 600 unread on this file but when i open the file, i just see 23 unread <!--thread-->
+
+- [ ] Bouke (2026-09-10 09:20:45): monitor -h doesn't explain what monitor is for and how to use it (main help does, separate help document does. i think this should just all be in monitor, and if it doesn't fit, at least pointers to the canonical help should exist) <!--thread-->
+
+- [ ] Bouke (2026-09-10 09:26:44): **remark reply should post a sibling, not a subthread** <!--thread-->
+  agents keep posting comments as subthreads to my posts. the ui already guides users to linear replies unless a user explicitly clicks reply within the comment's header.
+  i want to make the same distinction for agents.
+
+  the flow should be clear to agents:
+  - a comment event posted through the monitor carries its own id (and possibly the breadcrumbs, but not implying they should be used for replying)
+  - the agent should in general be instructed to reply with that id
+  - the reply verb should by default post the comment as a sibling to the replied-to-message's parent, unless the message has no parent since its a root thread, then it becomes a child (logically)
+  - an argument should be added like --subthread to nest the reply. the help text should include guidance on when to use it, for example when replying to an older comment buried between others, or when the comment is offtopic from the main line of conversation or would disrupt the main flow, or when it can be answered later at a lower priority or is just a FYI/side-note. etc.
+  - when replying to interjections, the behavior should be the same as the interface currently does (i.e. interjections are not considered to have a parent, their parent is the anchor in the text, so they only receive child comments, if i'm not mistaken this is how it currently works)
+
+  - Bouke (2026-09-10 13:23:59): ... <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-10 13:25:01): Sorry - this one genuinely slipped past me. It landed at 09:26, inside the window where my monitor had died and I had not noticed; I restarted it at 10:24 and it does not replay what it missed, so your post was never delivered. That is my gap to own, not yours to re-ping. Claiming it now and building. The design as I read it: remark reply defaults to a SIBLING of the target - same level, placed after the target's subtree, under the target's parent - so an agent answering a nested comment continues the line instead of burrowing. A root thread has no parent, so replying to it stays a child, which is the same thing logically. An interjection counts as parentless too (its parent is the text anchor), so it keeps receiving children only. -subthread opts into nesting, and the help says when that is the right call: answering an older comment buried among newer ones, a side-note or FYI, something off the main line, or anything that would derail the current flow. I will also make the monitor guidance point at the comment id to reply with, since that is the id the whole flow hangs on. <!--seen:Bouke-->
+
+  - 🤖 Claude (2026-09-10 13:33:34): Built and installed, exactly as you specified. `remark reply` now lands a reply as a SIBLING of the comment it answers — at that comment's own level, after the last comment there, so stamps stay in order and a conversation continues in a line instead of a staircase. Two cases nest by themselves because there is no level to continue: a thread root (nothing above it) and an interjection, whose parent is the paragraph it is anchored to rather than a comment — so those keep receiving children only, as the window already does.
+
+    `-subthread` opts into nesting, and the help says when that is the right call: an aside or FYI, an off-topic point, or an answer to an older comment buried among newer ones. The command also reports which it did now — "replied … beside …" or "… under …" — so an agent notices the difference.
+
+    On the ids: the monitor's one-time guidance now names the reply command as well as the read-marker, and `remark help monitor` says plainly that `time` is the comment's id to pass to both verbs, while `root` and `parent` are context for reading rather than addresses to answer at.
+
+    Two things worth flagging. Getting the interjection case right needed a change underneath: a comment's recorded span runs to the next item, which swallows any of the parent's own text sitting between them, so both the interjection test and the insertion point were reading past the paragraph. Placement now works from the raw lines, which is why a reply to an interjection lands with it rather than after the parent's next paragraph.
+
+    And the first screen of `remark --help` had grown to 63 lines with these additions — past the 60 where your agents clip it, which would have hidden rule 6. I tightened the wording elsewhere and it is back to exactly 60.
+
+    Five Go tests cover the placement: sibling by default, order preserved against older siblings, `-subthread` nesting, a root's reply nesting, an interjection's reply nesting and staying with it, and a normal reply after an interjection still going flat.
+
+- [ ] Bouke (2026-09-10 13:31:12): **A restarted monitor delivers what is still unread** <!--thread--> <!--seen:🤖 Claude-->
+  #r20260910092644 delivered but not marked read by the agent, when monitor is restarted, the "unread" marked threads should be reposted to the agent, if that thread is in scope for that new monitor session.
+
+  - 🤖 Claude (2026-09-10 13:33:00): Claiming, and this is the right fix for the hole that just cost you four hours: a monitor starting up should hand the agent everything still unread BY IT that falls in its scope, before it goes quiet waiting for new events. Right now startup only establishes a baseline, so anything written while the agent was down is invisible forever - which is exactly how your 09:26 post went unanswered. Building it next, after I land the reply-placement change.
+
+  - 🤖 Claude (2026-09-10 13:40:15): Built and installed. A monitor no longer opens in silence: at startup it hands the agent every comment its name has not read yet, and those travel the normal event path — same shape, same scope filtering, and the one-time guidance rides the first of them.
+
+    The read-markers are what decide it, deliberately. There was already a replay mechanism keyed on a saved baseline, and it is exactly what failed you this morning: the old monitor process outlived the harness task that was reading its output, so it kept consuming events and saving "I have seen all this" for a reader that no longer existed. The replacement then found nothing to replay. Seen-markers cannot lie that way — they record what actually reached the agent, whatever any process did or claimed.
+
+    Two edges worth knowing. It replays the newest 25 unread per file and emits a warning naming how many older ones it skipped and the `remark unseen` command to see them — silent truncation would be the same class of bug I am fixing. And an agent that never writes read-markers will be handed the same comments on every restart, which the help now says plainly; marking on receipt is what keeps the backlog empty.
+
+    Tests: the unit covering which comments count as unread (own comments and bare-tag replies excluded, cap keeps the newest and reports the rest), and an integration test that reproduces your morning exactly — a comment written while nothing listened, a monitor started afterwards, and the assertion that it arrives, while an already-read one does not.
+
+- [x] Bouke (2026-09-10 10:26:12): **An opened bookmark must show its thread** <!--thread--> <!--seen:🤖 Claude-->
+  when opening a bookmarked thread that's already resolved and "Show resolved" is off, I don't see the thread. Please ensure that opened bookmarks always show the thread
+
+  - 🤖 Claude (2026-09-10 10:26:31): Claiming. The outline already lists a bookmarked thread whatever the filters say, but opening it lands you on a thread the board is hiding - so the reveal has to reach the board too. Fixing that, with a test. <!--seen:Bouke-->
+
+  - 🤖 Claude (2026-09-10 10:48:09): Fixed and installed. Being sent to a comment now outranks the resolved filter: the outline was already listing your bookmarked thread, but the board had dropped it, so the jump landed on nothing at all. The exemption is per thread and lasts until you toggle Show resolved again - the filter itself is untouched, and nothing else resolved comes back into view. It applies to every explicit jump, not just bookmarks: notifications and #r links had the same hole. I checked the test actually catches the bug by reverting the fix - it fails with the thread absent from the board, exactly your report. <!--seen:Bouke-->
+
+  - Bouke (2026-09-10 12:26:07): ah i think you've solved it now by having bookmarks always show up, opened or not. i think this is also fine, perhaps? but except in focus mode. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-10 12:41:18): One correction so you know what to expect: bookmarked threads do NOT always show up on the board. The outline lists them whatever the filters say - that part is older - and what changed is that OPENING one now shows it on the board too, where before the jump landed on a thread the filter had dropped. The exemption covers only the thread you opened, and only until you toggle Show resolved again. On focus mode you are right to ask, and it already behaves: focus is applied before the resolved filter, so a revealed thread never widens single-thread mode. I pinned that with an assertion rather than leaving it to luck - revealing a resolved bookmark and then focusing another thread shows exactly one thread. <!--seen:Bouke-->
+
+- [ ] Bouke (2026-09-10 10:36:32): **Monitor tells an agent to mark seen first** <!--thread--> <!--seen:🤖 Claude-->
+  please provide guidance in monitor events. upon the first event that notifies of a new comment, include a message that they should immediately mark the comment as seen, before responding. no need to repeat this each time.
+
+  - 🤖 Claude (2026-09-10 10:40:10): Claiming. The first comment event a monitor delivers will carry the instruction - a guidance field in the -json object and a line under the plain event - naming the exact remark seen command for that comment, and it will not repeat for the rest of that monitor's life.
+
+  - 🤖 Claude (2026-09-10 10:48:11): Built and installed. The first comment any monitor delivers now carries the instruction, and only that one: in -json it is a "guidance" field on the event, and the plain feed prints it as a line under the event. It spells the exact command for that very comment — `remark seen "<file>" "<stamp>" -as "<name>"` — and says to do it on receipt, before answering, since a long reply otherwise leaves your comment looking untouched.
+
+    The path in it is written with forward slashes on purpose: a backslash path is what a bash-ish shell ate once, leaving a monitor cheerfully watching a file that did not exist.
+
+    Two tests cover it — one checks the wording and refuses any backslash, the other runs a real monitor process against a temp file and proves the second comment does NOT repeat the instruction. `remark help monitor` documents the field.
+
+- [ ] Bouke (2026-09-10 11:59:14): **Middle-click a link opens it in remark** <!--thread--> <!--seen:🤖 Claude-->
+  MOUSE3 link clicks open in a remark window instead of a new window. Out of normal browsing habit, I click links with my middle mouse button to open them in a new tab. When i do that in Remark, the link opens within a new window within remark, rather than my default browser. Please open it in a new default browser window like a normal click. Let's also ensure that all links have a "pop out link" icon (same as the "open in" button in the top toolbar) to signal the behavior.
+
+  - 🤖 Claude (2026-09-10 12:05:02): Fixed and installed. Middle-click and Ctrl-click now take exactly the same road as a plain click: out to your default browser. Both used to fall through to the WebView, which answers "open in a new tab" the only way it can — by spawning another remark window, which is not a browser and cannot be one. The middle button's autoscroll is suppressed on links too, so you no longer get the scroll cursor instead of a page.
+
+    Every link that leaves remark now carries the toolbar's open-in glyph, small and quiet, inside the link so it wraps and clicks along with the text: external links, mailto, and relative links that open a file in its own app. In-document anchors (`#r…` comment references and heading jumps) stay bare — they scroll here rather than leaving, so the glyph would be a lie.
+
+    The test drives all three click styles and asserts the host is asked to open the URL each time, that no second window ever appears and this one never navigates, and that the glyph is on the external links but not on the anchors. I checked it actually catches the bug by disabling the new handler: the middle click then reaches the host not at all.
+
+- [x] Bouke (2026-09-10 12:27:44): **Resolved threads wear a green ribbon** <!--thread--> <!--seen:🤖 Claude-->
+  please give resolved threads a green ribbon
+
+  - 🤖 Claude (2026-09-10 12:29:29): Claiming - a green edge down the thread card so a settled thread reads as settled at a glance, without opening it. <!--seen:Bouke-->
+
+  - 🤖 Claude (2026-09-10 12:41:01): Installed. The thread's left edge already carried state - blue when something is unread, amber while it is open and read - so resolved took the green that matches the Resolved pill. Unread still wins over both, since an unread reply in a settled thread is the thing you want to see. A thread written without a checkbox keeps the neutral edge: it has no resolution to report. <!--seen:Bouke-->
+
+- [ ] Bouke (2026-09-10 14:56:27): clicking an item in outline with unread comments should behave the same in focusmode as the unread button in the toolbaar. <!--thread--> <!--seen:🤖 Claude-->
+
+  cycle to the next unread comment.
+
+  in focus mode, if the thread was first selected, start with the first unread comment.
+  this may already work, but i want to make sure the two buttons behave the same.
+
+  then the main issue: scrolling doesn't go to the top of the comment, but somewhere halfway.
+
+  - 🤖 Claude (2026-09-10 15:02:41): All three, installed.
+
+    The main issue first: jumps were centring the comment, so a long one opened halfway through itself. Every jump now lands on the comment's first line, just under the toolbar — the unread pill, an outline row, a bookmark, a notification and an #r link all go through the same reveal, so they all changed together.
+
+    In single-thread mode an outline row is now literally the pill: the row handler calls the same function with the same cursor, and that function is already scoped to the focused thread. So selecting a thread goes to its first unread comment, clicking the row again steps to the next, and the pill continues that same cycle rather than starting its own. They cannot drift apart, because there is only one of them. A thread with nothing unread just scrolls to its top.
+
+    One limit worth knowing, since the test had to account for it: a comment near the end of a short document cannot reach the top of the window — the scroller runs out first. That is physics, not the jump misbehaving, and it shows most in focus mode where only one thread is on the board.
+
+    The test covers the pill's landing position, the row selecting a thread and hitting its first unread, the step to the next one, and the pill picking up that same cursor afterwards.

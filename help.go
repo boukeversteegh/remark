@@ -15,8 +15,8 @@ const agentHelp = `remark — a discussion tool built on top of markdown.
 remark renders a markdown file and lets people and agents hold threaded
 discussions inside it; the conversation lives in the file as list items.
 WRITE THROUGH THE VERBS below — they place, indent, stamp and mark read
-for you. Hand-editing the file is how formatting faults happen; keep it
-for the rare thing no verb covers, and re-read the file right before.
+for you. Hand-editing is how formatting faults happen: keep it for the
+rare thing no verb covers, and re-read the file right before.
 
 Reading and watching:
   remark [flags] [files.md]      open each document in its own window
@@ -24,24 +24,24 @@ Reading and watching:
   remark read <file> <sel>       one comment plus subtree; selectors:
                                  "14:05:31", "16:58#2" (nth), "@1310" (line)
   remark monitor <files> -as <name>   stream new comments — needs a tool
-                                 that delivers lines WHILE it runs (not
-                                 plain backgrounding): remark help monitor
+                                 delivering lines WHILE it runs, not plain
+                                 backgrounding: remark help monitor
   remark unseen <files> -as <name>    everything you have not read yet
   remark recent [open]           recent files; "open" opens windows
 
 Writing — the verbs:
-  remark reply <file> <sel> -as <name> [-text t | -file p | stdin]
-                                 answer a comment: placed after its
-                                 subtree, stamped, seen-marked for you
+  remark reply <file> <sel> [-subthread] -as <name> [-text|-file|stdin]
+                                 answer AT THE TARGET'S OWN LEVEL,
+                                 stamped, seen-marked; -subthread nests
   remark thread <file> -as <name> [-title t] [-plain]
                  (-after <sel> | -section <h> | -end) [-text|-file|stdin]
                                  open a new thread root
   remark edit <file> <sel> -title <t>    set the thread's title
-  remark seen <file> <sel> -as <name>    write your read-marker — do it
-                                 the MOMENT a comment reaches you, not
-                                 when the work it asks for is done
-  remark delete <file> <sel> -as <name>  remove YOUR OWN comment (and its
-                                 subtree; refused if others replied)
+  remark seen <file> <sel> -as <name>    write your read-marker the
+                                 MOMENT a comment reaches you, not when
+                                 the work it asks for is done
+  remark delete <file> <sel> -as <name>  remove YOUR OWN comment and its
+                                 subtree (refused if others replied)
   remark tag <file> <sel> #a #b -as <name>   tag someone's comment
   remark dm <author> -as <name> [-to <sid>] [-text|-file|stdin]
                                  direct message on <author>'s channel
@@ -56,18 +56,18 @@ Sharing and the rest:
 
 The five rules that matter (the long form: remark help format):
   1. Sign every comment "Name (now): " — remark replaces (now) with the
-     real, unique stamp by itself. That timestamp IS the comment's
-     identity; write one by hand only when no remark is running, and
-     never reuse one. Names match byte for byte, everywhere.
+     real, unique stamp. That timestamp IS the comment's identity and the
+     address you reply to; never invent or reuse one. Names match exactly.
   2. A nested "- " line is a comment ONLY with an authored timestamp (or
      "(now)"); plain bullets and bare "- [ ]" boxes in a body stay body.
   3. "- [ ]" is the thread's open/closed RESOLUTION, settled by its
      author — not "needs an answer" (answering is expected anyway);
      never tick another author's box.
-  4. Mark a comment read WHEN IT REACHES YOU (remark seen, or your
-     reply does it) — not when the work it asks for is finished; never
-     remove other names from a <!--seen:...--> marker.
-  5. Threads stay FLAT: answer at the level you were addressed.
+  4. Mark a comment read WHEN IT REACHES YOU (remark seen, or your reply
+     does it), not when the work is done; never remove other names.
+  5. Threads stay FLAT: remark reply answers at the target's own level.
+     -subthread nests — for an aside or FYI, an off-topic point, or an
+     answer to an older comment buried among newer ones.
   6. Link to a comment by writing #r plus its stamp's digits in your
      text: (2026-09-07 12:08:34) becomes #r20260907120834.
 `
@@ -145,6 +145,12 @@ This is a STREAM, not a command that finishes: one line per new comment,
 checkbox toggle, read-marker or tag change by anyone else, until stopped.
 Globs are accepted; a path that does not exist is refused at startup.
 
+A monitor does not open in silence: at startup it delivers the comments
+-as <name> has not read yet, so anything written while nothing was
+listening still reaches you. Read-markers decide that, so mark comments
+read as they arrive or you will be handed them again. The newest 25 per
+file are replayed; a warning names the rest and remark unseen shows them.
+
 Agents: this must run on a facility that streams stdout to you LINE BY
 LINE while the process is alive — a dedicated monitor/watch tool if your
 harness has one. A generic "run in background" flag is usually NOT
@@ -159,7 +165,12 @@ with <mark>: 💬 comment, ☑/☐ toggle, 👁 read marker, 🏷 tags changed.
 
 -json emits one NDJSON object per event: type ("comment"|"toggle"|
 "seen"|"stamped"|"tag"|"self"), file, author, text, time, checked,
-reader, seenBy, section, thread, root, parent, tags.
+reader, seenBy, section, thread, root, parent, tags. "time" is the
+comment's id: pass it to remark seen and remark reply. ("root" and
+"parent" are context for reading, not addresses to answer at.) The FIRST
+comment also carries "guidance": mark it read before you answer, and
+reply by its id. That holds for every comment after it, so it is said
+once.
   * "root" is the thread root's stamp: remark read <file> <root> prints
     the whole thread; "parent" is the comment this one answers. Reply to
     root to answer flat, to time for a side thread.

@@ -5,7 +5,51 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-10
+
+### Jumping to a comment lands on its first line
+Every jump — the unread pill, a bookmark, a notification, an #r link — used to centre the comment, so a long one opened halfway through itself. They all land on its top now, just under the toolbar. And in single-thread mode an outline row is the unread pill: selecting a thread goes to its first unread comment and clicking again steps to the next, sharing one cursor with the toolbar button so the two cannot drift apart.
+
+### A monitor delivers what you have not read, instead of opening in silence
+A monitor used to start by taking a snapshot: anything written while nothing was listening stayed invisible forever, so a comment could sit unanswered because the agent's watcher had quietly died. Startup now hands the agent every comment its name has not read yet — read-markers being the honest record of what actually arrived, whatever any previous process did — and they travel the normal event path, so scope filters and the guidance line apply. The newest 25 per file are replayed; a warning names the rest and points at remark unseen.
+
+### remark reply answers at the comment's own level
+Agents kept burying answers a level deeper with every reply. The verb now does what the window does: a reply lands as a sibling of the comment it answers, after the last comment at that level, so a conversation continues in a line instead of a staircase. A thread root and an interjection have no level to continue, so replies to them still nest. -subthread opts into nesting deliberately — for an aside or FYI, an off-topic point, or an answer to an older comment buried among newer ones — and the help says so.
+
+### A resolved thread wears a green ribbon
+The thread's left edge already carried its state — blue with unread, amber while open — and settled threads now get the green to match the Resolved pill, so a finished thread reads as finished without being opened.
+
+### The comment header and its padding are one control
+Folded or open, the header now stretches over the card's padding: one region, one click target, one highlight. Clicking anywhere in that band folds or unfolds the comment (the padding used to do nothing when the comment was open), and hovering it tints the whole comment, the same unit the gutter strip folds. A composer opened inside a folded comment now unfolds it, instead of opening a box you cannot see.
+
+### Mentions read as words, not buttons
+An @mention takes the tag chip's shape at lower intensity, so it sits inside a sentence instead of standing on it; your own name comes through at full strength.
+
+### Middle-click a link and your browser opens it
+Middle-clicking a link — the habit of opening things in a new tab — used to spawn a second remark window, which is not a browser and cannot be one. Middle-click and Ctrl-click now take the same road as a plain click: out to your default browser. Every link that leaves remark also wears the toolbar's open-in glyph, so you can see where it goes before you click.
+
+### An opened bookmark always shows its thread
+The outline lists a bookmarked thread whatever the filters say, but opening a resolved one while "Show resolved" was off landed you nowhere: the board had dropped it. Being sent to a comment now outranks the resolved filter — for bookmarks, notifications and #r links alike — and the exemption covers just that thread, until you toggle the filter again.
+
+### A thread started under a tag filter opens with the tag in the draft
+Rather than adding the filter's tags when you send, the composer now opens with them on their own line at the bottom and the caret above them: plain text you can edit or delete like any other, and the thread stays in the view it was written in.
+
+### A monitor tells an agent to mark a comment read first
+The first comment a monitor delivers carries the instruction to write the read-marker before answering, with the exact remark seen command for that comment — as a "guidance" field in -json and a line under the plain event. It is said once per monitor; agents were answering long questions first and marking them read afterwards, which leaves a comment looking untouched.
+
 ## 2026-09-09
+
+### A thread started under a tag filter joins it
+Writing a new thread while filtering by a tag used to hand you a thread that vanished the moment you sent it — it did not carry the tag it was written under. It inherits the active filter's tags now, written into your own text as a tag row, and the composer names them before you send (the note disappears if you type them yourself). Replies are left alone: they stay visible through their thread.
+
+### Sharing says when the firewall is the one blocking
+Windows allows inbound connections per network profile, and its one-time "allow access" dialog is usually answered for a single one — so a gateway can listen on a name the phone resolves and still reach nobody, showing a healthy green link the whole time. The Sharing panel now names that: it reads the firewall rules for remark's own binary against the profile your active network uses, and when nothing lets it in it says so in red instead of claiming reachable. "Allow on this network" asks Windows for consent once and writes the inbound rule itself; a Copy command button is there for anyone who would rather do it by hand. Windows cannot be made to re-raise its own dialog once any rule exists, so one consent prompt is the closest equivalent.
+
+### Sharing advertises a name the network can resolve
+The invite link and QR carried whatever the reverse lookup of this machine's address returned — and with Docker Desktop installed that is "host.docker.internal", parked on the real LAN address, so it even resolved back to us while no phone could reach it. Names that live in the hosts file or belong to virtualization plumbing (Docker, WSL, Hyper-V, VMware) are refused now, as are link-local addresses when no DHCP answered; what remains is the router's own name for this machine, or the bare address, which always works.
+
+### A code block as the whole comment stays a code block
+Writing or editing a comment whose body starts with a fenced code block put the opening backticks inline after "Author:" while the closing ones sat at the body indent — a block no markdown reader could pair up. The fence now always starts on its own line, with a blank line under the prefix, in the window and in remark reply alike.
 
 ### Edit composers keep the comment's own indent
 Editing a root or a nested comment opens the composer at that comment's text column: the root keeps its indent, and a nested edit no longer inherits the reply-slot inset that made it look one level deeper.

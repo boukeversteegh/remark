@@ -508,6 +508,85 @@ type monEvent struct {
 	Tags    []string `json:"tags,omitempty"`    // the comment's current tag set
 	Added   []string `json:"added,omitempty"`   // tag-events: what the actor put on
 	Removed []string `json:"removed,omitempty"` // tag-events: what went away
+	// on the FIRST comment a monitor delivers: how to acknowledge it. Agents
+	// otherwise answer first and mark read afterwards, which leaves the human
+	// looking at a comment nobody has picked up.
+	Guidance string `json:"guidance,omitempty"`
+}
+
+// monBacklogCap bounds the catch-up: a monitor whose identity has never read
+// a long document must not empty it into the agent's lap.
+const monBacklogCap = 25
+
+// monUnreadItems: the comments this identity has not read — someone else's
+// work, without its name in the seen-marker. Bare-tag replies are not
+// comments and never count. Oldest first, so a cap keeps the newest.
+func monUnreadItems(items []*monItem, as string) []*monItem {
+	var out []*monItem
+	for _, it := range items {
+		if it.Bare || it.Author == as || it.Time == "" {
+			continue
+		}
+		seen := false
+		for _, n := range it.SeenBy {
+			if n == as {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// monBacklogBaseline removes the unread comments from a starting baseline, so
+// the first diff reports them as new and they travel the normal event path —
+// scope filter, guidance and all. A monitor that starts after a gap then
+// delivers what was missed instead of opening in silence. Returns the trimmed
+// baseline and how many unread comments were left out by the cap.
+func monBacklogBaseline(items []*monItem, as string) ([]*monItem, int) {
+	unread := monUnreadItems(items, as)
+	if len(unread) == 0 {
+		return items, 0
+	}
+	skipped := 0
+	if len(unread) > monBacklogCap {
+		skipped = len(unread) - monBacklogCap
+		unread = unread[len(unread)-monBacklogCap:] // the newest ones
+	}
+	drop := map[string]bool{}
+	for _, it := range unread {
+		drop[it.Key] = true
+	}
+	var base []*monItem
+	for _, it := range items {
+		if !drop[it.Key] {
+			base = append(base, it)
+		}
+	}
+	return base, skipped
+}
+
+// monGuidance is the one-time instruction that rides the first comment event.
+func monGuidance(file, stamp, as string) string {
+	who := as
+	if who == "" {
+		who = "<your name>"
+	}
+	// forward slashes and plain quotes: %q would escape the backslashes of a
+	// Windows path into something no shell resolves the same way, and a
+	// backslash path handed to a bash-ish shell is how a monitor once ended up
+	// watching a file that did not exist
+	f := filepath.ToSlash(file)
+	return fmt.Sprintf(`Mark this read BEFORE you answer it: remark seen "%s" "%s" -as "%s" — `+
+		"on receipt, so a long reply never leaves the comment looking unread. "+
+		`Then answer it by its own id, the "time" of this event: remark reply "%s" "%s" -as "%s" — `+
+		"that lands at the comment's own level, which is where a conversation continues; "+
+		"add -subthread only for an aside, an off-topic point, or an answer to an older buried comment. "+
+		"Said once: it holds for every comment after this one.",
+		f, stamp, who, f, stamp, who)
 }
 
 func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
@@ -764,6 +843,7 @@ func runMonitor(args []string) {
 		items []*monItem
 	}
 	states := map[string]*fileState{}
+	backlogSkipped := map[string]int{} // unread beyond the cap, reported once
 	for _, f := range files {
 		st := &fileState{}
 		if b, err := os.ReadFile(f); err == nil {
@@ -781,9 +861,41 @@ func runMonitor(args []string) {
 				}
 			}
 		}
+		// …and whatever this identity never read, however that came about: a
+		// predecessor that outlived its reader saved a baseline nobody
+		// received, so the read-markers are the honest record of what
+		// actually reached the agent. Dropping the unread ones from the
+		// baseline makes the first tick deliver them down the normal path.
+		if *as != "" && len(st.items) > 0 {
+			base, skipped := monBacklogBaseline(st.items, *as)
+			if len(base) != len(st.items) {
+				st.items = base
+				st.hash = [32]byte{}
+			}
+			if skipped > 0 {
+				backlogSkipped[f] = skipped
+			}
+		}
 		states[f] = st
 	}
 	fmt.Fprintf(os.Stderr, "remark monitor: watching %d file(s)\n", len(files))
+	// the cap is a silent truncation otherwise: say what was left out and how
+	// to see it, on the event stream where the agent is actually listening
+	for _, f := range files {
+		n := backlogSkipped[f]
+		if n == 0 {
+			continue
+		}
+		msg := fmt.Sprintf("%d older unread comment(s) in %s were not replayed (the newest %d were) — "+
+			"see them with: remark unseen %q -as %q",
+			n, filepath.Base(f), monBacklogCap, filepath.ToSlash(f), *as)
+		if *asJSON {
+			j, _ := json.Marshal(map[string]any{"type": "warning", "file": filepath.Base(f), "text": msg, "skipped": n})
+			fmt.Println(string(j))
+		} else {
+			fmt.Println("⚠ " + msg)
+		}
+	}
 
 	oneLine := func(s string) string {
 		s = strings.ReplaceAll(s, "\n", " ")
@@ -793,6 +905,11 @@ func runMonitor(args []string) {
 		return s
 	}
 
+	// the first comment this monitor delivers carries the read-marker
+	// instruction: an agent that answers a long question first and marks it
+	// read afterwards leaves the human staring at an unanswered comment. Said
+	// once per monitor — after that the agent knows.
+	guided := false
 	for {
 		time.Sleep(*interval)
 		for _, f := range files {
@@ -881,6 +998,10 @@ func runMonitor(args []string) {
 					}
 				}
 				emitted = true
+				if !guided && ev.Type == "comment" && ev.Time != "" {
+					guided = true
+					ev.Guidance = monGuidance(f, ev.Time, *as)
+				}
 				if *asJSON {
 					j, _ := json.Marshal(ev)
 					fmt.Println(string(j))
@@ -924,6 +1045,9 @@ func runMonitor(args []string) {
 						ctx += " › " + ev.Thread
 					}
 					outCh <- fmt.Sprintf("%s %s | %s | %s: %s%s", mark, ev.File, ctx, ev.Author, oneLine(ev.Text), suffix)
+					if ev.Guidance != "" {
+						outCh <- "↳ " + ev.Guidance
+					}
 				}
 			}
 			if emitted {

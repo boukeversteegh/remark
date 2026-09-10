@@ -36,7 +36,7 @@ var (
 
 type writeArgs struct {
 	file, sel, as, text, textFile, title, after, section, to string
-	end, plain, stdin                                        bool
+	end, plain, stdin, subthread                             bool
 }
 
 func writeParseArgs(args []string) writeArgs {
@@ -52,7 +52,7 @@ func writeParseArgs(args []string) writeArgs {
 		val := ""
 		if j := strings.Index(key, "="); j >= 0 {
 			key, val = key[:j], key[j+1:]
-		} else if key != "end" && key != "plain" && key != "stdin" && i+1 < len(args) {
+		} else if key != "end" && key != "plain" && key != "stdin" && key != "subthread" && i+1 < len(args) {
 			i++
 			val = args[i]
 		}
@@ -77,6 +77,8 @@ func writeParseArgs(args []string) writeArgs {
 			a.plain = true
 		case "stdin":
 			a.stdin = true
+		case "subthread":
+			a.subthread = true
 		default:
 			fmt.Fprintf(os.Stderr, "remark: unknown flag -%s\n", key)
 			os.Exit(2)
@@ -154,6 +156,11 @@ func writeItemLines(indent int, checkbox bool, author, ts, title, body string) [
 		head += " <!--thread-->"
 	}
 	out = append(out, head)
+	// a body that opens with a fence gets a blank line under the prefix, so
+	// the block stands on its own in every markdown reader
+	if len(bodyLines) > 0 && writeFenceRe.MatchString(strings.TrimSpace(bodyLines[0])) {
+		out = append(out, "")
+	}
 	// strip the common leading whitespace of the body, then re-indent
 	minLead := -1
 	inFence := false
@@ -459,7 +466,7 @@ func runReply(args []string) {
 		fmt.Fprintln(os.Stderr, "remark reply: empty body (use -text, -file or stdin)")
 		os.Exit(2)
 	}
-	var stamp string
+	var stamp, placed string
 	var line int
 	writeWithRetry(a.file, func(content string) (string, error) {
 		lines, _, all := readParse(content)
@@ -474,11 +481,32 @@ func runReply(args []string) {
 			}
 			return "", fmt.Errorf("%q is ambiguous — pick one: %s", a.sel, strings.Join(opts, "; "))
 		}
-		parent := hits[0]
+		target := hits[0]
+		// A reply CONTINUES the conversation at the level it was addressed:
+		// by default it lands as a sibling of the target, after the last
+		// comment at that level, so answering a nested comment does not
+		// burrow another level deeper. Nesting is for the cases the help
+		// lists, and happens by itself where there is no level to continue:
+		// a thread root (nothing above it) and an interjection (its parent
+		// is the paragraph it sits in, not a comment).
+		nest := a.subthread || target.parent == nil || readIsInterjection(lines, target)
+		indent := target.indent
+		at := readBlockEnd(lines, target)
+		if nest {
+			indent = target.indent + 2
+		} else {
+			// after the last comment at this level, keeping stamps in order
+			sibs := target.parent.children
+			at = readBlockEnd(lines, sibs[len(sibs)-1])
+		}
 		stamp = writeUniqueStamp(content, time.Now())
-		item := writeItemLines(parent.indent+2, false, a.as, stamp, "", body)
-		lines[parent.start] = writeAddSeen(lines[parent.start], a.as)
-		at := readSubtreeEnd(parent)
+		item := writeItemLines(indent, false, a.as, stamp, "", body)
+		// the seen-marker goes on what you ANSWERED, wherever the reply lands
+		lines[target.start] = writeAddSeen(lines[target.start], a.as)
+		placed = "under"
+		if !nest {
+			placed = "beside"
+		}
 		content = strings.Join(lines, "\n")
 		if strings.Contains(string(content), "\r\n") {
 			content = strings.ReplaceAll(content, "\r\n", "\n")
@@ -488,7 +516,7 @@ func runReply(args []string) {
 		return out, nil
 	})
 	writeLogNote(a.file, stamp)
-	fmt.Printf("replied %s under %s at line %d\n", stamp, a.sel, line)
+	fmt.Printf("replied %s %s %s at line %d\n", stamp, placed, a.sel, line)
 }
 
 func runThread(args []string) {

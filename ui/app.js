@@ -28,6 +28,8 @@ const S = {
   known: null,            // Set of item keys seen in previous render
   focusMemo: null,
   tagFilter: new Set(),   // active tag filter (AND); session-only, never persisted
+  reveal: new Set(),      // root times an explicit jump keeps in view past the
+                          // resolved filter (bookmarks, notifications, #r links)
 };
 
 const $ = (s, el) => (el || document).querySelector(s);
@@ -531,6 +533,13 @@ function tagAddButton(item) {
   });
   return btn;
 }
+// the active filter's tags that a text does not already carry — what a new
+// thread inherits so it stays in the view it was written in
+function filterTagsFor(text) {
+  if (!S.tagFilter.size) return [];
+  const have = new Set(RvParser.extractTags(text || ''));
+  return [...S.tagFilter].filter(t => !have.has(t));
+}
 function addTags(item, tags) {
   // negated tags do not count as present: adding one back retracts your
   // "-#tag" (the underlying tag is still there, so nothing else to write)
@@ -600,6 +609,23 @@ function linkTags(rootNode) {
     }
     frag.appendChild(document.createTextNode(s.slice(last)));
     n.parentNode.replaceChild(frag, n);
+  }
+}
+// a link that leaves remark wears the same glyph as the toolbar's "open in
+// another app": the window itself never navigates, so every one of these
+// lands in the system browser (or the file's own app) however you click it
+function markExternalLinks(rootNode) {
+  for (const a of rootNode.querySelectorAll('a[href]')) {
+    const href = a.getAttribute('href') || '';
+    if (href.startsWith('#')) continue;        // an anchor inside this document
+    if (a.classList.contains('tagref')) continue;
+    if (a.querySelector('.extlink, img')) continue; // already marked, or an image link
+    if (a.closest('code, pre')) continue;
+    const ic = document.createElement('span');
+    ic.className = 'extlink';
+    ic.innerHTML = iconHTML('external-link');
+    ic.title = 'Opens outside remark';
+    a.appendChild(ic);
   }
 }
 // "@Name" in rendered comment text becomes a mention chip when the name is
@@ -871,7 +897,8 @@ function render() {
       // point at nothing; and never under a tag filter, which asks for
       // these threads by name
       if (S.hideResolved && !tagKeep && block.thread.resolvable && effChecked(block.thread) &&
-          threadStats(block.thread).unread === 0 && !hasOpenNested(block.thread)) continue;
+          threadStats(block.thread).unread === 0 && !hasOpenNested(block.thread) &&
+          !(block.thread.time && S.reveal.has(block.thread.time))) continue;
       clusterThreads++;
       const card = buildThread(block);
       if (S.mode === 'margin') {
@@ -905,6 +932,7 @@ function render() {
     el.dataset.key = block.key;
     el.innerHTML = md(block.text);
     highlightIn(el);
+    markExternalLinks(el);
     const btn = document.createElement('button');
     btn.className = 'addbtn';
     btn.title = 'Comment on this part';
@@ -978,7 +1006,12 @@ function render() {
     const ed = $('.editor[data-key="' + CSS.escape(S.pendingFocus) + '"] textarea');
     if (ed) {
       ed.focus();
-      try { ed.setSelectionRange(ed.value.length, ed.value.length); } catch (e) {}
+      // normally the caret waits at the end; a composer opened with inherited
+      // tags puts it at the top, above them
+      const top = S.caretTop === S.pendingFocus;
+      const at = top ? 0 : ed.value.length;
+      try { ed.setSelectionRange(at, at); } catch (e) {}
+      if (top) S.caretTop = null;
     }
     S.pendingFocus = null;
   }
@@ -1057,9 +1090,10 @@ function buildThread(block) {
   const root = block.thread;
   const card = document.createElement('div');
   // left-edge state: blue = has unread, amber = open (unresolved) but all
-  // read, neutral = resolved or status-free
+  // read, green = settled, neutral = no resolution status at all
   const stripe = threadStats(root).unread ? ' has-unread'
-    : (root.resolvable && !effChecked(root) ? ' is-open' : '');
+    : !root.resolvable ? ''
+    : effChecked(root) ? ' is-resolved' : ' is-open';
   card.className = 'thread' + stripe;
   card.dataset.rootKey = root.key;
   card.appendChild(buildItem(root));
@@ -1117,6 +1151,9 @@ function buildThread(block) {
 function hasOpenEditor(item) {
   if (S.editorsOpen.has('reply:' + item.key)) return true;
   if (S.editorsOpen.has('edit:' + item.key)) return true;
+  // an interjection composer sits INSIDE the body ("ipara:<key>:<para>"), so
+  // a folded comment holding one would hide the box you just opened
+  for (const k of S.editorsOpen) if (k.startsWith('ipara:' + item.key + ':')) return true;
   return item.children.some(hasOpenEditor);
 }
 
@@ -1223,26 +1260,21 @@ function buildItem(item, opts) {
     el.appendChild(rail);
   }
 
-  // collapsed, the WHOLE band between the dividers expands — the padding
-  // around the compact head included, not just the head's own strip
-  if (collapsed) {
-    el.addEventListener('click', e => {
-      if (e.target.closest('button, input, a, .chead')) return;
-      S.collapsed.set(item.key, false);
-      persistCollapse(item.key, false);
-      render();
-    });
-  }
-
   const head = document.createElement('div');
   head.className = 'chead';
-  // the whole header row toggles collapse; buttons inside keep their own action
+  // the header spans the card's padding (see .chead in the stylesheet), so
+  // this one listener covers the whole band in both states; buttons inside
+  // keep their own action
   head.addEventListener('click', e => {
     if (e.target.closest('button, input, a')) return;
     S.collapsed.set(item.key, !collapsed);
     persistCollapse(item.key, !collapsed);
     render();
   });
+  // hovering it tints the comment that will fold — the same whole-card
+  // highlight the gutter strip gives, so the control reads as one thing
+  head.addEventListener('mouseenter', () => el.classList.add('railhot'));
+  head.addEventListener('mouseleave', () => el.classList.remove('railhot'));
 
   const tw = document.createElement('button');
   tw.className = 'twisty';
@@ -1490,6 +1522,7 @@ function buildItem(item, opts) {
         pe.className = 'cpara';
         pe.innerHTML = md(chunk);
         highlightIn(pe);
+        markExternalLinks(pe);
         if (chunk.indexOf('#') !== -1) linkTags(pe);
         if (chunk.indexOf('@') !== -1) linkMentions(pe);
         body.appendChild(pe);
@@ -1738,6 +1771,19 @@ function buildEditor(key, target) {
   // is shown it takes the title line, the textarea gets the rest
   const editPrefill = isEdit ? (titleIn ? target.rawBody.replace(/^\*\*[^\n]*\*\*\n?/, '') : target.rawBody) : '';
   ta.value = isEdit && !(key in S.drafts) ? editPrefill : (S.drafts[key] || '');
+  // a thread started under a tag filter would vanish from the view the moment
+  // it is sent, so the composer opens with the filter's tags already in the
+  // draft, on their own line, and the caret above them: plain text you can
+  // edit or delete like any other, rather than something added at send time
+  if (isNewThread && !(key in S.drafts)) {
+    const inherit = filterTagsFor('');
+    if (inherit.length) {
+      ta.value = '\n\n' + inherit.map(t => '#' + t).join(' ');
+      S.drafts[key] = ta.value;
+      S.caretTop = key; // you write ABOVE the tags, so the caret starts there
+      persistDrafts();
+    }
+  }
   const autosize = () => {
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight + 2, 340) + 'px';
@@ -1832,6 +1878,7 @@ function buildEditor(key, target) {
       const titleText = titleIn ? titleIn.value.trim() : '';
       preview.innerHTML = md((titleText ? '**' + titleText + '**\n\n' : '') + (ta.value || '*nothing to preview*'));
       highlightIn(preview);
+      markExternalLinks(preview);
       preview.style.display = '';
       ta.style.display = 'none';
       previewBtn.textContent = 'Edit';
@@ -2197,10 +2244,20 @@ function jumpUnread() {
 // expands the path to a comment, scrolls to it and flashes its card
 function revealItem(it) {
   for (let p = it; p; p = p.parent) S.collapsed.set(p.key, false);
+  // being sent to a comment outranks the resolved filter: a bookmark, a
+  // notification or an #r link must land on its thread, not on nothing. The
+  // exemption lasts until the filter is toggled again.
+  let root = it;
+  while (root.parent) root = root.parent;
+  if (root.time) S.reveal.add(root.time);
   render();
   const el = $('[data-ikey="' + CSS.escape(it.key) + '"]');
   if (!el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // land on the TOP of the comment, not its middle: you read downwards from
+  // the first line. The header carries the scroll-margin that clears the
+  // toolbar, and it now spans the card's padding, so this is the card's edge.
+  const head = el.querySelector(':scope > .chead') || el;
+  head.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const card = el.closest('.thread');
   if (card) { card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
 }
@@ -2613,6 +2670,7 @@ function showGateway() {
   // groups: sharing with other people — their registry rides along with
   // every render so a change (join, new code) shows on the next refresh
   let groups = [], openGid = null, lastSt = null;
+  let fwPolls = 0; // the firewall verdict arrives a few seconds late
   const loadGroups = () => fetch('/api/groups?t=' + TOKEN).then(r => r.json())
     .then(g => { groups = Array.isArray(g) ? g : []; }).catch(() => {});
   const gpost = (ep, bodyObj) => fetch('/api/groups' + ep + '?t=' + TOKEN, {
@@ -2657,13 +2715,56 @@ function showGateway() {
         gpost('/doc', { id: g.id, path: S.path, on }).then(() => { if (on) startIfOff(); });
       });
     }
-    const status = el('div', 'gwstatus' + (sharedAny && st.running ? ' on' : ''));
+    // "reachable" is a claim, and the firewall can make it false: Windows
+    // blocks inbound per network profile, so a gateway that listens on a
+    // resolvable name still answers nobody. Say that instead of showing green.
+    const blocked = !!st.firewallBlocked;
+    if (st.firewallPending && st.running && fwPolls < 4 && panel.isConnected) {
+      fwPolls++;
+      setTimeout(() => { if (panel.isConnected) call(''); }, 2500);
+    }
+    const status = el('div', 'gwstatus' + (sharedAny && st.running && !blocked ? ' on' : '') +
+      (sharedAny && st.running && blocked ? ' warn' : ''));
     status.textContent = !S.path ? 'Open a document to share it.'
+      : sharedAny && st.running && blocked
+        ? 'Shared and running, but the firewall is blocking your ' +
+          (st.firewallProfiles || 'current') + ' network — nothing can reach it yet.'
       : sharedAny && st.running ? 'Shared and reachable — readers open it from their list.'
       : sharedAny ? 'Marked shared, but the gateway is not running: start it below.'
       : st.running ? 'Not shared. Flip a switch to share it.'
       : 'Not shared. Flipping a switch also starts the gateway.';
     body.appendChild(status);
+    if (blocked && st.running && sharedAny) {
+      const fix = el('div', 'gwfix');
+      const allow = btn('Allow on this network', 'primary', () => {
+        allow.disabled = true;
+        allow.textContent = 'Waiting for Windows…';
+        fetch('/api/firewall/allow?t=' + TOKEN, { method: 'POST' })
+          .then(r => r.json())
+          .then(res => {
+            if (res && res.ok) { toast('ok', 'The firewall lets remark through now.'); call(''); return; }
+            toast('warn', (res && res.error) || 'The rule was not added.');
+            allow.disabled = false;
+            allow.textContent = 'Allow on this network';
+          })
+          .catch(() => {
+            toast('warn', 'Could not reach the server.');
+            allow.disabled = false;
+            allow.textContent = 'Allow on this network';
+          });
+      });
+      allow.title = 'Windows asks for consent once, then remark adds the inbound rule itself';
+      fix.appendChild(allow);
+      if (st.firewallFix) {
+        const copy = btn('Copy command', '', () => {
+          navigator.clipboard.writeText(st.firewallFix);
+          toast('ok', 'Command copied — run it in an admin PowerShell.');
+        });
+        copy.title = st.firewallFix;
+        fix.appendChild(copy);
+      }
+      body.appendChild(fix);
+    }
 
     // group MANAGEMENT lives behind its own fold, like the gateway:
     // members, invites and document lists, separate from sharing
@@ -3457,10 +3558,18 @@ function buildOutline() {
         trow.appendChild(ic);
       }
       trow.addEventListener('click', () => {
-        // in single-thread mode a click SWITCHES the focus to this thread
+        // in single-thread mode a click SWITCHES the focus to this thread and
+        // then walks its unread comments — literally the toolbar pill's own
+        // function, which is scoped to the focused thread, so the two
+        // controls cannot drift apart. A newly focused thread starts at its
+        // first unread; clicking again steps to the next.
         if (S.focusThread && !S.mobile && th.time) {
-          S.focusThread = th.time;
-          render();
+          if (S.focusThread !== th.time) {
+            S.focusThread = th.time;
+            unreadCursor = -1;
+            render();
+          }
+          if (visibleUnread().length) jumpUnread(); else revealItem(th);
           return;
         }
         const unreadHere = [];
@@ -4158,6 +4267,7 @@ function wireTopbar() {
   hrBtn.addEventListener('click', () => {
     S.hideResolved = !S.hideResolved;
     setPref('hideResolved', S.hideResolved);
+    S.reveal.clear(); // the filter is being set afresh: no leftover exemptions
     syncHideResolved();
     render();
   });
@@ -4224,7 +4334,7 @@ document.addEventListener('mouseover', e => {
 
 // links: anchors jump in place, everything external opens in the system
 // browser via the server (the app window must never navigate away)
-document.addEventListener('click', e => {
+function handleLinkClick(e) {
   const a = e.target.closest('a[href]');
   if (!a) return;
   const href = a.getAttribute('href');
@@ -4286,6 +4396,20 @@ document.addEventListener('click', e => {
         if (j.error) toast('warn', 'Can’t open that link: ' + String(j.error).replace(/[<>&]/g, ''));
       }).catch(() => {});
   }
+}
+document.addEventListener('click', handleLinkClick);
+// middle-click and Ctrl/Shift-click are "open in a new tab" everywhere else;
+// in a WebView they would spawn a second remark window instead, which is not
+// a browser and cannot be one. They take the same road as a plain click: out
+// to the system browser.
+document.addEventListener('auxclick', e => {
+  if (e.button !== 1) return;
+  handleLinkClick(e);
+});
+// the middle button's default is autoscroll (and, on a link, the new window):
+// stop it on anchors before it starts
+document.addEventListener('mousedown', e => {
+  if (e.button === 1 && e.target.closest('a[href]')) e.preventDefault();
 });
 
 

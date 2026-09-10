@@ -646,6 +646,18 @@ func newMux() *http.ServeMux {
 		}
 		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 	}))
+	// the firewall stands between a listening gateway and the phone; Windows
+	// will not re-raise its own "allow access" alert once any rule exists, so
+	// remark asks for consent once (UAC) and writes the rule itself
+	mux.HandleFunc("POST /api/firewall/allow", authed(func(w http.ResponseWriter, r *http.Request) {
+		// the rule is scoped to the binary, not to a port: the gateway picks a
+		// new port freely and the permission still holds
+		if err := firewallRequestAllow(); err != nil {
+			jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
+	}))
 	// direct messages: open <name>'s channel in its own window, addressed to
 	// one running instance (sid) — that window stamps what it sends with
 	// <!--to:sid--> so only that monitor's feed gets it

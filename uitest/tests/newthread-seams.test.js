@@ -21,7 +21,10 @@ module.exports = async ctx => {
   assertEq(await editors.count(), 3, 'filtered end composer is independent of seams');
   assertEq(await editors.nth(0).locator('textarea').inputValue(), 'FIRST-SEAM-DRAFT', 'first draft survives render');
   assertEq(await editors.nth(1).locator('textarea').inputValue(), 'SECOND-SEAM-DRAFT', 'second draft survives render');
-  assertEq(await editors.nth(2).locator('textarea').inputValue(), '', 'end composer has no seam draft');
+  // a composer opened under a tag filter is seeded with that filter's tags
+  // (you type above them) — what matters here is that it carries no OTHER
+  // composer's draft
+  assertEq(await editors.nth(2).locator('textarea').inputValue(), '\n\n#alpha', 'end composer has no seam draft');
   await page.evaluate(() => toggleTag('alpha'));
   await editors.nth(0).locator('button.send').click();
   await page.waitForFunction(() => document.querySelector('#doc').innerText.includes('FIRST-SEAM-DRAFT') &&

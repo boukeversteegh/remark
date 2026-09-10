@@ -214,6 +214,77 @@ func readSelect(all []*readNode, sel string) (hits []*readNode) {
 	return hits
 }
 
+// readIsInterjection reports whether n sits INSIDE its parent's own text —
+// a comment anchored to a paragraph rather than following the parent's body.
+// Such a comment has no conversational level to continue: what comes after it
+// is the parent still talking, so a reply to it can only nest. Detected by
+// looking for more of the parent's body text after n's subtree.
+func readIsInterjection(lines []string, n *readNode) bool {
+	if n == nil || n.parent == nil {
+		return false
+	}
+	bodyIndent := n.parent.indent + 2
+	// a comment's own lines run to the NEXT item, which swallows any parent
+	// text sitting between them — so read the raw lines from n onwards rather
+	// than trusting the node's span
+	for i := n.start + 1; i <= readSubtreeEnd(n.parent) && i < len(lines); i++ {
+		l := lines[i]
+		if strings.TrimSpace(l) == "" {
+			continue
+		}
+		indent := len(l) - len(strings.TrimLeft(l, " "))
+		if indent < bodyIndent {
+			break // out of the parent's body entirely
+		}
+		if indent != bodyIndent {
+			continue // deeper: a nested comment or somebody's own body
+		}
+		if readIsCommentLine(l) {
+			continue // a sibling comment, not the parent talking
+		}
+		return true // the parent's own text resumes below n
+	}
+	return false
+}
+
+// readBlockEnd is the line index just past everything belonging to n — its
+// own text and its nested comments — stopping where the indent falls back to
+// n's level or above. Unlike readSubtreeEnd it does not run on into the
+// parent's own text, so it is the honest place to insert after n.
+func readBlockEnd(lines []string, n *readNode) int {
+	end := n.start + 1
+	for i := n.start + 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "" {
+			continue // a blank line does not end the block
+		}
+		indent := len(lines[i]) - len(strings.TrimLeft(lines[i], " "))
+		if indent <= n.indent {
+			break
+		}
+		end = i + 1
+	}
+	return end
+}
+
+// readIsCommentLine reports whether a list line is a signed comment rather
+// than body content (a plain bullet, a task box, a table row).
+func readIsCommentLine(l string) bool {
+	var text string
+	if m := monItemRe.FindStringSubmatch(l); m != nil {
+		text = m[3]
+	} else if m := monPlainRe.FindStringSubmatch(l); m != nil {
+		text = m[2]
+	} else {
+		return false
+	}
+	text = strings.TrimSpace(monSeenRe.ReplaceAllString(text, ""))
+	if monMarkerRe.MatchString(text) {
+		return true
+	}
+	_, ts, _, ok := monParseAuthor(monMarkerRe.ReplaceAllString(text, ""))
+	return ok && ts != ""
+}
+
 func readSubtreeEnd(n *readNode) int {
 	for len(n.children) > 0 {
 		n = n.children[len(n.children)-1]

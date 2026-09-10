@@ -145,6 +145,9 @@ func gatewayLANAddrs() []string {
 				continue
 			}
 			ip := ipn.IP.To4()
+			if ip[0] == 169 && ip[1] == 254 {
+				continue // link-local (no DHCP answered): reaches nobody
+			}
 			buckets[rank(ip)] = append(buckets[rank(ip)], ip.String())
 		}
 	}
@@ -155,11 +158,61 @@ func gatewayLANAddrs() []string {
 	return out
 }
 
+// gatewayHostsFileNames lists the names the local hosts file defines. Such a
+// name answers on THIS machine only — Docker Desktop parks
+// "host.docker.internal" on the real LAN address, so a reverse lookup offers
+// it and it even resolves back to us, yet no phone can resolve it. Names
+// from that file can never go into a pairing URL.
+func gatewayHostsFileNames() map[string]bool {
+	paths := []string{"/etc/hosts"}
+	if root := os.Getenv("SystemRoot"); root != "" {
+		paths = append([]string{filepath.Join(root, "System32", "drivers", "etc", "hosts")}, paths...)
+	}
+	return gatewayHostsNamesFrom(paths)
+}
+
+func gatewayHostsNamesFrom(paths []string) map[string]bool {
+	out := map[string]bool{}
+	for _, p := range paths {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			if i := strings.IndexByte(line, '#'); i >= 0 {
+				line = line[:i]
+			}
+			f := strings.Fields(line)
+			for _, name := range f[min(1, len(f)):] {
+				out[strings.ToLower(strings.TrimSuffix(name, "."))] = true
+			}
+		}
+		break
+	}
+	return out
+}
+
+// gatewayVirtualName reports names that belong to virtualization plumbing
+// rather than to this machine on the network.
+func gatewayVirtualName(name string) bool {
+	n := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(name), "."))
+	if n == "" || n == "localhost" {
+		return true
+	}
+	for _, bad := range []string{"docker", "wsl", ".internal", ".mshome.net", "virtualbox", "vmware"} {
+		if strings.Contains(n, bad) {
+			return true
+		}
+	}
+	return false
+}
+
 // gatewayHost is the name the pairing code carries: a pinned one, else the
 // name the network gives this machine's address (reverse lookup — a home
 // router answers with "<pc>.home"), else machine name + the DNS suffix
-// the OS knows; each candidate is used only if it resolves back to one of
-// this machine's addresses, otherwise the bare IP.
+// the OS knows. A candidate counts only if it resolves back to one of this
+// machine's addresses AND is a real network name (not a hosts-file entry or
+// virtualization plumbing); otherwise the bare IP, which always works.
 func gatewayHost(rec gatewayRecord) string {
 	addrs := gatewayLANAddrs()
 	ip := "127.0.0.1"
@@ -170,9 +223,10 @@ func gatewayHost(rec gatewayRecord) string {
 	for _, a := range addrs {
 		mine[a] = true
 	}
+	hostsFile := gatewayHostsFileNames()
 	resolves := func(name string) bool {
 		name = strings.TrimSuffix(strings.TrimSpace(name), ".")
-		if name == "" {
+		if name == "" || gatewayVirtualName(name) || hostsFile[strings.ToLower(name)] {
 			return false
 		}
 		got, err := net.LookupHost(name)
@@ -233,7 +287,8 @@ func gatewayHandler(mux http.Handler) http.Handler {
 			return
 		}
 		switch r.URL.Path {
-		case "/api/openfile", "/api/openurl", "/api/openwith", "/api/dm", "/api/restart", "/api/gateway/start", "/api/gateway/stop":
+		case "/api/openfile", "/api/openurl", "/api/openwith", "/api/dm", "/api/restart",
+			"/api/gateway/start", "/api/gateway/stop", "/api/firewall/allow":
 			http.Error(w, "not available through the gateway", http.StatusForbidden)
 			return
 		}
@@ -502,6 +557,16 @@ func gatewayStatusJSON(doc string) map[string]any {
 		out["url"] = gatewayURL(rec)
 		out["host"] = gatewayHost(rec)
 		out["hostPinned"] = rec.Host != ""
+		// a listening gateway the firewall will not let anyone reach looks
+		// perfectly healthy otherwise — say so instead of showing a green link
+		switch fw := firewallAllowsInbound(rec.Port); {
+		case fw.Pending:
+			out["firewallPending"] = true // reading the rules takes seconds: ask again
+		case !fw.Allowed:
+			out["firewallBlocked"] = true
+			out["firewallProfiles"] = fw.Profiles
+			out["firewallFix"] = firewallFixCommand()
+		}
 	}
 	if doc != "" {
 		own := gatewayAllows(doc)
