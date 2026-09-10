@@ -3165,3 +3165,12 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     The path in it is written with forward slashes on purpose: a backslash path is what a bash-ish shell ate once, leaving a monitor cheerfully watching a file that did not exist.
 
     Two tests cover it — one checks the wording and refuses any backslash, the other runs a real monitor process against a temp file and proves the second comment does NOT repeat the instruction. `remark help monitor` documents the field.
+
+- [ ] Bouke (2026-09-10 11:59:14): **Middle-click a link opens it in remark** <!--thread--> <!--seen:🤖 Claude-->
+  MOUSE3 link clicks open in a remark window instead of a new window. Out of normal browsing habit, I click links with my middle mouse button to open them in a new tab. When i do that in Remark, the link opens within a new window within remark, rather than my default browser. Please open it in a new default browser window like a normal click. Let's also ensure that all links have a "pop out link" icon (same as the "open in" button in the top toolbar) to signal the behavior.
+
+  - 🤖 Claude (2026-09-10 12:05:02): Fixed and installed. Middle-click and Ctrl-click now take exactly the same road as a plain click: out to your default browser. Both used to fall through to the WebView, which answers "open in a new tab" the only way it can — by spawning another remark window, which is not a browser and cannot be one. The middle button's autoscroll is suppressed on links too, so you no longer get the scroll cursor instead of a page.
+
+    Every link that leaves remark now carries the toolbar's open-in glyph, small and quiet, inside the link so it wraps and clicks along with the text: external links, mailto, and relative links that open a file in its own app. In-document anchors (`#r…` comment references and heading jumps) stay bare — they scroll here rather than leaving, so the glyph would be a lie.
+
+    The test drives all three click styles and asserts the host is asked to open the URL each time, that no second window ever appears and this one never navigates, and that the glyph is on the external links but not on the anchors. I checked it actually catches the bug by disabling the new handler: the middle click then reaches the host not at all.

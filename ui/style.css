@@ -636,6 +636,11 @@ body.mobile #notices { bottom: 62px; left: 8px; right: 8px; max-width: none; }
 }
 .otrow.dropbefore::after { top: -2px; }
 .otrow.dropafter::after { bottom: -2px; }
+/* a link that leaves remark says so: the toolbar's own open-in glyph, small
+   and quiet, riding inside the link so it wraps and clicks with it */
+.extlink { display: inline-flex; vertical-align: baseline; margin-left: 3px; }
+.extlink svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; opacity: .55; }
+a:hover .extlink svg { opacity: 1; }
 .citem.collapsed { cursor: pointer; } /* the whole band expands */
 .otrow.dimfocus { opacity: .45; }
 .otrow.dimfocus:hover { opacity: 1; }

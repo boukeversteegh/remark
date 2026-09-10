@@ -611,6 +611,23 @@ function linkTags(rootNode) {
     n.parentNode.replaceChild(frag, n);
   }
 }
+// a link that leaves remark wears the same glyph as the toolbar's "open in
+// another app": the window itself never navigates, so every one of these
+// lands in the system browser (or the file's own app) however you click it
+function markExternalLinks(rootNode) {
+  for (const a of rootNode.querySelectorAll('a[href]')) {
+    const href = a.getAttribute('href') || '';
+    if (href.startsWith('#')) continue;        // an anchor inside this document
+    if (a.classList.contains('tagref')) continue;
+    if (a.querySelector('.extlink, img')) continue; // already marked, or an image link
+    if (a.closest('code, pre')) continue;
+    const ic = document.createElement('span');
+    ic.className = 'extlink';
+    ic.innerHTML = iconHTML('external-link');
+    ic.title = 'Opens outside remark';
+    a.appendChild(ic);
+  }
+}
 // "@Name" in rendered comment text becomes a mention chip when the name is
 // a known author (longest name first, so multi-word names win); your own
 // name is accented so being addressed stands out. Code and links stay put.
@@ -915,6 +932,7 @@ function render() {
     el.dataset.key = block.key;
     el.innerHTML = md(block.text);
     highlightIn(el);
+    markExternalLinks(el);
     const btn = document.createElement('button');
     btn.className = 'addbtn';
     btn.title = 'Comment on this part';
@@ -1505,6 +1523,7 @@ function buildItem(item, opts) {
         pe.className = 'cpara';
         pe.innerHTML = md(chunk);
         highlightIn(pe);
+        markExternalLinks(pe);
         if (chunk.indexOf('#') !== -1) linkTags(pe);
         if (chunk.indexOf('@') !== -1) linkMentions(pe);
         body.appendChild(pe);
@@ -1860,6 +1879,7 @@ function buildEditor(key, target) {
       const titleText = titleIn ? titleIn.value.trim() : '';
       preview.innerHTML = md((titleText ? '**' + titleText + '**\n\n' : '') + (ta.value || '*nothing to preview*'));
       highlightIn(preview);
+      markExternalLinks(preview);
       preview.style.display = '';
       ta.style.display = 'none';
       previewBtn.textContent = 'Edit';
@@ -4303,7 +4323,7 @@ document.addEventListener('mouseover', e => {
 
 // links: anchors jump in place, everything external opens in the system
 // browser via the server (the app window must never navigate away)
-document.addEventListener('click', e => {
+function handleLinkClick(e) {
   const a = e.target.closest('a[href]');
   if (!a) return;
   const href = a.getAttribute('href');
@@ -4365,6 +4385,20 @@ document.addEventListener('click', e => {
         if (j.error) toast('warn', 'Can’t open that link: ' + String(j.error).replace(/[<>&]/g, ''));
       }).catch(() => {});
   }
+}
+document.addEventListener('click', handleLinkClick);
+// middle-click and Ctrl/Shift-click are "open in a new tab" everywhere else;
+// in a WebView they would spawn a second remark window instead, which is not
+// a browser and cannot be one. They take the same road as a plain click: out
+// to the system browser.
+document.addEventListener('auxclick', e => {
+  if (e.button !== 1) return;
+  handleLinkClick(e);
+});
+// the middle button's default is autoscroll (and, on a link, the new window):
+// stop it on anchors before it starts
+document.addEventListener('mousedown', e => {
+  if (e.button === 1 && e.target.closest('a[href]')) e.preventDefault();
 });
 
 

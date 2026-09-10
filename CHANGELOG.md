@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-10
 
+### Middle-click a link and your browser opens it
+Middle-clicking a link — the habit of opening things in a new tab — used to spawn a second remark window, which is not a browser and cannot be one. Middle-click and Ctrl-click now take the same road as a plain click: out to your default browser. Every link that leaves remark also wears the toolbar's open-in glyph, so you can see where it goes before you click.
+
 ### An opened bookmark always shows its thread
 The outline lists a bookmarked thread whatever the filters say, but opening a resolved one while "Show resolved" was off landed you nowhere: the board had dropped it. Being sent to a comment now outranks the resolved filter — for bookmarks, notifications and #r links alike — and the exemption covers just that thread, until you toggle the filter again.
 
