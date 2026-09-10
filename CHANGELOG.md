@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-10
 
+### Panels fit the window at any zoom
+CSS zoom multiplies every length in the page, viewport units included, so a panel capped at 70% of the screen was 70% x zoom and grew past the edges: at 150% and up, What's new opened with its header, Restart and close button above the top of the window, and only its middle scrolled. The zoom factor is now exposed to the stylesheet, and both What's new and Sharing cap against the real window instead.
+
 ### Jumping to a comment lands on its first line
 Every jump — the unread pill, a bookmark, a notification, an #r link — used to centre the comment, so a long one opened halfway through itself. They all land on its top now, just under the toolbar. And in single-thread mode an outline row is the unread pill: selecting a thread goes to its first unread comment and clicking again steps to the next, sharing one cursor with the toolbar button so the two cannot drift apart.
 

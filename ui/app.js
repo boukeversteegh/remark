@@ -4054,6 +4054,11 @@ function showLanding() {
 // ---------------------------------------------------------------------------
 function applyZoom() {
   document.body.style.zoom = S.zoom || 1;
+  // CSS zoom multiplies every length in the subtree, viewport units
+  // included, so a panel capped at 70vh is 70vh x zoom of real screen and
+  // grows past the edges. Anything that must fit the WINDOW divides by
+  // this, and stays honest at any zoom.
+  document.documentElement.style.setProperty('--zoom', String(S.zoom || 1));
   scheduleLayout();
   if (window.__remarkChromeRelayout) __remarkChromeRelayout();
 }
