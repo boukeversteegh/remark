@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-10
 
+### Jumping to a comment lands on its first line
+Every jump — the unread pill, a bookmark, a notification, an #r link — used to centre the comment, so a long one opened halfway through itself. They all land on its top now, just under the toolbar. And in single-thread mode an outline row is the unread pill: selecting a thread goes to its first unread comment and clicking again steps to the next, sharing one cursor with the toolbar button so the two cannot drift apart.
+
 ### A monitor delivers what you have not read, instead of opening in silence
 A monitor used to start by taking a snapshot: anything written while nothing was listening stayed invisible forever, so a comment could sit unanswered because the agent's watcher had quietly died. Startup now hands the agent every comment its name has not read yet — read-markers being the honest record of what actually arrived, whatever any previous process did — and they travel the normal event path, so scope filters and the guidance line apply. The newest 25 per file are replayed; a warning names the rest and points at remark unseen.
 

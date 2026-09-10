@@ -2253,7 +2253,11 @@ function revealItem(it) {
   render();
   const el = $('[data-ikey="' + CSS.escape(it.key) + '"]');
   if (!el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // land on the TOP of the comment, not its middle: you read downwards from
+  // the first line. The header carries the scroll-margin that clears the
+  // toolbar, and it now spans the card's padding, so this is the card's edge.
+  const head = el.querySelector(':scope > .chead') || el;
+  head.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const card = el.closest('.thread');
   if (card) { card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
 }
@@ -3554,10 +3558,18 @@ function buildOutline() {
         trow.appendChild(ic);
       }
       trow.addEventListener('click', () => {
-        // in single-thread mode a click SWITCHES the focus to this thread
+        // in single-thread mode a click SWITCHES the focus to this thread and
+        // then walks its unread comments — literally the toolbar pill's own
+        // function, which is scoped to the focused thread, so the two
+        // controls cannot drift apart. A newly focused thread starts at its
+        // first unread; clicking again steps to the next.
         if (S.focusThread && !S.mobile && th.time) {
-          S.focusThread = th.time;
-          render();
+          if (S.focusThread !== th.time) {
+            S.focusThread = th.time;
+            unreadCursor = -1;
+            render();
+          }
+          if (visibleUnread().length) jumpUnread(); else revealItem(th);
           return;
         }
         const unreadHere = [];

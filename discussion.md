@@ -3230,3 +3230,22 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   - 🤖 Claude (2026-09-10 12:29:29): Claiming - a green edge down the thread card so a settled thread reads as settled at a glance, without opening it. <!--seen:Bouke-->
 
   - 🤖 Claude (2026-09-10 12:41:01): Installed. The thread's left edge already carried state - blue when something is unread, amber while it is open and read - so resolved took the green that matches the Resolved pill. Unread still wins over both, since an unread reply in a settled thread is the thing you want to see. A thread written without a checkbox keeps the neutral edge: it has no resolution to report. <!--seen:Bouke-->
+
+- [ ] Bouke (2026-09-10 14:56:27): clicking an item in outline with unread comments should behave the same in focusmode as the unread button in the toolbaar. <!--thread--> <!--seen:🤖 Claude-->
+
+  cycle to the next unread comment.
+
+  in focus mode, if the thread was first selected, start with the first unread comment.
+  this may already work, but i want to make sure the two buttons behave the same.
+
+  then the main issue: scrolling doesn't go to the top of the comment, but somewhere halfway.
+
+  - 🤖 Claude (2026-09-10 15:02:41): All three, installed.
+
+    The main issue first: jumps were centring the comment, so a long one opened halfway through itself. Every jump now lands on the comment's first line, just under the toolbar — the unread pill, an outline row, a bookmark, a notification and an #r link all go through the same reveal, so they all changed together.
+
+    In single-thread mode an outline row is now literally the pill: the row handler calls the same function with the same cursor, and that function is already scoped to the focused thread. So selecting a thread goes to its first unread comment, clicking the row again steps to the next, and the pill continues that same cycle rather than starting its own. They cannot drift apart, because there is only one of them. A thread with nothing unread just scrolls to its top.
+
+    One limit worth knowing, since the test had to account for it: a comment near the end of a short document cannot reach the top of the window — the scroller runs out first. That is physics, not the jump misbehaving, and it shows most in focus mode where only one thread is on the board.
+
+    The test covers the pill's landing position, the row selecting a thread and hitting its first unread, the step to the next one, and the pill picking up that same cursor afterwards.
