@@ -3185,6 +3185,14 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-10 13:33:00): Claiming, and this is the right fix for the hole that just cost you four hours: a monitor starting up should hand the agent everything still unread BY IT that falls in its scope, before it goes quiet waiting for new events. Right now startup only establishes a baseline, so anything written while the agent was down is invisible forever - which is exactly how your 09:26 post went unanswered. Building it next, after I land the reply-placement change.
 
+  - 🤖 Claude (2026-09-10 13:40:15): Built and installed. A monitor no longer opens in silence: at startup it hands the agent every comment its name has not read yet, and those travel the normal event path — same shape, same scope filtering, and the one-time guidance rides the first of them.
+
+    The read-markers are what decide it, deliberately. There was already a replay mechanism keyed on a saved baseline, and it is exactly what failed you this morning: the old monitor process outlived the harness task that was reading its output, so it kept consuming events and saving "I have seen all this" for a reader that no longer existed. The replacement then found nothing to replay. Seen-markers cannot lie that way — they record what actually reached the agent, whatever any process did or claimed.
+
+    Two edges worth knowing. It replays the newest 25 unread per file and emits a warning naming how many older ones it skipped and the `remark unseen` command to see them — silent truncation would be the same class of bug I am fixing. And an agent that never writes read-markers will be handed the same comments on every restart, which the help now says plainly; marking on receipt is what keeps the backlog empty.
+
+    Tests: the unit covering which comments count as unread (own comments and bare-tag replies excluded, cap keeps the newest and reports the rest), and an integration test that reproduces your morning exactly — a comment written while nothing listened, a monitor started afterwards, and the assertion that it arrives, while an already-read one does not.
+
 - [x] Bouke (2026-09-10 10:26:12): **An opened bookmark must show its thread** <!--thread--> <!--seen:🤖 Claude-->
   when opening a bookmarked thread that's already resolved and "Show resolved" is off, I don't see the thread. Please ensure that opened bookmarks always show the thread
 

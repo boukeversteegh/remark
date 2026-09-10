@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-10
 
+### A monitor delivers what you have not read, instead of opening in silence
+A monitor used to start by taking a snapshot: anything written while nothing was listening stayed invisible forever, so a comment could sit unanswered because the agent's watcher had quietly died. Startup now hands the agent every comment its name has not read yet — read-markers being the honest record of what actually arrived, whatever any previous process did — and they travel the normal event path, so scope filters and the guidance line apply. The newest 25 per file are replayed; a warning names the rest and points at remark unseen.
+
 ### remark reply answers at the comment's own level
 Agents kept burying answers a level deeper with every reply. The verb now does what the window does: a reply lands as a sibling of the comment it answers, after the last comment at that level, so a conversation continues in a line instead of a staircase. A thread root and an interjection have no level to continue, so replies to them still nest. -subthread opts into nesting deliberately — for an aside or FYI, an off-topic point, or an answer to an older comment buried among newer ones — and the help says so.
 

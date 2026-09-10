@@ -145,6 +145,12 @@ This is a STREAM, not a command that finishes: one line per new comment,
 checkbox toggle, read-marker or tag change by anyone else, until stopped.
 Globs are accepted; a path that does not exist is refused at startup.
 
+A monitor does not open in silence: at startup it delivers the comments
+-as <name> has not read yet, so anything written while nothing was
+listening still reaches you. Read-markers decide that, so mark comments
+read as they arrive or you will be handed them again. The newest 25 per
+file are replayed; a warning names the rest and remark unseen shows them.
+
 Agents: this must run on a facility that streams stdout to you LINE BY
 LINE while the process is alive — a dedicated monitor/watch tool if your
 harness has one. A generic "run in background" flag is usually NOT
