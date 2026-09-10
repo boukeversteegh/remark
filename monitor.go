@@ -508,6 +508,26 @@ type monEvent struct {
 	Tags    []string `json:"tags,omitempty"`    // the comment's current tag set
 	Added   []string `json:"added,omitempty"`   // tag-events: what the actor put on
 	Removed []string `json:"removed,omitempty"` // tag-events: what went away
+	// on the FIRST comment a monitor delivers: how to acknowledge it. Agents
+	// otherwise answer first and mark read afterwards, which leaves the human
+	// looking at a comment nobody has picked up.
+	Guidance string `json:"guidance,omitempty"`
+}
+
+// monGuidance is the one-time instruction that rides the first comment event.
+func monGuidance(file, stamp, as string) string {
+	who := as
+	if who == "" {
+		who = "<your name>"
+	}
+	// forward slashes and plain quotes: %q would escape the backslashes of a
+	// Windows path into something no shell resolves the same way, and a
+	// backslash path handed to a bash-ish shell is how a monitor once ended up
+	// watching a file that did not exist
+	return fmt.Sprintf(`Mark this read BEFORE you answer it: remark seen "%s" "%s" -as "%s" — `+
+		"on receipt, so a long reply never leaves the comment looking unread. "+
+		"Said once: it holds for every comment after this one.",
+		filepath.ToSlash(file), stamp, who)
 }
 
 func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
@@ -793,6 +813,11 @@ func runMonitor(args []string) {
 		return s
 	}
 
+	// the first comment this monitor delivers carries the read-marker
+	// instruction: an agent that answers a long question first and marks it
+	// read afterwards leaves the human staring at an unanswered comment. Said
+	// once per monitor — after that the agent knows.
+	guided := false
 	for {
 		time.Sleep(*interval)
 		for _, f := range files {
@@ -881,6 +906,10 @@ func runMonitor(args []string) {
 					}
 				}
 				emitted = true
+				if !guided && ev.Type == "comment" && ev.Time != "" {
+					guided = true
+					ev.Guidance = monGuidance(f, ev.Time, *as)
+				}
 				if *asJSON {
 					j, _ := json.Marshal(ev)
 					fmt.Println(string(j))
@@ -924,6 +953,9 @@ func runMonitor(args []string) {
 						ctx += " › " + ev.Thread
 					}
 					outCh <- fmt.Sprintf("%s %s | %s | %s: %s%s", mark, ev.File, ctx, ev.Author, oneLine(ev.Text), suffix)
+					if ev.Guidance != "" {
+						outCh <- "↳ " + ev.Guidance
+					}
 				}
 			}
 			if emitted {

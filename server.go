@@ -650,12 +650,9 @@ func newMux() *http.ServeMux {
 	// will not re-raise its own "allow access" alert once any rule exists, so
 	// remark asks for consent once (UAC) and writes the rule itself
 	mux.HandleFunc("POST /api/firewall/allow", authed(func(w http.ResponseWriter, r *http.Request) {
-		rec, alive := gatewayReadRecord()
-		port := rec.Port
-		if !alive {
-			port = 0
-		}
-		if err := firewallRequestAllow(port); err != nil {
+		// the rule is scoped to the binary, not to a port: the gateway picks a
+		// new port freely and the permission still holds
+		if err := firewallRequestAllow(); err != nil {
 			jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}

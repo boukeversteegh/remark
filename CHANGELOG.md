@@ -5,6 +5,17 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-10
+
+### An opened bookmark always shows its thread
+The outline lists a bookmarked thread whatever the filters say, but opening a resolved one while "Show resolved" was off landed you nowhere: the board had dropped it. Being sent to a comment now outranks the resolved filter — for bookmarks, notifications and #r links alike — and the exemption covers just that thread, until you toggle the filter again.
+
+### A thread started under a tag filter opens with the tag in the draft
+Rather than adding the filter's tags when you send, the composer now opens with them on their own line at the bottom and the caret above them: plain text you can edit or delete like any other, and the thread stays in the view it was written in.
+
+### A monitor tells an agent to mark a comment read first
+The first comment a monitor delivers carries the instruction to write the read-marker before answering, with the exact remark seen command for that comment — as a "guidance" field in -json and a line under the plain event. It is said once per monitor; agents were answering long questions first and marking them read afterwards, which leaves a comment looking untouched.
+
 ## 2026-09-09
 
 ### A thread started under a tag filter joins it

@@ -3078,12 +3078,14 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 14:37:36): Built and installed. @Name renders as a person chip whenever the name is a known author of the document - matched longest-first so multi-word names like mine win, with a word-boundary guard so @Meta never counts as @Me and mail@bob.example stays an address. Your own name wears the stronger accent, so where YOU are addressed jumps out while scanning; code spans, code blocks and links are left alone, and unknown names stay plain text. Test mentions covers all of it; 32 of 32 pass.
 
-- [ ] Bouke (2026-09-08 15:57:58): **UTF-8 BOM breaks the first header** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-08 15:57:58): **UTF-8 BOM breaks the first header** <!--thread--> <!--seen:🤖 Claude-->
   UTF-BOM not handled. When BOM is present, the first `# Header` doesn't render as a real header.
 
   - 🤖 Claude (2026-09-08 15:58:43): Claiming. The BOM will be treated like the line-ending style already is: stripped before any parsing (window and CLI alike, so the first header renders and sections resolve) and put back on every save, so the file keeps its signature byte-for-byte. <!--seen:Bouke-->
 
-  - 🤖 Claude (2026-09-08 16:05:55): Fixed and installed. The BOM now travels exactly like the line-ending style: detected on load, stripped before any parsing - window, CLI verbs, and the monitor alike, so the first # Header renders and section names resolve - and restored on every save, so the file keeps its signature byte-for-byte whether the window or a CLI verb wrote it. The test opens a BOM'd file, checks the heading renders, then round-trips a CLI reply and a window save and asserts the BOM survives both. 33 of 33 pass.
+  - 🤖 Claude (2026-09-08 16:05:55): Fixed and installed. The BOM now travels exactly like the line-ending style: detected on load, stripped before any parsing - window, CLI verbs, and the monitor alike, so the first # Header renders and section names resolve - and restored on every save, so the file keeps its signature byte-for-byte whether the window or a CLI verb wrote it. The test opens a BOM'd file, checks the heading renders, then round-trips a CLI reply and a window save and asserts the BOM survives both. 33 of 33 pass. <!--seen:Bouke-->
+
+  - Bouke (2026-09-10 10:28:02): not verified, assuming this works and will reopen if not.
 
 - [x] Bouke (2026-09-08 16:01:54): **Syntax highlighting for code blocks** <!--thread--> <!--seen:🤖 Claude-->
   Please implement syntax highlighting for code blocks
@@ -3122,6 +3124,44 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 - [ ] Bouke (2026-09-09 16:25:56): **A thread created under a filter gets its tags** <!--thread--> <!--seen:🤖 Claude-->
   Creating a thread while a tag filter is on should tag that thread
 
-  - 🤖 Claude (2026-09-09 16:26:18): Claiming. It should also be visible rather than magic: the composer will say which tags the new thread is getting, so you can see it before you send and delete the token if you disagree. Only new threads - a reply already stays visible through its thread. Test and changelog included.
+  - 🤖 Claude (2026-09-09 16:26:18): Claiming. It should also be visible rather than magic: the composer will say which tags the new thread is getting, so you can see it before you send and delete the token if you disagree. Only new threads - a reply already stays visible through its thread. Test and changelog included. <!--seen:Bouke-->
 
-  - 🤖 Claude (2026-09-09 16:30:52): Built and installed. A thread you start while a filter is on now carries that filter's tags, written into your own text as a tag row at the end - so it stays in the view you wrote it in instead of vanishing on send, and the tag is yours (removable with the x on its chip, like any tag you type). The composer tells you first: it shows 'Tagged #alpha - the filter you are writing in' under the text, and that note disappears the moment your own text already carries the tag, so typing it yourself never doubles it. Replies are untouched, since a reply stays visible through its thread anyway. Test filter-tag-inherit covers the whole path: the note appearing and shrinking, the tag reaching the file, the new thread still on screen under the filter, and a reply left alone. 38 of 38 UI tests plus the Go units pass.
+  - 🤖 Claude (2026-09-09 16:30:52): Built and installed. A thread you start while a filter is on now carries that filter's tags, written into your own text as a tag row at the end - so it stays in the view you wrote it in instead of vanishing on send, and the tag is yours (removable with the x on its chip, like any tag you type). The composer tells you first: it shows 'Tagged #alpha - the filter you are writing in' under the text, and that note disappears the moment your own text already carries the tag, so typing it yourself never doubles it. Replies are untouched, since a reply stays visible through its thread anyway. Test filter-tag-inherit covers the whole path: the note appearing and shrinking, the tag reaching the file, the new thread still on screen under the filter, and a reply left alone. 38 of 38 UI tests plus the Go units pass. <!--seen:Bouke-->
+
+  - Bouke (2026-09-10 10:27:33): Interesting. how about just prefilling the reply box with `#tag` with a preceeding newline, so you can just type above it. i think this is even more straightforward. <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-10 10:28:01): Agreed, that is better - the tag stops being something the tool adds at send time and becomes just text sitting in your draft, which you can edit or delete like anything else. Switching to it: the new-thread composer opens prefilled with the tag on its own line at the bottom, caret at the top, and the hint line and the append-on-send both go away. Rebuilding now. <!--seen:Bouke-->
+
+    - 🤖 Claude (2026-09-10 10:48:10): Done and installed, your way. Opening a new-thread composer under a filter now seeds the draft with the tag on its own line at the bottom and puts the caret above it, so you just type. Nothing happens at send time any more: the tag is ordinary text in your draft, so deleting it opts out and editing it does what it looks like. The hint line and the append-on-send are both gone.
+
+- [ ] Bouke (2026-09-10 09:20:06): Landing page shows 600 unread on this file but when i open the file, i just see 23 unread <!--thread-->
+
+- [ ] Bouke (2026-09-10 09:20:45): monitor -h doesn't explain what monitor is for and how to use it (main help does, separate help document does. i think this should just all be in monitor, and if it doesn't fit, at least pointers to the canonical help should exist) <!--thread-->
+
+- [ ] Bouke (2026-09-10 09:26:44): agents keep posting comments as subthreads to my posts. the ui already guides users to linear replies unless a user explicitly clicks reply within the comment's header. <!--thread-->
+  i want to make the same distinction for agents.
+
+  the flow should be clear to agents:
+  - a comment event posted through the monitor carries its own id (and possibly the breadcrumbs, but not implying they should be used for replying)
+  - the agent should in general be instructed to reply with that id
+  - the reply verb should by default post the comment as a sibling to the replied-to-message's parent, unless the message has no parent since its a root thread, then it becomes a child (logically)
+  - an argument should be added like --subthread to nest the reply. the help text should include guidance on when to use it, for example when replying to an older comment buried between others, or when the comment is offtopic from the main line of conversation or would disrupt the main flow, or when it can be answered later at a lower priority or is just a FYI/side-note. etc.
+  - when replying to interjections, the behavior should be the same as the interface currently does (i.e. interjections are not considered to have a parent, their parent is the anchor in the text, so they only receive child comments, if i'm not mistaken this is how it currently works)
+
+- [ ] Bouke (2026-09-10 10:26:12): **An opened bookmark must show its thread** <!--thread--> <!--seen:🤖 Claude-->
+  when opening a bookmarked thread that's already resolved and "Show resolved" is off, I don't see the thread. Please ensure that opened bookmarks always show the thread
+
+  - 🤖 Claude (2026-09-10 10:26:31): Claiming. The outline already lists a bookmarked thread whatever the filters say, but opening it lands you on a thread the board is hiding - so the reveal has to reach the board too. Fixing that, with a test.
+
+  - 🤖 Claude (2026-09-10 10:48:09): Fixed and installed. Being sent to a comment now outranks the resolved filter: the outline was already listing your bookmarked thread, but the board had dropped it, so the jump landed on nothing at all. The exemption is per thread and lasts until you toggle Show resolved again - the filter itself is untouched, and nothing else resolved comes back into view. It applies to every explicit jump, not just bookmarks: notifications and #r links had the same hole. I checked the test actually catches the bug by reverting the fix - it fails with the thread absent from the board, exactly your report.
+
+- [ ] Bouke (2026-09-10 10:36:32): **Monitor tells an agent to mark seen first** <!--thread--> <!--seen:🤖 Claude-->
+  please provide guidance in monitor events. upon the first event that notifies of a new comment, include a message that they should immediately mark the comment as seen, before responding. no need to repeat this each time.
+
+  - 🤖 Claude (2026-09-10 10:40:10): Claiming. The first comment event a monitor delivers will carry the instruction - a guidance field in the -json object and a line under the plain event - naming the exact remark seen command for that comment, and it will not repeat for the rest of that monitor's life.
+
+  - 🤖 Claude (2026-09-10 10:48:11): Built and installed. The first comment any monitor delivers now carries the instruction, and only that one: in -json it is a "guidance" field on the event, and the plain feed prints it as a line under the event. It spells the exact command for that very comment — `remark seen "<file>" "<stamp>" -as "<name>"` — and says to do it on receipt, before answering, since a long reply otherwise leaves your comment looking untouched.
+
+    The path in it is written with forward slashes on purpose: a backslash path is what a bash-ish shell ate once, leaving a monitor cheerfully watching a file that did not exist.
+
+    Two tests cover it — one checks the wording and refuses any backslash, the other runs a real monitor process against a temp file and proves the second comment does NOT repeat the instruction. `remark help monitor` documents the field.

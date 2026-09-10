@@ -1362,8 +1362,6 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
   font: 600 14px/1.4 var(--font-display);
 }
 .editor .etitle:focus { outline: 2px solid var(--accent); border-color: transparent; }
-/* which tags a thread born under a filter will carry */
-.editor .etaghint { color: var(--muted); font-size: 11.5px; padding: 5px 2px 0; }
 .editor .etitle::placeholder { font-weight: 400; color: var(--faint); }
 .editor textarea {
   width: 100%; min-height: 92px; max-height: 340px; resize: vertical; overflow-y: auto;

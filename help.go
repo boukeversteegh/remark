@@ -159,7 +159,9 @@ with <mark>: 💬 comment, ☑/☐ toggle, 👁 read marker, 🏷 tags changed.
 
 -json emits one NDJSON object per event: type ("comment"|"toggle"|
 "seen"|"stamped"|"tag"|"self"), file, author, text, time, checked,
-reader, seenBy, section, thread, root, parent, tags.
+reader, seenBy, section, thread, root, parent, tags. The FIRST comment
+also carries "guidance": mark it read with remark seen before you answer
+it. That holds for every comment after it, so it is said once.
   * "root" is the thread root's stamp: remark read <file> <root> prints
     the whole thread; "parent" is the comment this one answers. Reply to
     root to answer flat, to time for a side thread.

@@ -160,7 +160,7 @@ func firewallProbe(port int) firewallState {
 // remark usually has one for the wrong profile — so one elevation prompt is
 // the closest honest equivalent. netsh does the writing: it needs no
 // PowerShell policy and speaks the same words on every locale.
-func firewallRequestAllow(port int) error {
+func firewallRequestAllow() error {
 	exe, err := os.Executable()
 	if err != nil {
 		return err

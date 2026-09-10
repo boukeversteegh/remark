@@ -1,6 +1,7 @@
-// a thread started while a tag filter is on carries that filter's tags —
-// otherwise it vanishes from the view the moment it is sent — and the
-// composer names them first, so nothing is written behind your back
+// a thread started while a tag filter is on opens with that filter's tags
+// already in the draft — plain text, caret above them — so it does not vanish
+// from the view the moment it is sent, and deleting the token is enough to
+// opt out. Replies are left alone.
 const { assert, assertEq } = require('../helpers');
 
 module.exports = async ctx => {
@@ -20,54 +21,41 @@ module.exports = async ctx => {
   await page.waitForTimeout(300);
   await page.evaluate(() => document.querySelector('#doc .newthreadbtn').click());
   await page.waitForSelector('.editor[data-key^="new:"] textarea', { timeout: 4000 });
+  await page.waitForTimeout(300);
 
-  // the composer says which tags it will add, and stops saying it once the
-  // text carries them already
-  const hint = () => page.evaluate(() => {
-    const h = document.querySelector('.editor[data-key^="new:"] .etaghint');
-    return h && h.style.display !== 'none' ? h.textContent : '';
+  // the tag sits in the draft, on its own line, with the caret above it
+  const seed = await page.evaluate(() => {
+    const ta = document.querySelector('.editor[data-key^="new:"] textarea');
+    return { value: ta.value, start: ta.selectionStart, focused: document.activeElement === ta };
   });
-  assert(/#alpha/.test(await hint()), 'the composer names the inherited tag: ' + JSON.stringify(await hint()));
-  await page.fill('.editor[data-key^="new:"] textarea', 'already mine #alpha');
-  await page.waitForTimeout(150);
-  assertEq(await hint(), '', 'the note goes when you type the tag yourself');
+  assertEq(seed.value, '\n\n#alpha', 'the composer opens with the tag below an empty line');
+  assert(seed.focused && seed.start === 0, 'the caret waits above the tag: ' + JSON.stringify(seed));
 
-  await page.fill('.editor[data-key^="new:"] textarea', 'BORN-UNDER-FILTER');
+  // typing at the caret puts the text above the tag, and sending keeps both
+  await page.keyboard.type('BORN-UNDER-FILTER');
   await page.waitForTimeout(150);
-  assert(/#alpha/.test(await hint()), 'and comes back when it is gone again');
+  const typed = await page.evaluate(() =>
+    document.querySelector('.editor[data-key^="new:"] textarea').value);
+  assertEq(typed, 'BORN-UNDER-FILTER\n\n#alpha', 'the text lands above the tag');
   await page.click('.editor[data-key^="new:"] button.send');
   await page.waitForTimeout(1500);
 
   const md = ctx.read(doc);
   assert(md.includes('BORN-UNDER-FILTER'), 'the thread was written');
-  const line = md.split('\n').find(l => l.includes('BORN-UNDER-FILTER')) || '';
-  const block = md.slice(md.indexOf('BORN-UNDER-FILTER'));
-  assert(/#alpha/.test(line) || /#alpha/.test(block.split('\n').slice(0, 4).join('\n')),
-    'the new thread carries #alpha:\n' + block.split('\n').slice(0, 4).join('\n'));
+  const block = md.slice(md.indexOf('BORN-UNDER-FILTER')).split('\n').slice(0, 4).join('\n');
+  assert(/#alpha/.test(block), 'the new thread carries #alpha:\n' + block);
 
-  // and it stays in view: the filter is still on and the thread is on screen
-  const seen = await page.evaluate(() => ({
-    filtered: [...document.querySelectorAll('#doc .thread')].map(t => t.textContent),
-    chips: [...document.querySelectorAll('#doc .tagchip')].map(c => c.textContent),
-  }));
-  assert(seen.filtered.some(t => t.includes('BORN-UNDER-FILTER')),
+  // and it is still on screen: the filter is on and the thread matches it
+  const shown = await page.evaluate(() =>
+    [...document.querySelectorAll('#doc .thread')].map(t => t.textContent));
+  assert(shown.some(t => t.includes('BORN-UNDER-FILTER')),
     'the thread it just wrote is still visible under the filter');
 
-  // a REPLY under a filter is left alone — its thread already matches
-  await page.evaluate(() => toggleTag('alpha')); // clear
-  await page.waitForTimeout(200);
-  await page.evaluate(() => toggleTag('alpha'));
-  await page.waitForTimeout(300);
+  // a reply composer gets no seed at all
   await page.focus('#r20260901100000 > .cfoot .replyseed');
   await page.waitForSelector('#r20260901100000 > .editor textarea', { timeout: 4000 });
-  const replyHint = await page.evaluate(() =>
-    !!document.querySelector('#r20260901100000 > .editor .etaghint'));
-  assert(!replyHint, 'replies get no inherited tags');
-  await page.fill('#r20260901100000 > .editor textarea', 'PLAIN-REPLY');
-  await page.click('#r20260901100000 > .editor button.send');
-  await page.waitForTimeout(1500);
-  const after = ctx.read(doc);
-  const rline = after.split('\n').find(l => l.includes('PLAIN-REPLY')) || '';
-  assert(!/#alpha/.test(rline), 'the reply text was not touched: ' + rline);
+  const replySeed = await page.evaluate(() =>
+    document.querySelector('#r20260901100000 > .editor textarea').value);
+  assertEq(replySeed, '', 'replies are not seeded with the filter tags');
   await page.close();
 };

@@ -28,6 +28,8 @@ const S = {
   known: null,            // Set of item keys seen in previous render
   focusMemo: null,
   tagFilter: new Set(),   // active tag filter (AND); session-only, never persisted
+  reveal: new Set(),      // root times an explicit jump keeps in view past the
+                          // resolved filter (bookmarks, notifications, #r links)
 };
 
 const $ = (s, el) => (el || document).querySelector(s);
@@ -878,7 +880,8 @@ function render() {
       // point at nothing; and never under a tag filter, which asks for
       // these threads by name
       if (S.hideResolved && !tagKeep && block.thread.resolvable && effChecked(block.thread) &&
-          threadStats(block.thread).unread === 0 && !hasOpenNested(block.thread)) continue;
+          threadStats(block.thread).unread === 0 && !hasOpenNested(block.thread) &&
+          !(block.thread.time && S.reveal.has(block.thread.time))) continue;
       clusterThreads++;
       const card = buildThread(block);
       if (S.mode === 'margin') {
@@ -985,7 +988,12 @@ function render() {
     const ed = $('.editor[data-key="' + CSS.escape(S.pendingFocus) + '"] textarea');
     if (ed) {
       ed.focus();
-      try { ed.setSelectionRange(ed.value.length, ed.value.length); } catch (e) {}
+      // normally the caret waits at the end; a composer opened with inherited
+      // tags puts it at the top, above them
+      const top = S.caretTop === S.pendingFocus;
+      const at = top ? 0 : ed.value.length;
+      try { ed.setSelectionRange(at, at); } catch (e) {}
+      if (top) S.caretTop = null;
     }
     S.pendingFocus = null;
   }
@@ -1745,6 +1753,19 @@ function buildEditor(key, target) {
   // is shown it takes the title line, the textarea gets the rest
   const editPrefill = isEdit ? (titleIn ? target.rawBody.replace(/^\*\*[^\n]*\*\*\n?/, '') : target.rawBody) : '';
   ta.value = isEdit && !(key in S.drafts) ? editPrefill : (S.drafts[key] || '');
+  // a thread started under a tag filter would vanish from the view the moment
+  // it is sent, so the composer opens with the filter's tags already in the
+  // draft, on their own line, and the caret above them: plain text you can
+  // edit or delete like any other, rather than something added at send time
+  if (isNewThread && !(key in S.drafts)) {
+    const inherit = filterTagsFor('');
+    if (inherit.length) {
+      ta.value = '\n\n' + inherit.map(t => '#' + t).join(' ');
+      S.drafts[key] = ta.value;
+      S.caretTop = key; // you write ABOVE the tags, so the caret starts there
+      persistDrafts();
+    }
+  }
   const autosize = () => {
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight + 2, 340) + 'px';
@@ -1796,26 +1817,6 @@ function buildEditor(key, target) {
   // (names may hold spaces or emoji) — the literal form a scoped monitor
   // listens for
   mountMentionPicker(ta);
-
-  // a thread started under a tag filter inherits its tags, or it would
-  // disappear the moment it is sent. Nothing is added behind your back: the
-  // note names them, and it shrinks as you type them yourself
-  let tagNote = null;
-  const updateTagNote = () => {
-    if (!tagNote) return;
-    const inherit = filterTagsFor(ta.value);
-    tagNote.textContent = inherit.length
-      ? 'Tagged #' + inherit.join(' #') + ' — the filter you are writing in'
-      : '';
-    tagNote.style.display = inherit.length ? '' : 'none';
-  };
-  if (isNewThread && S.tagFilter.size) {
-    tagNote = document.createElement('div');
-    tagNote.className = 'etaghint';
-    wrap.appendChild(tagNote);
-    ta.addEventListener('input', updateTagNote);
-    updateTagNote();
-  }
 
   const preview = document.createElement('div');
   preview.className = 'epreview cbody';
@@ -1993,16 +1994,6 @@ function buildEditor(key, target) {
     } else if (isReply) {
       op = { type: 'reply', parentHash: target.hash, occ: target.occ, author: S.me, text, time: uniqueStamp(), opener: opChk.checked };
     } else {
-      // a thread started while a tag filter is on joins that filter: without
-      // its tags it would vanish from the view the moment it is sent. Written
-      // into your own text as a tag row, so it reads the same as any tag you
-      // type — and the composer said which ones before you sent.
-      const inherit = filterTagsFor(text);
-      if (inherit.length) {
-        const lastLine = text.split('\n').pop() || '';
-        text += (RvParser.isBareTags(lastLine) ? ' ' : (text ? '\n\n' : '')) +
-          inherit.map(t => '#' + t).join(' ');
-      }
       // find nearest preceding heading for the fallback anchor
       const bi = S.parsed.blocks.indexOf(target);
       let sectionHash = null;
@@ -2234,6 +2225,12 @@ function jumpUnread() {
 // expands the path to a comment, scrolls to it and flashes its card
 function revealItem(it) {
   for (let p = it; p; p = p.parent) S.collapsed.set(p.key, false);
+  // being sent to a comment outranks the resolved filter: a bookmark, a
+  // notification or an #r link must land on its thread, not on nothing. The
+  // exemption lasts until the filter is toggled again.
+  let root = it;
+  while (root.parent) root = root.parent;
+  if (root.time) S.reveal.add(root.time);
   render();
   const el = $('[data-ikey="' + CSS.escape(it.key) + '"]');
   if (!el) return;
@@ -4239,6 +4236,7 @@ function wireTopbar() {
   hrBtn.addEventListener('click', () => {
     S.hideResolved = !S.hideResolved;
     setPref('hideResolved', S.hideResolved);
+    S.reveal.clear(); // the filter is being set afresh: no leftover exemptions
     syncHideResolved();
     render();
   });
