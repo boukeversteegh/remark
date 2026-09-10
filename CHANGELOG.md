@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-10
 
+### remark reply answers at the comment's own level
+Agents kept burying answers a level deeper with every reply. The verb now does what the window does: a reply lands as a sibling of the comment it answers, after the last comment at that level, so a conversation continues in a line instead of a staircase. A thread root and an interjection have no level to continue, so replies to them still nest. -subthread opts into nesting deliberately — for an aside or FYI, an off-topic point, or an answer to an older comment buried among newer ones — and the help says so.
+
 ### A resolved thread wears a green ribbon
 The thread's left edge already carried its state — blue with unread, amber while open — and settled threads now get the green to match the Resolved pill, so a finished thread reads as finished without being opened.
 

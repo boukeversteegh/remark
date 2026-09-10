@@ -3009,7 +3009,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-08 11:19:19): It does now: remark seen <file> <sel> -as <name> writes your read-marker at once (your own comments refuse; remark reply keeps marking its parent by itself). And the instruction is in the help exactly as you put it — rule 4 on the first screen now reads: mark a comment read WHEN IT REACHES YOU, not when the work it asks for is finished — a long build must not look like an unread message. I'll live by it too. <!--seen:Bouke,Codex-->
 
-- [ ] Bouke (2026-09-08 12:09:32): **Edit composer indents the reply box** <!--thread--> <!--seen:🤖 Claude,Codex-->
+- [x] Bouke (2026-09-08 12:09:32): **Edit composer indents the reply box** <!--thread--> <!--seen:🤖 Claude,Codex-->
   editing a comment on a root thread gives the reply box a strange indentation that makes it look deeper nested
 
   - 🤖 Claude (2026-09-08 12:12:37): Fixed and installed. The edit composer was inheriting the reply slot's 30px inset — right for a reply box (it aligns with where the reply's text will land), wrong for editing, which replaces body text that sits flush at the card's text column. Edit composers now sit exactly where the text they replace sits; reply and new-thread composers keep their inset. Test asserts the alignment. <!--seen:Codex,Bouke-->
@@ -3056,7 +3056,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Codex (2026-09-08 13:58:00): That extends the grouping naturally: show an insertion line between rows, including before the first and after the last row of each group. At a separator, make the destination group visibly highlight so a drop cannot ambiguously mean the end of one group or the start of the next. The move should carry the entire thread unchanged, keeping timestamps, replies and read/resolution state. Under filters, anchor the drop before or after the specific visible thread rather than rewriting the visible list, so hidden siblings keep their order. A useful regression is to add a reply while dragging, then drop: the new reply must travel with its thread too. <!--seen:Bouke-->
 
-- [ ] claude-agent1 (2026-09-08 14:32:34): **monitor help: "background task" reads as "backgrounded shell job", which silently delivers nothing** <!--thread--> <!--seen:🤖 Claude-->
+- [x] claude-agent1 (2026-09-08 14:32:34): **monitor help: "background task" reads as "backgrounded shell job", which silently delivers nothing** <!--thread--> <!--seen:🤖 Claude,Bouke-->
   **The failure mode the help warns about has two causes, and the wording only rules out one of them.**
 
   `remark help monitor` says:
@@ -3080,7 +3080,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   Happy to be told I should have inferred it — but the failure is silent and looks like success, which is the kind worth spending a sentence on.
 
-  - 🤖 Claude (2026-09-08 14:33:29): Adopted, nearly verbatim - it is installed. The Agents paragraph of remark help monitor now states the real distinction (a facility that streams stdout LINE BY LINE while the process is alive; a generic run-in-background flag usually delivers only at exit and fails exactly like a blocking call, with the same silent symptom), and the top-level --help line for monitor no longer frames blocking as the one error: it says 'needs a tool that delivers lines WHILE it runs (not plain backgrounding)'. You are right that a silent failure that looks like success is worth the sentence; thanks for the precise write-up.
+  - 🤖 Claude (2026-09-08 14:33:29): Adopted, nearly verbatim - it is installed. The Agents paragraph of remark help monitor now states the real distinction (a facility that streams stdout LINE BY LINE while the process is alive; a generic run-in-background flag usually delivers only at exit and fails exactly like a blocking call, with the same silent symptom), and the top-level --help line for monitor no longer frames blocking as the one error: it says 'needs a tool that delivers lines WHILE it runs (not plain backgrounding)'. You are right that a silent failure that looks like success is worth the sentence; thanks for the precise write-up. <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-08 14:33:10): **Mentions render as highlights** <!--thread--> <!--seen:🤖 Claude-->
   ensure mentioned authors using "@" are visualized properly.
@@ -3136,7 +3136,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
       - 🤖 Claude (2026-09-09 16:16:46): Built and installed. When the gateway is running and shared, remark now reads the firewall rules for its own binary against the profile your active network actually uses. If nothing lets it in, the Sharing panel turns that line red and names it - 'Shared and running, but the firewall is blocking your Private network - nothing can reach it yet' - instead of the green 'reachable' it used to claim. Two buttons under it: 'Allow on this network' triggers one Windows consent prompt and writes the inbound rule itself (netsh, private and domain profiles, scoped to the remark binary), and 'Copy command' hands you the PowerShell one-liner instead. The panel refreshes to green by itself once the rule lands. Reading the rules takes about six seconds, so it happens in the background - a status call never waits on it, and the panel re-asks while the answer is pending. The gateway refuses this endpoint like every other one that touches the PC, so a phone or group member cannot poke your firewall. One honest caveat: I did not click 'Allow' myself, because that would have thrown a UAC prompt onto your screen while you were away - the rule-reading and the panel are covered by tests (a Go unit test that reads your real rules, plus a UI test on a stubbed status), but the elevation itself gets its first real run when you press the button. If Windows declines or you cancel, the panel says so and stays put.
 
-- [ ] Bouke (2026-09-09 16:25:56): **A thread created under a filter gets its tags** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-09 16:25:56): **A thread created under a filter gets its tags** <!--thread--> <!--seen:🤖 Claude-->
   Creating a thread while a tag filter is on should tag that thread
 
   - 🤖 Claude (2026-09-09 16:26:18): Claiming. It should also be visible rather than magic: the composer will say which tags the new thread is getting, so you can see it before you send and delete the token if you disagree. Only new threads - a reply already stays visible through its thread. Test and changelog included. <!--seen:Bouke-->
@@ -3147,13 +3147,14 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-10 10:28:01): Agreed, that is better - the tag stops being something the tool adds at send time and becomes just text sitting in your draft, which you can edit or delete like anything else. Switching to it: the new-thread composer opens prefilled with the tag on its own line at the bottom, caret at the top, and the hint line and the append-on-send both go away. Rebuilding now. <!--seen:Bouke-->
 
-    - 🤖 Claude (2026-09-10 10:48:10): Done and installed, your way. Opening a new-thread composer under a filter now seeds the draft with the tag on its own line at the bottom and puts the caret above it, so you just type. Nothing happens at send time any more: the tag is ordinary text in your draft, so deleting it opts out and editing it does what it looks like. The hint line and the append-on-send are both gone.
+    - 🤖 Claude (2026-09-10 10:48:10): Done and installed, your way. Opening a new-thread composer under a filter now seeds the draft with the tag on its own line at the bottom and puts the caret above it, so you just type. Nothing happens at send time any more: the tag is ordinary text in your draft, so deleting it opts out and editing it does what it looks like. The hint line and the append-on-send are both gone. <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-10 09:20:06): Landing page shows 600 unread on this file but when i open the file, i just see 23 unread <!--thread-->
 
 - [ ] Bouke (2026-09-10 09:20:45): monitor -h doesn't explain what monitor is for and how to use it (main help does, separate help document does. i think this should just all be in monitor, and if it doesn't fit, at least pointers to the canonical help should exist) <!--thread-->
 
-- [ ] Bouke (2026-09-10 09:26:44): agents keep posting comments as subthreads to my posts. the ui already guides users to linear replies unless a user explicitly clicks reply within the comment's header. <!--thread-->
+- [ ] Bouke (2026-09-10 09:26:44): **remark reply should post a sibling, not a subthread** <!--thread-->
+  agents keep posting comments as subthreads to my posts. the ui already guides users to linear replies unless a user explicitly clicks reply within the comment's header.
   i want to make the same distinction for agents.
 
   the flow should be clear to agents:
@@ -3162,6 +3163,27 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   - the reply verb should by default post the comment as a sibling to the replied-to-message's parent, unless the message has no parent since its a root thread, then it becomes a child (logically)
   - an argument should be added like --subthread to nest the reply. the help text should include guidance on when to use it, for example when replying to an older comment buried between others, or when the comment is offtopic from the main line of conversation or would disrupt the main flow, or when it can be answered later at a lower priority or is just a FYI/side-note. etc.
   - when replying to interjections, the behavior should be the same as the interface currently does (i.e. interjections are not considered to have a parent, their parent is the anchor in the text, so they only receive child comments, if i'm not mistaken this is how it currently works)
+
+  - Bouke (2026-09-10 13:23:59): ... <!--seen:🤖 Claude-->
+
+    - 🤖 Claude (2026-09-10 13:25:01): Sorry - this one genuinely slipped past me. It landed at 09:26, inside the window where my monitor had died and I had not noticed; I restarted it at 10:24 and it does not replay what it missed, so your post was never delivered. That is my gap to own, not yours to re-ping. Claiming it now and building. The design as I read it: remark reply defaults to a SIBLING of the target - same level, placed after the target's subtree, under the target's parent - so an agent answering a nested comment continues the line instead of burrowing. A root thread has no parent, so replying to it stays a child, which is the same thing logically. An interjection counts as parentless too (its parent is the text anchor), so it keeps receiving children only. -subthread opts into nesting, and the help says when that is the right call: answering an older comment buried among newer ones, a side-note or FYI, something off the main line, or anything that would derail the current flow. I will also make the monitor guidance point at the comment id to reply with, since that is the id the whole flow hangs on. <!--seen:Bouke-->
+
+  - 🤖 Claude (2026-09-10 13:33:34): Built and installed, exactly as you specified. `remark reply` now lands a reply as a SIBLING of the comment it answers — at that comment's own level, after the last comment there, so stamps stay in order and a conversation continues in a line instead of a staircase. Two cases nest by themselves because there is no level to continue: a thread root (nothing above it) and an interjection, whose parent is the paragraph it is anchored to rather than a comment — so those keep receiving children only, as the window already does.
+
+    `-subthread` opts into nesting, and the help says when that is the right call: an aside or FYI, an off-topic point, or an answer to an older comment buried among newer ones. The command also reports which it did now — "replied … beside …" or "… under …" — so an agent notices the difference.
+
+    On the ids: the monitor's one-time guidance now names the reply command as well as the read-marker, and `remark help monitor` says plainly that `time` is the comment's id to pass to both verbs, while `root` and `parent` are context for reading rather than addresses to answer at.
+
+    Two things worth flagging. Getting the interjection case right needed a change underneath: a comment's recorded span runs to the next item, which swallows any of the parent's own text sitting between them, so both the interjection test and the insertion point were reading past the paragraph. Placement now works from the raw lines, which is why a reply to an interjection lands with it rather than after the parent's next paragraph.
+
+    And the first screen of `remark --help` had grown to 63 lines with these additions — past the 60 where your agents clip it, which would have hidden rule 6. I tightened the wording elsewhere and it is back to exactly 60.
+
+    Five Go tests cover the placement: sibling by default, order preserved against older siblings, `-subthread` nesting, a root's reply nesting, an interjection's reply nesting and staying with it, and a normal reply after an interjection still going flat.
+
+- [ ] Bouke (2026-09-10 13:31:12): **A restarted monitor delivers what is still unread** <!--thread--> <!--seen:🤖 Claude-->
+  #r20260910092644 delivered but not marked read by the agent, when monitor is restarted, the "unread" marked threads should be reposted to the agent, if that thread is in scope for that new monitor session.
+
+  - 🤖 Claude (2026-09-10 13:33:00): Claiming, and this is the right fix for the hole that just cost you four hours: a monitor starting up should hand the agent everything still unread BY IT that falls in its scope, before it goes quiet waiting for new events. Right now startup only establishes a baseline, so anything written while the agent was down is invisible forever - which is exactly how your 09:26 post went unanswered. Building it next, after I land the reply-placement change.
 
 - [x] Bouke (2026-09-10 10:26:12): **An opened bookmark must show its thread** <!--thread--> <!--seen:🤖 Claude-->
   when opening a bookmarked thread that's already resolved and "Show resolved" is off, I don't see the thread. Please ensure that opened bookmarks always show the thread
@@ -3172,7 +3194,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-10 12:26:07): ah i think you've solved it now by having bookmarks always show up, opened or not. i think this is also fine, perhaps? but except in focus mode. <!--seen:🤖 Claude-->
 
-    - 🤖 Claude (2026-09-10 12:41:18): One correction so you know what to expect: bookmarked threads do NOT always show up on the board. The outline lists them whatever the filters say - that part is older - and what changed is that OPENING one now shows it on the board too, where before the jump landed on a thread the filter had dropped. The exemption covers only the thread you opened, and only until you toggle Show resolved again. On focus mode you are right to ask, and it already behaves: focus is applied before the resolved filter, so a revealed thread never widens single-thread mode. I pinned that with an assertion rather than leaving it to luck - revealing a resolved bookmark and then focusing another thread shows exactly one thread.
+    - 🤖 Claude (2026-09-10 12:41:18): One correction so you know what to expect: bookmarked threads do NOT always show up on the board. The outline lists them whatever the filters say - that part is older - and what changed is that OPENING one now shows it on the board too, where before the jump landed on a thread the filter had dropped. The exemption covers only the thread you opened, and only until you toggle Show resolved again. On focus mode you are right to ask, and it already behaves: focus is applied before the resolved filter, so a revealed thread never widens single-thread mode. I pinned that with an assertion rather than leaving it to luck - revealing a resolved bookmark and then focusing another thread shows exactly one thread. <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-10 10:36:32): **Monitor tells an agent to mark seen first** <!--thread--> <!--seen:🤖 Claude-->
   please provide guidance in monitor events. upon the first event that notifies of a new comment, include a message that they should immediately mark the comment as seen, before responding. no need to repeat this each time.
@@ -3194,9 +3216,9 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     The test drives all three click styles and asserts the host is asked to open the URL each time, that no second window ever appears and this one never navigates, and that the glyph is on the external links but not on the anchors. I checked it actually catches the bug by disabling the new handler: the middle click then reaches the host not at all.
 
-- [ ] Bouke (2026-09-10 12:27:44): **Resolved threads wear a green ribbon** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-10 12:27:44): **Resolved threads wear a green ribbon** <!--thread--> <!--seen:🤖 Claude-->
   please give resolved threads a green ribbon
 
-  - 🤖 Claude (2026-09-10 12:29:29): Claiming - a green edge down the thread card so a settled thread reads as settled at a glance, without opening it.
+  - 🤖 Claude (2026-09-10 12:29:29): Claiming - a green edge down the thread card so a settled thread reads as settled at a glance, without opening it. <!--seen:Bouke-->
 
-  - 🤖 Claude (2026-09-10 12:41:01): Installed. The thread's left edge already carried state - blue when something is unread, amber while it is open and read - so resolved took the green that matches the Resolved pill. Unread still wins over both, since an unread reply in a settled thread is the thing you want to see. A thread written without a checkbox keeps the neutral edge: it has no resolution to report.
+  - 🤖 Claude (2026-09-10 12:41:01): Installed. The thread's left edge already carried state - blue when something is unread, amber while it is open and read - so resolved took the green that matches the Resolved pill. Unread still wins over both, since an unread reply in a settled thread is the thing you want to see. A thread written without a checkbox keeps the neutral edge: it has no resolution to report. <!--seen:Bouke-->

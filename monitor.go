@@ -524,10 +524,14 @@ func monGuidance(file, stamp, as string) string {
 	// Windows path into something no shell resolves the same way, and a
 	// backslash path handed to a bash-ish shell is how a monitor once ended up
 	// watching a file that did not exist
+	f := filepath.ToSlash(file)
 	return fmt.Sprintf(`Mark this read BEFORE you answer it: remark seen "%s" "%s" -as "%s" — `+
 		"on receipt, so a long reply never leaves the comment looking unread. "+
+		`Then answer it by its own id, the "time" of this event: remark reply "%s" "%s" -as "%s" — `+
+		"that lands at the comment's own level, which is where a conversation continues; "+
+		"add -subthread only for an aside, an off-topic point, or an answer to an older buried comment. "+
 		"Said once: it holds for every comment after this one.",
-		filepath.ToSlash(file), stamp, who)
+		f, stamp, who, f, stamp, who)
 }
 
 func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
