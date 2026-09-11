@@ -178,7 +178,7 @@ let PREFS = {};
 // behind the gateway the phone shares the PC's identity (name, aliases)
 // but not its screen: the layout keys live on the device, and the PC's
 // values for them are ignored, so neither side rearranges the other
-const DEVICE_PREFS = ['mode', 'outline', 'outlineAll', 'hideResolved', 'splitPct', 'outlineW'];
+const DEVICE_PREFS = ['mode', 'outline', 'hideResolved', 'splitPct', 'outlineW'];
 // a group member's EVERYTHING lives on their device: name included, and
 // nothing is ever posted back to the owner's prefs (the gateway refuses it)
 const isDevicePref = k => DEVICE_PREFS.includes(k) || !!(PREFS && PREFS.group);
@@ -972,9 +972,7 @@ function render() {
       // never ones with unread comments, or the unread navigation would
       // point at nothing; and never under a tag filter, which asks for
       // these threads by name
-      if (S.hideResolved && !S.tagFilter.size && block.thread.resolvable && effChecked(block.thread) &&
-          threadStats(block.thread).unread === 0 && !hasOpenNested(block.thread) &&
-          !(block.thread.time && S.reveal.has(block.thread.time))) continue;
+      if (threadHiddenByResolved(block.thread)) continue;
       clusterThreads++;
       const card = buildThread(block);
       if (S.mode === 'margin') {
@@ -2355,6 +2353,18 @@ function collectUnread(item, out) {
 function hasOpenNested(item) {
   return item.children.some(c => (c.resolvable && !effChecked(c)) || hasOpenNested(c));
 }
+// The one rule behind "Show resolved", used by the board AND the outline —
+// they listed different threads while each had its own idea of what to hide.
+// A thread survives the filter while anything is still unread in it (the
+// unread navigation must not point at nothing), while a nested comment is
+// still open, while a tag filter asks for threads by name, and when a jump
+// revealed it on purpose.
+function threadHiddenByResolved(th) {
+  if (!S.hideResolved || S.tagFilter.size) return false;
+  if (!th.resolvable || !effChecked(th)) return false;
+  if (threadStats(th).unread > 0 || hasOpenNested(th)) return false;
+  return !(th.time && S.reveal.has(th.time));
+}
 function threadOpen(item) {
   if (item.resolvable && !effChecked(item)) return true;
   if (isUnread(item)) return true;
@@ -3464,18 +3474,8 @@ function buildOutline() {
   sp.className = 'spacer';
   sp.style.flex = '1';
   head.appendChild(sp);
-  const filterBtn = document.createElement('button');
-  filterBtn.className = 'ofilter';
-  filterBtn.textContent = S.outlineAll ? 'all' : 'open';
-  filterBtn.title = S.outlineAll
-    ? 'Showing every thread — click to show only open ones'
-    : 'Showing open threads only — click to show all';
-  filterBtn.addEventListener('click', () => {
-    S.outlineAll = !S.outlineAll;
-    setPref('outlineAll', S.outlineAll);
-    buildOutline();
-  });
-  head.appendChild(filterBtn);
+  // no filter of its own: the outline lists what the board shows, so
+  // "Show resolved" in the toolbar means the same thing in both places
   nav.appendChild(head);
   requestAnimationFrame(spyOutline); // highlight where the document is, once the rows exist
 
@@ -3577,8 +3577,8 @@ function buildOutline() {
     }
     nav.appendChild(row);
 
-    // the section's threads, jumpable, with a status dot; "open" filter
-    // hides fully-processed ones (upgrades to resolve-items once agreed).
+    // the section's threads, jumpable, with a status dot; what the board
+    // hides, this hides — one "Show resolved", one answer.
     // A thin rule separates anchor groups: threads on the SAME paragraph
     // are direct siblings — drag a row to reorder among them or to carry
     // the thread into another group; threads across a rule attach to
@@ -3593,7 +3593,7 @@ function buildOutline() {
       // dims the ones already there (plus the focused thread itself).
       const isFocused = S.focusThread && th.time === S.focusThread;
       if (!isFocused) {
-        if (!S.outlineAll && !open && !marks.length) continue;
+        if (!marks.length && threadHiddenByResolved(th)) continue;
         // the filters narrow the outline too, or it would list threads the
         // board is not showing
         if (!threadMatchesFilter(th)) continue;
@@ -4627,7 +4627,6 @@ async function init() {
   S.me = PREFS.me || 'Me';
   S.mode = PREFS.mode || 'inline';
   S.outline = PREFS.outline !== undefined ? PREFS.outline : true;
-  S.outlineAll = !!PREFS.outlineAll;
   S.hideResolved = !!PREFS.hideResolved;
   S.zoom = mobileQuery.matches ? phoneZoom()
     : (S.path && PREFS['zoom:' + S.path]) || PREFS.zoom || 1;

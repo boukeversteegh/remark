@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-11
 
+### The outline follows Show resolved
+The outline had a filter of its own — an open/all toggle in its header — which meant "Show resolved" in the toolbar left it unchanged: resolved threads stayed missing from the list while the board showed them. That toggle is gone and both now ask one question, so the outline lists exactly what the board shows. Bookmarked threads stay listed regardless, as before.
+
 ### Filter threads by date
 A calendar button in the toolbar shows only threads with activity in a window — Today, Since yesterday, Last 7 days, Last 30 days, or a from/to range you type. Activity means a comment written then, not the age of the thread, so an old thread answered this morning is in. It composes with the tag filter and Show resolved rather than replacing them: each narrows what the others leave, in the board and the outline alike, and the active window sits as a chip beside the tags with its own way out. Session-only, like the tag filter.
 

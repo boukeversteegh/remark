@@ -3359,3 +3359,13 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     Session-only, like the tag filter. A "since the 5th" still in force next Tuesday would hide today's work while looking like an empty document, and that is the kind of silence this file has already cost us once.
 
     The test covers the presets, the typed range, the activity-not-age rule, both filters narrowing each other, and dropping one while the other stands.
+
+  - Bouke (2026-09-11 14:21:53): when i have show resolved on, they still dont show up in the outline list. the outline toggle for open/closed was sort of a feature i never asked for, it should have been in sync with the top 'show resolved' all along <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-11 14:29:16): You are right on both counts, and the second explains the first. The outline had its own open/all toggle in its header, so "Show resolved" in the toolbar was never consulted there: two controls, two ideas of what to hide, and the outline quietly winning.
+
+    The toggle is gone and both now ask the same question — one function, used by the board and the outline — so the outline lists exactly what the board shows. Turning Show resolved on brings resolved threads back in both at once. Bookmarked threads stay listed whatever the filter says, as before, and a thread you jumped to on purpose still stays visible.
+
+    Installed. The test now flips Show resolved and asserts the outline and the board change together, in both directions, so they cannot drift apart again.
+
+    Worth saying plainly: this is the third control today that had grown its own private copy of a rule — the unread pill and the outline row, then the date filter against Show resolved, now this. I have been collapsing them onto one function each time rather than syncing two, because syncing is what breaks later.
