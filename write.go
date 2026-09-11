@@ -17,6 +17,7 @@ package main
 // write is retried if it changed underneath.
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -36,7 +37,51 @@ var (
 
 type writeArgs struct {
 	file, sel, as, text, textFile, title, after, section, to string
-	end, plain, stdin, subthread                             bool
+	end, plain, stdin, subthread, again, asJSON              bool
+}
+
+// writeRecentDuplicate finds a comment by `as` among candidates carrying the
+// same text, written recently — the fingerprint of a retry after a lost
+// confirmation rather than a second thought. A caller that never saw the
+// first answer would otherwise post the same words again, which is exactly
+// how a document ends up saying everything twice.
+func writeRecentDuplicate(lines []string, candidates []*readNode, as, body string, within time.Duration, now time.Time) *readNode {
+	want := monNormalize(body)
+	if want == "" {
+		return nil
+	}
+	for _, c := range candidates {
+		if c.author != as || monNormalize(readNodeBody(lines, c)) != want {
+			continue
+		}
+		// an unparseable or absent stamp ("(now)") still counts: same author,
+		// same words, same place is signal enough
+		if t, err := time.ParseInLocation("2006-01-02 15:04:05", c.time, time.Local); err == nil {
+			if d := now.Sub(t); d > within || d < -within {
+				continue
+			}
+		} else if t, err := time.ParseInLocation("2006-01-02 15:04", c.time, time.Local); err == nil {
+			if d := now.Sub(t); d > within || d < -within {
+				continue
+			}
+		}
+		return c
+	}
+	return nil
+}
+
+// writeDupWindow is how far back an identical comment counts as the same one.
+const writeDupWindow = 5 * time.Minute
+
+// writeJSONOut prints one machine-readable line, so a caller can answer "did
+// this land?" from a field instead of parsing a sentence.
+func writeJSONOut(v map[string]any) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "remark:", err)
+		os.Exit(1)
+	}
+	fmt.Println(string(b))
 }
 
 func writeParseArgs(args []string) writeArgs {
@@ -52,7 +97,8 @@ func writeParseArgs(args []string) writeArgs {
 		val := ""
 		if j := strings.Index(key, "="); j >= 0 {
 			key, val = key[:j], key[j+1:]
-		} else if key != "end" && key != "plain" && key != "stdin" && key != "subthread" && i+1 < len(args) {
+		} else if key != "end" && key != "plain" && key != "stdin" && key != "subthread" &&
+			key != "again" && key != "json" && i+1 < len(args) {
 			i++
 			val = args[i]
 		}
@@ -79,6 +125,10 @@ func writeParseArgs(args []string) writeArgs {
 			a.stdin = true
 		case "subthread":
 			a.subthread = true
+		case "again":
+			a.again = true
+		case "json":
+			a.asJSON = true
 		default:
 			fmt.Fprintf(os.Stderr, "remark: unknown flag -%s\n", key)
 			os.Exit(2)
@@ -438,10 +488,19 @@ func runDelete(args []string) {
 		if end >= len(lines) {
 			end = len(lines) - 1
 		}
+		// name what is in the way: "someone replied" leaves the caller
+		// guessing which comment and where, when the point is to decide
+		// whether to ask that person or to leave the whole thing alone
+		var blockers []string
 		for _, o := range all {
 			if o.start > n.start && o.start <= end && o.author != "" && o.author != a.as {
-				return "", fmt.Errorf("it has replies by %q — their words stay; remove those first", o.author)
+				blockers = append(blockers, fmt.Sprintf("%s at %s (line %d)", o.author, o.time, o.start+1))
 			}
+		}
+		if len(blockers) > 0 {
+			return "", fmt.Errorf("their words stay: this comment holds %d repl%s not yours — %s",
+				len(blockers), map[bool]string{true: "y", false: "ies"}[len(blockers) == 1],
+				strings.Join(blockers, "; "))
 		}
 		start := n.start
 		blank := func(i int) bool { return i < 0 || i >= len(lines) || strings.TrimSpace(lines[i]) == "" }
@@ -466,9 +525,10 @@ func runReply(args []string) {
 		fmt.Fprintln(os.Stderr, "remark reply: empty body (use -text, -file or stdin)")
 		os.Exit(2)
 	}
-	var stamp, placed string
-	var line int
+	var stamp, placed, dup string
+	var line, dupLine int
 	writeWithRetry(a.file, func(content string) (string, error) {
+		dup, dupLine = "", 0 // a retry of the write recomputes this
 		lines, _, all := readParse(content)
 		hits := readSelect(all, a.sel)
 		switch {
@@ -492,12 +552,21 @@ func runReply(args []string) {
 		nest := a.subthread || target.parent == nil || readIsInterjection(lines, target)
 		indent := target.indent
 		at := readBlockEnd(lines, target)
-		if nest {
-			indent = target.indent + 2
-		} else {
+		effParent := target
+		if !nest {
 			// after the last comment at this level, keeping stamps in order
 			sibs := target.parent.children
 			at = readBlockEnd(lines, sibs[len(sibs)-1])
+			effParent = target.parent
+		} else {
+			indent = target.indent + 2
+		}
+		// a retry after a lost confirmation must not say everything twice
+		if !a.again {
+			if d := writeRecentDuplicate(lines, effParent.children, a.as, body, writeDupWindow, time.Now()); d != nil {
+				dup, dupLine = d.time, d.start+1
+				return content, nil // the words are already there: write nothing
+			}
 		}
 		stamp = writeUniqueStamp(content, time.Now())
 		item := writeItemLines(indent, false, a.as, stamp, "", body)
@@ -515,7 +584,25 @@ func runReply(args []string) {
 		line = strings.Count(out[:strings.Index(out, item[0])], "\n") + 1
 		return out, nil
 	})
+	if dup != "" {
+		// idempotent on purpose: the caller wanted these words under that
+		// comment, and they are. Same answer as a fresh write, so a harness
+		// that lost the first one can stop guessing.
+		if a.asJSON {
+			writeJSONOut(map[string]any{"ok": true, "duplicate": true, "time": dup,
+				"file": a.file, "target": a.sel, "line": dupLine})
+		} else {
+			fmt.Printf("already there: %s under %s at line %d — identical text from you within %s; -again posts it anyway\n",
+				dup, a.sel, dupLine, writeDupWindow)
+		}
+		return
+	}
 	writeLogNote(a.file, stamp)
+	if a.asJSON {
+		writeJSONOut(map[string]any{"ok": true, "time": stamp, "file": a.file,
+			"target": a.sel, "line": line, "placed": placed})
+		return
+	}
 	fmt.Printf("replied %s %s %s at line %d\n", stamp, placed, a.sel, line)
 }
 
@@ -530,10 +617,19 @@ func runThread(args []string) {
 		fmt.Fprintln(os.Stderr, "remark thread: empty body (use -text, -file, stdin or -title)")
 		os.Exit(2)
 	}
-	var stamp string
-	var line int
+	var stamp, dup string
+	var line, dupLine int
 	writeWithRetry(a.file, func(content string) (string, error) {
-		lines, _, all := readParse(content)
+		dup, dupLine = "", 0
+		lines, roots, all := readParse(content)
+		// the same guard the reply verb has: a thread opened twice because a
+		// confirmation went missing is the loudest kind of duplicate
+		if !a.again {
+			if d := writeRecentDuplicate(lines, roots, a.as, body, writeDupWindow, time.Now()); d != nil {
+				dup, dupLine = d.time, d.start+1
+				return content, nil
+			}
+		}
 		at := -1
 		switch {
 		case a.after != "":
@@ -577,6 +673,19 @@ func runThread(args []string) {
 		line = strings.Count(out[:strings.Index(out, item[0])], "\n") + 1
 		return out, nil
 	})
+	if dup != "" {
+		if a.asJSON {
+			writeJSONOut(map[string]any{"ok": true, "duplicate": true, "time": dup, "file": a.file, "line": dupLine})
+		} else {
+			fmt.Printf("already there: %s at line %d — identical text from you within %s; -again opens it anyway\n",
+				dup, dupLine, writeDupWindow)
+		}
+		return
+	}
 	writeLogNote(a.file, stamp)
+	if a.asJSON {
+		writeJSONOut(map[string]any{"ok": true, "time": stamp, "file": a.file, "line": line})
+		return
+	}
 	fmt.Printf("opened %s at line %d\n", stamp, line)
 }

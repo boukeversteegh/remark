@@ -18,6 +18,22 @@ module.exports = async ctx => {
   ].join('\n'));
   const page = await ctx.open(doc);
 
+  // the outline has no filter of its own: what the board shows, it lists.
+  // Before, it hid resolved threads whatever the toolbar said.
+  const listed = () => page.evaluate(() =>
+    [...document.querySelectorAll('#outline .otrow .otxt')].map(t => t.textContent));
+  const boardCount = () => page.evaluate(() =>
+    [...document.querySelectorAll('#doc .thread')].length);
+  assert((await listed()).includes('Settled'), 'with Show resolved on, the outline lists it');
+  assertEq(await boardCount(), 2, 'and the board shows both threads');
+  await page.evaluate(() => document.getElementById('hideResolvedBtn').click());
+  await page.waitForTimeout(300);
+  assert(!(await listed()).includes('Settled'), 'hiding resolved hides it in the outline too');
+  assertEq(await boardCount(), 1, 'and on the board');
+  await page.evaluate(() => document.getElementById('hideResolvedBtn').click());
+  await page.waitForTimeout(300);
+  assert((await listed()).includes('Settled'), 'and it comes back in both at once');
+
   // bookmark the thread while it is still in view, the way you would
   await page.evaluate(() => document.querySelector('#r20260901100000 .chead .bmbtn').click());
   await page.waitForTimeout(300);

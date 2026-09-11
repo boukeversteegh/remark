@@ -5,6 +5,20 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-11
+
+### The outline follows Show resolved
+The outline had a filter of its own — an open/all toggle in its header — which meant "Show resolved" in the toolbar left it unchanged: resolved threads stayed missing from the list while the board showed them. That toggle is gone and both now ask one question, so the outline lists exactly what the board shows. Bookmarked threads stay listed regardless, as before.
+
+### Filter threads by date
+A calendar button in the toolbar shows only threads with activity in a window — Today, Since yesterday, Last 7 days, Last 30 days, or a from/to range you type. Activity means a comment written then, not the age of the thread, so an old thread answered this morning is in. It composes with the tag filter and Show resolved rather than replacing them: each narrows what the others leave, in the board and the outline alike, and the active window sits as a chip beside the tags with its own way out. Session-only, like the tag filter.
+
+### The same comment twice is a no-op, not a duplicate
+An agent whose confirmation went missing reposted its answer and the document said everything twice. remark reply and remark thread now recognise a repost — your name, the same words, the same place, within five minutes — and answer with the stamp of the comment that is already there instead of writing a second one, so a retry after a lost confirmation costs nothing. -again posts it anyway when the repetition is meant.
+
+### Machine-readable answers from the write verbs
+remark reply and remark thread take -json, answering with the new comment's stamp, file and line as fields — "did this land?" without parsing a sentence. A refused delete now names the replies standing in the way, with author, stamp and line, instead of mentioning only the first author.
+
 ## 2026-09-10
 
 ### Panels fit the window at any zoom

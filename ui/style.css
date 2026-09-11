@@ -1465,6 +1465,31 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .tagchip:hover { filter: brightness(1.04); border-color: var(--accent); }
 .tagchip.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
 .tagchip.reader { border-style: dashed; }
+/* the active date window, beside the tag chips in the same filter bar */
+.tagchip.datechip { gap: 5px; }
+.tagchip.datechip svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+/* date filter menu: presets first, a typed range under them */
+.datemenu {
+  position: fixed; z-index: 70; display: flex; flex-direction: column; gap: 2px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-float); padding: 6px;
+}
+.datemenu button {
+  text-align: left; border: 0; background: none; color: var(--fg); cursor: pointer;
+  font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px; white-space: nowrap;
+}
+.datemenu button:hover { background: var(--accent-soft); color: var(--accent); }
+.datemenu .dmrange {
+  display: flex; gap: 6px; align-items: center; padding: 6px 4px 2px;
+  margin-top: 4px; border-top: 1px solid var(--border-soft);
+}
+.datemenu .dmrange input {
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+  color: var(--fg); font: inherit; font-size: 12.5px; padding: 4px 7px; width: 132px;
+}
+.datemenu .dmgo { background: var(--accent); color: var(--accent-fg); padding: 5px 12px; flex: none; }
+.datemenu .dmgo:hover { background: var(--accent); color: var(--accent-fg); filter: brightness(1.08); }
+.datemenu .dmclear { color: var(--muted); }
 /* "@Name" of a known author in comment text: the tag chip's shape, quieter —
    it sits inside a sentence, so it must read as a word with a tint, never as
    a button. Your own name comes through at full strength. */

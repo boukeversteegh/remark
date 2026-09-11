@@ -15,8 +15,8 @@ const agentHelp = `remark — a discussion tool built on top of markdown.
 remark renders a markdown file and lets people and agents hold threaded
 discussions inside it; the conversation lives in the file as list items.
 WRITE THROUGH THE VERBS below — they place, indent, stamp and mark read
-for you. Hand-editing is how formatting faults happen: keep it for the
-rare thing no verb covers, and re-read the file right before.
+for you. Hand-editing is how formatting faults happen: keep it for what
+no verb covers, and re-read the file right before.
 
 Reading and watching:
   remark [flags] [files.md]      open each document in its own window
@@ -30,28 +30,28 @@ Reading and watching:
   remark recent [open]           recent files; "open" opens windows
 
 Writing — the verbs:
-  remark reply <file> <sel> [-subthread] -as <name> [-text|-file|stdin]
-                                 answer AT THE TARGET'S OWN LEVEL,
-                                 stamped, seen-marked; -subthread nests
-  remark thread <file> -as <name> [-title t] [-plain]
+  remark reply <file> <sel> [-subthread] [-json] -as <name> [-text|-file]
+                                 answer AT THE TARGET'S OWN LEVEL, stamped
+                                 and seen-marked; -subthread nests. The same
+                                 words twice is a no-op; -json gives fields
+  remark thread <file> -as <name> [-title t] [-plain] [-json]
                  (-after <sel> | -section <h> | -end) [-text|-file|stdin]
                                  open a new thread root
   remark edit <file> <sel> -title <t>    set the thread's title
-  remark seen <file> <sel> -as <name>    write your read-marker the
-                                 MOMENT a comment reaches you, not when
-                                 the work it asks for is done
+  remark seen <file> <sel> -as <name>    write your read-marker the MOMENT
+                                 a comment reaches you — not needed before
+                                 reply, which marks it for you
   remark delete <file> <sel> -as <name>  remove YOUR OWN comment and its
                                  subtree (refused if others replied)
   remark tag <file> <sel> #a #b -as <name>   tag someone's comment
   remark dm <author> -as <name> [-to <sid>] [-text|-file|stdin]
                                  direct message on <author>'s channel
-  remark stamp <file>            fill "(now)" placeholders with real times
+  remark stamp <file>            fill "(now)" placeholders with real stamps
 
 Sharing and the rest:
   remark gateway [status|stop|add|remove|qr|rotate]   phone and group
                                  access (groups: remark help sharing)
-  remark changelog               what this build changed
-  remark install                 put remark on your PATH
+  remark changelog | install     what this build changed; onto your PATH
   remark help [topic]            topics: format, monitor, sharing
 
 The five rules that matter (the long form: remark help format):
