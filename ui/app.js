@@ -30,6 +30,12 @@ const S = {
   tagFilter: new Set(),   // active tag filter (AND); session-only, never persisted
   reveal: new Set(),      // root times an explicit jump keeps in view past the
                           // resolved filter (bookmarks, notifications, #r links)
+  // date filter: threads with a comment written inside the window. Like the
+  // tag filter it is session-only — a stale "since the 5th" silently hiding
+  // today's work is worse than no filter at all.
+  dateFrom: null,         // ms, inclusive; null = open
+  dateTo: null,           // ms, inclusive; null = open
+  dateLabel: '',          // what the preset was called, for the chip
 };
 
 const $ = (s, el) => (el || document).querySelector(s);
@@ -370,6 +376,52 @@ function subtreeTags(root) {
     it.children.forEach(walk);
   })(root);
   return out;
+}
+// ---------------------------------------------------------------------------
+// date filter: "what moved since yesterday". A thread matches when any of its
+// comments was written inside the window — activity, not the age of the root.
+// ---------------------------------------------------------------------------
+function commentTimeMs(it) {
+  const m = (it.time || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) return NaN;
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)).getTime();
+}
+function dateFilterOn() { return S.dateFrom != null || S.dateTo != null; }
+function threadInDateRange(root) {
+  if (!dateFilterOn()) return true;
+  let hit = false;
+  (function walk(it) {
+    if (hit) return;
+    const ms = commentTimeMs(it);
+    if (!isNaN(ms) && (S.dateFrom == null || ms >= S.dateFrom) && (S.dateTo == null || ms <= S.dateTo)) {
+      hit = true;
+      return;
+    }
+    it.children.forEach(walk);
+  })(root);
+  return hit;
+}
+// midnight boundaries, so "today" means the whole day and not the last 24h
+function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
+function endOfDay(d) { return startOfDay(d) + 86400000 - 1; }
+function daysAgoStart(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return startOfDay(d);
+}
+function dateRangeLabel() {
+  if (S.dateLabel) return S.dateLabel;
+  const d = ms => new Date(ms).toISOString().slice(0, 10);
+  if (S.dateFrom != null && S.dateTo != null) return d(S.dateFrom) + ' → ' + d(S.dateTo);
+  if (S.dateFrom != null) return 'since ' + d(S.dateFrom);
+  return 'until ' + d(S.dateTo);
+}
+function setDateFilter(from, to, label) {
+  S.dateFrom = from;
+  S.dateTo = to;
+  S.dateLabel = label || '';
+  render();
+  scroller().scrollTop = 0;
 }
 function threadMatchesFilter(root) {
   if (!S.tagFilter.size) return true;
@@ -861,13 +913,17 @@ function render() {
   // section headings, with a bar naming the tags and a way back — a
   // FOCUS wins over it while active, so a focused thread never vanishes
   // for lacking the filtered tag
+  // The date filter composes with it: each narrows what the other leaves, and
+  // one bar names whichever are on.
   let tagKeep = null;
-  if (S.tagFilter.size && !S.focusThread) {
+  const dateOn = dateFilterOn() && !S.focusThread;
+  if ((S.tagFilter.size || dateOn) && !S.focusThread) {
     tagKeep = new Set();
     let lastHeading = null;
     for (const b of parsed.blocks) {
       if (b.type === 'heading') lastHeading = b;
-      if (b.type === 'thread' && threadMatchesFilter(b.thread)) {
+      if (b.type === 'thread' && threadMatchesFilter(b.thread) &&
+          (!dateOn || threadInDateRange(b.thread))) {
         if (lastHeading) tagKeep.add(lastHeading);
         tagKeep.add(b);
       }
@@ -878,13 +934,33 @@ function render() {
     back.className = 'focusback';
     back.innerHTML = iconHTML('corner-down-right');
     back.appendChild(document.createTextNode('All threads'));
-    back.addEventListener('click', () => { S.tagFilter.clear(); render(); });
+    back.addEventListener('click', () => {
+      S.tagFilter.clear();
+      S.dateFrom = S.dateTo = null;
+      S.dateLabel = '';
+      render();
+    });
     bar.appendChild(back);
     for (const t of S.tagFilter) bar.appendChild(tagChip({ tag: t, authored: true, by: [] }, null));
+    if (dateOn) {
+      const chip = document.createElement('button');
+      chip.className = 'tagchip datechip';
+      chip.innerHTML = iconHTML('calendar-range');
+      chip.appendChild(document.createTextNode(dateRangeLabel()));
+      chip.title = 'Only threads with activity in this window — click to drop it';
+      chip.addEventListener('click', () => setDateFilter(null, null, ''));
+      const x = document.createElement('span');
+      x.className = 'tagx';
+      x.textContent = '×';
+      chip.appendChild(x);
+      bar.appendChild(chip);
+    }
     const n = document.createElement('span');
     n.className = 'tagn';
     const nt = [...tagKeep].filter(b => b.type === 'thread').length;
-    n.textContent = nt ? nt + (nt === 1 ? ' thread' : ' threads') : 'no thread carries all of these';
+    n.textContent = nt ? nt + (nt === 1 ? ' thread' : ' threads')
+      : S.tagFilter.size && dateOn ? 'nothing matches both'
+      : dateOn ? 'no activity in this window' : 'no thread carries all of these';
     bar.appendChild(n);
     doc.appendChild(bar);
   }
@@ -896,7 +972,7 @@ function render() {
       // never ones with unread comments, or the unread navigation would
       // point at nothing; and never under a tag filter, which asks for
       // these threads by name
-      if (S.hideResolved && !tagKeep && block.thread.resolvable && effChecked(block.thread) &&
+      if (S.hideResolved && !S.tagFilter.size && block.thread.resolvable && effChecked(block.thread) &&
           threadStats(block.thread).unread === 0 && !hasOpenNested(block.thread) &&
           !(block.thread.time && S.reveal.has(block.thread.time))) continue;
       clusterThreads++;
@@ -3518,7 +3594,10 @@ function buildOutline() {
       const isFocused = S.focusThread && th.time === S.focusThread;
       if (!isFocused) {
         if (!S.outlineAll && !open && !marks.length) continue;
-        if (!threadMatchesFilter(th)) continue; // the tag filter narrows the outline too
+        // the filters narrow the outline too, or it would list threads the
+        // board is not showing
+        if (!threadMatchesFilter(th)) continue;
+        if (!threadInDateRange(th)) continue;
       }
       const trow = document.createElement('div');
       trow.className = 'otrow' + (marks.length ? ' bookmarked' : '') +
@@ -4269,6 +4348,76 @@ function wireTopbar() {
       : 'Showing resolved threads — click to hide them';
   };
   syncHideResolved();
+  // date filter: presets you would reach for daily, plus a range you type.
+  // It narrows whatever the other filters leave rather than replacing them.
+  const dfBtn = $('#dateFilterBtn');
+  const syncDateBtn = () => {
+    dfBtn.innerHTML = iconHTML('calendar-range');
+    dfBtn.classList.toggle('active', dateFilterOn());
+    dfBtn.title = dateFilterOn()
+      ? 'Showing threads active ' + dateRangeLabel() + ' — click to change'
+      : 'Show only threads with recent activity';
+  };
+  syncDateBtn();
+  const PRESETS = [
+    ['Today', () => [daysAgoStart(0), null, 'today']],
+    ['Since yesterday', () => [daysAgoStart(1), null, 'since yesterday']],
+    ['Last 7 days', () => [daysAgoStart(6), null, 'last 7 days']],
+    ['Last 30 days', () => [daysAgoStart(29), null, 'last 30 days']],
+  ];
+  let dfMenu = null;
+  const closeDateMenu = () => { if (dfMenu) { dfMenu.remove(); dfMenu = null; } };
+  dfBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (dfMenu) { closeDateMenu(); return; }
+    dfMenu = document.createElement('div');
+    dfMenu.className = 'datemenu';
+    dfMenu.addEventListener('click', ev => ev.stopPropagation());
+    for (const [label, calc] of PRESETS) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.addEventListener('click', () => { closeDateMenu(); setDateFilter(...calc()); syncDateBtn(); });
+      dfMenu.appendChild(b);
+    }
+    const row = document.createElement('div');
+    row.className = 'dmrange';
+    const from = document.createElement('input'); from.type = 'date'; from.title = 'From (inclusive)';
+    const to = document.createElement('input'); to.type = 'date'; to.title = 'To (inclusive)';
+    if (S.dateFrom != null) from.value = new Date(S.dateFrom).toISOString().slice(0, 10);
+    if (S.dateTo != null) to.value = new Date(S.dateTo).toISOString().slice(0, 10);
+    const go = document.createElement('button');
+    go.className = 'dmgo';
+    go.textContent = 'Apply';
+    const apply = () => {
+      const parse = v => { const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+      const f = parse(from.value), t = parse(to.value);
+      if (!f && !t) return;
+      closeDateMenu();
+      setDateFilter(f ? startOfDay(f) : null, t ? endOfDay(t) : null, '');
+      syncDateBtn();
+    };
+    go.addEventListener('click', apply);
+    for (const el of [from, to]) el.addEventListener('keydown', ev => { if (ev.key === 'Enter') apply(); });
+    row.appendChild(from);
+    row.appendChild(to);
+    row.appendChild(go);
+    dfMenu.appendChild(row);
+    if (dateFilterOn()) {
+      const clr = document.createElement('button');
+      clr.className = 'dmclear';
+      clr.textContent = 'Any date';
+      clr.addEventListener('click', () => { closeDateMenu(); setDateFilter(null, null, ''); syncDateBtn(); });
+      dfMenu.appendChild(clr);
+    }
+    document.body.appendChild(dfMenu);
+    const r = dfBtn.getBoundingClientRect();
+    const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
+    dfMenu.style.top = (r.bottom + 6) / z + 'px';
+    dfMenu.style.left = Math.max(8, Math.min(r.left, innerWidth - dfMenu.offsetWidth * z - 8)) / z + 'px';
+  });
+  document.addEventListener('click', closeDateMenu);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDateMenu(); });
+
   hrBtn.addEventListener('click', () => {
     S.hideResolved = !S.hideResolved;
     setPref('hideResolved', S.hideResolved);

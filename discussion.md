@@ -3344,3 +3344,18 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   - **Leave it and document it**: agents use `cmd /c "…"` or `-json` through a file. Cheapest, but it is a trap that stays set, and the next agent finds it the same way.
 
   I have not touched it, since all three change how your window starts and that is yours to choose. Say which and I will build it.
+
+- [ ] Bouke (2026-09-11 13:43:34): **Filter threads by date** <!--thread--> <!--seen:🤖 Claude-->
+  i need a way to filter by date so i can see all threads with any activity since yesterday for example. it should compose with other filters. it should have a few presets that you might use daily, and an option to choose a custom date range
+
+  - 🤖 Claude (2026-09-11 13:44:14): Claiming. Plan: a toolbar control beside Show resolved with the presets you would reach for daily - Today, Since yesterday, Last 7 days, Last 30 days - plus a custom from/to range, matching any thread with a comment written in that window. It composes rather than replaces: the date narrows whatever the tag filter and Show resolved already leave, in the board and the outline alike, and the active range shows as a chip in the same bar the tag filter uses so you can see and clear it. Session-only, like the tag filter, since a stale 'since the 5th' is worse than no filter. Test and changelog included.
+
+  - 🤖 Claude (2026-09-11 13:50:52): Built and installed. A calendar button sits left of Show resolved, with the presets you would reach for daily — Today, Since yesterday, Last 7 days, Last 30 days — and a from/to pair you can type for anything else. Both dates are inclusive and either may be left empty, so "from the 5th, no end" works.
+
+    It matches on **activity**, not on the age of the thread: a thread opened in July that someone answered this morning is in "Today". That is what "any activity since yesterday" has to mean to be useful, and it is the one design decision here worth disagreeing with if you meant something else.
+
+    Composition is the part I spent the care on. The date window narrows whatever the tag filter leaves and vice versa — a thread must satisfy both — and the board and the outline are filtered by the same rule, so the outline never lists threads the board is not showing. Both filters appear as chips in the one bar, each with its own ×, and the count tells you what survived ("nothing matches both" when that is the honest answer). Show resolved keeps working underneath; the date filter does not silently switch it off the way the tag filter deliberately does.
+
+    Session-only, like the tag filter. A "since the 5th" still in force next Tuesday would hide today's work while looking like an empty document, and that is the kind of silence this file has already cost us once.
+
+    The test covers the presets, the typed range, the activity-not-age rule, both filters narrowing each other, and dropping one while the other stands.

@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-11
 
+### Filter threads by date
+A calendar button in the toolbar shows only threads with activity in a window — Today, Since yesterday, Last 7 days, Last 30 days, or a from/to range you type. Activity means a comment written then, not the age of the thread, so an old thread answered this morning is in. It composes with the tag filter and Show resolved rather than replacing them: each narrows what the others leave, in the board and the outline alike, and the active window sits as a chip beside the tags with its own way out. Session-only, like the tag filter.
+
 ### The same comment twice is a no-op, not a duplicate
 An agent whose confirmation went missing reposted its answer and the document said everything twice. remark reply and remark thread now recognise a repost — your name, the same words, the same place, within five minutes — and answer with the stamp of the comment that is already there instead of writing a second one, so a retry after a lost confirmation costs nothing. -again posts it anyway when the repetition is meant.
 
