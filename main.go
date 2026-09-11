@@ -16,7 +16,6 @@ import (
 
 var token string
 
-
 // winKey is the prefs key this window's placement lives under: per document
 // once one is open, the shared legacy "win" otherwise (and as fallback).
 var winKey = "win"

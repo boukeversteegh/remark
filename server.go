@@ -521,7 +521,9 @@ func newMux() *http.ServeMux {
 		jsonOut(w, http.StatusOK, out)
 	}))
 	mux.HandleFunc("POST /api/groups/new", authed(func(w http.ResponseWriter, r *http.Request) {
-		var body struct{ Name string `json:"name"` }
+		var body struct {
+			Name string `json:"name"`
+		}
 		json.NewDecoder(r.Body).Decode(&body)
 		if strings.TrimSpace(body.Name) == "" {
 			jsonOut(w, http.StatusBadRequest, map[string]string{"error": "missing name"})
@@ -531,7 +533,9 @@ func newMux() *http.ServeMux {
 		jsonOut(w, http.StatusOK, groupJSON(rec, alive, groupNew(strings.TrimSpace(body.Name))))
 	}))
 	mux.HandleFunc("POST /api/groups/delete", authed(func(w http.ResponseWriter, r *http.Request) {
-		var body struct{ ID string `json:"id"` }
+		var body struct {
+			ID string `json:"id"`
+		}
 		json.NewDecoder(r.Body).Decode(&body)
 		jsonOut(w, http.StatusOK, map[string]bool{"ok": groupDelete(body.ID)})
 	}))
@@ -565,7 +569,9 @@ func newMux() *http.ServeMux {
 		jsonOut(w, http.StatusOK, groupJSON(rec, alive, g))
 	}))
 	mux.HandleFunc("POST /api/groups/rotate", authed(func(w http.ResponseWriter, r *http.Request) {
-		var body struct{ ID string `json:"id"` }
+		var body struct {
+			ID string `json:"id"`
+		}
 		json.NewDecoder(r.Body).Decode(&body)
 		g, ok := groupRotate(body.ID)
 		if !ok {
@@ -618,7 +624,9 @@ func newMux() *http.ServeMux {
 	}))
 	mux.HandleFunc("POST /api/group/join", authed(func(w http.ResponseWriter, r *http.Request) {
 		gid := r.Header.Get("X-Remark-Group")
-		var body struct{ Name string `json:"name"` }
+		var body struct {
+			Name string `json:"name"`
+		}
 		json.NewDecoder(r.Body).Decode(&body)
 		g, ok := groupJoin(gid, body.Name)
 		if !ok {
