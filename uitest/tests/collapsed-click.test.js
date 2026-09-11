@@ -78,5 +78,19 @@ module.exports = async ctx => {
   }, reply);
   assert(Math.abs(spans.left) < 2 && Math.abs(spans.right) < 2 && Math.abs(spans.top) < 2,
     'the header reaches the card edges: ' + JSON.stringify(spans));
+
+  // one control means one cursor: the title text folds the thread just as
+  // the band around it does, so it must not show the arrow
+  const cursors = await page.evaluate(() => {
+    const el = document.getElementById('r20260901100000');
+    const t = el.querySelector(':scope > .ctitlebar');
+    return {
+      title: t ? getComputedStyle(t).cursor : null,
+      head: getComputedStyle(el.querySelector(':scope > .chead')).cursor,
+    };
+  });
+  assert(cursors.head === 'pointer', 'the header band shows the hand');
+  assert(cursors.title === null || cursors.title === 'pointer',
+    'the title line shows the hand too, not the arrow (' + cursors.title + ')');
   await page.close();
 };

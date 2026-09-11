@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-11
 
+### The thread title shows the hand it deserves
+The title line folds the thread like the band around it, but still showed the arrow cursor, so the two read as separate targets.
+
 ### The outline follows Show resolved
 The outline had a filter of its own — an open/all toggle in its header — which meant "Show resolved" in the toolbar left it unchanged: resolved threads stayed missing from the list while the board showed them. That toggle is gone and both now ask one question, so the outline lists exactly what the board shows. Bookmarked threads stay listed regardless, as before.
 

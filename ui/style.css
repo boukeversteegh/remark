@@ -1127,6 +1127,7 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .ctitlebar {
   font: 560 16px/1.3 var(--font-display); letter-spacing: -.01em; color: var(--fg);
   padding: 2px 0 7px 4px; /* the caret glyph's left edge, not the card's */
+  cursor: pointer; /* it folds the thread, like the band around it */
   margin-bottom: 7px; border-bottom: 1px solid var(--border-soft);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
