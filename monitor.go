@@ -119,7 +119,8 @@ func monWrittenByTool(file, stamp string) bool {
 
 // monMentions reports whether text tags name as "@name" — literal name,
 // and the tag must end where the name ends, so "@Worker-3" does not fire
-// for Worker-30. Names may contain spaces or emoji, hence no word regex.
+// for Worker-30 and "@Claude-Guest" does not fire for Claude. Names may
+// contain spaces or emoji, hence no word regex.
 func monMentions(text, name string) bool {
 	if name == "" {
 		return false
@@ -134,8 +135,11 @@ func monMentions(text, name string) bool {
 		if end == len(text) {
 			return true
 		}
+		// the tag must end where the name ends. A dash or underscore
+		// continues a name (Claude-B, claude-agent1), so "@Claude-Guest"
+		// addresses Claude-Guest and never Claude.
 		r, _ := utf8.DecodeRuneInString(text[end:])
-		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '-' && r != '_' {
 			return true
 		}
 		i = end

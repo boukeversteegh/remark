@@ -5,6 +5,11 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-12
+
+### A mention covers the whole name, dash and all
+@Bob-Unknown used to chip @Bob and leave the rest as loose text, and a monitor watching for Claude woke on @Claude-Guest. A dash or underscore now continues a name in the window and in the monitor alike, so a tag has to end where the name ends.
+
 ## 2026-09-11
 
 ### The thread title shows the hand it deserves

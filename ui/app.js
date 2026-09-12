@@ -711,10 +711,11 @@ function linkMentions(rootNode) {
       if (!/[\w@]/.test(prev)) {
         for (const nm of names) {
           if (!s.startsWith(nm, at + 1)) continue;
-          // a name ending in a word char must not continue into one:
-          // "@Me" inside "@Meta" is not a mention of Me
+          // the tag must end where the name ends: "@Me" inside "@Meta" is
+          // not a mention of Me, and a dash continues a name too, so
+          // "@Bob-Unknown" is not a mention of Bob
           const after = s[at + 1 + nm.length];
-          if (after !== undefined && /\w/.test(after) && /\w$/.test(nm)) continue;
+          if (after !== undefined && /[\w-]/.test(after) && /[\w-]$/.test(nm)) continue;
           matched = nm;
           break;
         }

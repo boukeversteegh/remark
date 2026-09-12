@@ -234,3 +234,31 @@ func TestMonitorGuidanceOnlyOnce(t *testing.T) {
 		t.Errorf("the instruction repeated on a later comment: %s", second.Guidance)
 	}
 }
+
+// A name that continues into a dash is a different name: @Claude-Guest
+// addresses Claude-Guest, never Claude. Dashed names are common here
+// (Claude-B, claude-agent1), so the boundary has to hold both ways.
+func TestMonMentionsDashedNames(t *testing.T) {
+	cases := []struct {
+		text, name string
+		want       bool
+	}{
+		{"please look @Claude-Guest", "Claude-Guest", true},
+		{"please look @Claude-Guest", "Claude", false},
+		{"@Claude-B has it", "Claude-B", true},
+		{"@Claude-B has it", "Claude", false},
+		{"@claude-agent1 please", "claude-agent1", true},
+		{"@claude-agent1 please", "claude", false},
+		{"@Worker-3 ping", "Worker-30", false},
+		{"@Worker-30 ping", "Worker-3", false},
+		{"@Claude, look", "Claude", true},
+		{"@Claude", "Claude", true},
+		{"ask @🤖 Claude now", "🤖 Claude", true},
+		{"@Claude_B x", "Claude", false},
+	}
+	for _, c := range cases {
+		if got := monMentions(c.text, c.name); got != c.want {
+			t.Errorf("monMentions(%q, %q) = %v, want %v", c.text, c.name, got, c.want)
+		}
+	}
+}
