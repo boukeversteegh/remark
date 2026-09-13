@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-13
 
+### Composer buttons wrap together on a narrow screen
+Send ran off the right edge on a phone, 56 pixels past a 390 pixel window. The composer footer was one row that never wrapped, so the author line, the resolution toggle and the four buttons all competed for one line. Preview, Delete, Discard and Send now travel as one group and drop onto their own line when the window is narrow.
+
 ### Images show for a remote reader
 A document's images were missing over the gateway while the same document showed them on the PC. The gateway checks every path a request names against the shared list, and an image request names the picture in the same parameter a page uses for the document, so every image was refused as an unshared document. The picture is now checked as what it is: a file beside the document, which may sit in a subfolder but may not climb out of the document's own folder, a limit the PC does not need and a network reader does.
 

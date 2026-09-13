@@ -1964,7 +1964,12 @@ function buildEditor(key, target) {
       ta.focus();
     }
   });
-  bar.appendChild(previewBtn);
+  // Preview, Delete, Discard and Send travel as one group, so a narrow
+  // window wraps them onto their own line instead of pushing Send off
+  // the right edge
+  const acts = document.createElement('span');
+  acts.className = 'eacts';
+  acts.appendChild(previewBtn);
   // delete (own comments, edit mode only): the footer turns into an inline
   // confirmation that spells out what goes — how many comments, per author,
   // with their resolution state — before one op removes the whole subtree
@@ -2021,7 +2026,7 @@ function buildEditor(key, target) {
       bar.style.display = 'none';
       wrap.appendChild(box);
     });
-    bar.appendChild(del);
+    acts.appendChild(del);
   }
   const cancel = document.createElement('button');
   cancel.className = 'cancel';
@@ -2032,8 +2037,9 @@ function buildEditor(key, target) {
   sendBtn.innerHTML = iconHTML(isEdit ? 'check' : 'send-horizontal');
   sendBtn.appendChild(document.createTextNode(isEdit ? 'Save' : 'Send'));
   sendBtn.addEventListener('click', send);
-  bar.appendChild(cancel);
-  bar.appendChild(sendBtn);
+  acts.appendChild(cancel);
+  acts.appendChild(sendBtn);
+  bar.appendChild(acts);
   wrap.appendChild(bar);
 
   function close(discard) {
