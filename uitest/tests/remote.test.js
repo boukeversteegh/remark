@@ -15,9 +15,16 @@ module.exports = async ctx => {
     '',
     'Visit [the site](https://example.com/page) for more.',
     '',
+    '![a picture](pic.png)',
+    '',
     '- [ ] Me (2026-09-01 10:00:00): **T** opening <!--thread-->',
     '',
   ].join('\n'));
+
+  // an image beside the document: the reader must see it, and must not
+  // be able to reach past the document's own folder
+  fs.writeFileSync(path.join(ctx.tmp, 'pic.png'), Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
 
   const gw = spawn(remarkExe(), ['gateway'], {
     env: { ...process.env, APPDATA: cfg, XDG_CONFIG_HOME: cfg, REMARK_GATEWAY_PORT: String(GW_PORT) },
@@ -52,6 +59,13 @@ module.exports = async ctx => {
     assertEq((await fetch(gu('/api/openwith?path=' + encodeURIComponent(doc)), { method: 'POST' })).status, 403, 'openwith refused remotely');
     assertEq((await fetch(gu('/api/file?path=' + encodeURIComponent(path.join(ctx.tmp, 'seed.md'))))).status, 403, 'foreign docs refused');
 
+    // images beside the shared document reach the reader; f names a file
+    // there, not a document, and it may not climb out of that folder
+    assertEq((await fetch(gu('/api/asset?path=' + encodeURIComponent(doc) + '&f=pic.png'))).status, 200,
+      'an image beside the shared document is served');
+    assertEq((await fetch(gu('/api/asset?path=' + encodeURIComponent(doc) + '&f=' + encodeURIComponent('../seed.md')))).status, 403,
+      'an asset path climbing out of the folder is refused');
+
     // in the browser: connection light on, external links open locally
     await fetch(gu('/api/group/join'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Edwin' }),
@@ -69,6 +83,13 @@ module.exports = async ctx => {
       return { remote: b && b.classList.contains('remote'), title: b && b.title };
     });
     assert(badge.remote, 'Phone button is the remote connection light');
+    const shown = await page.evaluate(async () => {
+      const im = document.querySelector('#doc img');
+      if (!im) return 'no img element';
+      if (!im.complete) await new Promise(r => { im.onload = r; im.onerror = r; });
+      return im.naturalWidth > 0 ? 'loaded' : 'broken';
+    });
+    assertEq(shown, 'loaded', 'the document image renders for a remote reader');
     await page.evaluate(() => document.querySelector('#doc a[href^="https:"]').click());
     const opened = await page.evaluate(() => window.__opened);
     assertEq(opened[0], 'https://example.com/page', 'external link opens in the reader\'s browser');

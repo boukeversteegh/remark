@@ -5,6 +5,11 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-13
+
+### Images show for a remote reader
+A document's images were missing over the gateway while the same document showed them on the PC. The gateway checks every path a request names against the shared list, and an image request names the picture in the same parameter a page uses for the document, so every image was refused as an unshared document. The picture is now checked as what it is: a file beside the document, which may sit in a subfolder but may not climb out of the document's own folder, a limit the PC does not need and a network reader does.
+
 ## 2026-09-12
 
 ### A mention covers the whole name, dash and all

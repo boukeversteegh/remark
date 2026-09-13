@@ -1,6 +1,10 @@
 package main
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -124,5 +128,61 @@ func TestFirewallProbeIsAsync(t *testing.T) {
 func TestGatewayHostPinned(t *testing.T) {
 	if h := gatewayHost(gatewayRecord{Host: "my.pinned.name"}); h != "my.pinned.name" {
 		t.Errorf("pinned host ignored, got %q", h)
+	}
+}
+
+// An image beside a shared document must reach the phone. The gateway
+// checks "path" and "f" as document names, but /api/asset uses f for the
+// file beside the document, so the check used to refuse every image.
+func TestGatewayAssetBesideSharedDocument(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("APPDATA", dir)
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	shared := filepath.Join(dir, "notes.md")
+	other := filepath.Join(dir, "private.md")
+	for _, p := range []string{shared, other} {
+		if err := os.WriteFile(p, []byte("# doc\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(gatewayDocsPath()), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal([]string{shared})
+	if err := os.WriteFile(gatewayDocsPath(), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	served := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	h := gatewayHandler(served)
+	call := func(target string) int {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("GET", target, nil))
+		return rec.Code
+	}
+
+	if got := call("/api/asset?path=" + url.QueryEscape(shared) + "&f=shot.png"); got != http.StatusOK {
+		t.Errorf("an image beside the shared document was refused: %d", got)
+	}
+	if got := call("/api/asset?path=" + url.QueryEscape(shared) + "&f=pics%2Fshot.png"); got != http.StatusOK {
+		t.Errorf("an image in a folder beside the shared document was refused: %d", got)
+	}
+	// the guard still holds where f names a document: the page URL
+	if got := call("/?t=x&f=" + url.QueryEscape(other)); got != http.StatusForbidden {
+		t.Errorf("an unshared document was served through f: %d", got)
+	}
+	// and an asset of an unshared document stays refused, via path
+	if got := call("/api/asset?path=" + url.QueryEscape(other) + "&f=shot.png"); got != http.StatusForbidden {
+		t.Errorf("an asset of an unshared document was served: %d", got)
+	}
+	// the window resolves "../shared/x.png" the way markdown means it, but
+	// over the network that would hand out any file on the PC: an asset
+	// request may not climb out of the shared document's own folder
+	for _, esc := range []string{"..%2Fescape.png", "..%2F..%2FWindows%2Fwin.ini", "pics%2F..%2F..%2Fescape.png"} {
+		if got := call("/api/asset?path=" + url.QueryEscape(shared) + "&f=" + esc); got != http.StatusForbidden {
+			t.Errorf("an asset path climbing out of the folder was served (%s): %d", esc, got)
+		}
 	}
 }

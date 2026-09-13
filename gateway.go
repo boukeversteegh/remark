@@ -95,6 +95,21 @@ func gatewayAllows(p string) bool {
 	return false
 }
 
+// gatewayAssetOK reports whether an /api/asset request may be served over
+// the network: f names a file beside the document, so the resolved target
+// has to stay inside the document's own folder. The window resolves
+// "../shared/x.png" the way markdown means it, which is right on the PC
+// and would hand out any file to a phone.
+func gatewayAssetOK(docPath, rel string) bool {
+	if rel == "" || filepath.IsAbs(rel) || strings.HasPrefix(rel, `\`) {
+		return false
+	}
+	dir := filepath.Dir(docPath)
+	target := presenceNormPath(filepath.Join(dir, filepath.FromSlash(rel)))
+	base := presenceNormPath(dir)
+	return target == base || strings.HasPrefix(target, base+"/")
+}
+
 func gatewayToggle(p string, on bool) []string {
 	abs, err := filepath.Abs(p)
 	if err != nil {
@@ -293,10 +308,18 @@ func gatewayHandler(mux http.Handler) http.Handler {
 			return
 		}
 		q := r.URL.Query()
-		for _, k := range []string{"path", "f"} {
-			if p := q.Get(k); p != "" && !gatewayAllows(p) {
+		if r.URL.Path == "/api/asset" {
+			// here f is the image beside the document, not a document
+			if !gatewayAllows(q.Get("path")) || !gatewayAssetOK(q.Get("path"), q.Get("f")) {
 				http.Error(w, "this document is not shared with the phone", http.StatusForbidden)
 				return
+			}
+		} else {
+			for _, k := range []string{"path", "f"} {
+				if p := q.Get(k); p != "" && !gatewayAllows(p) {
+					http.Error(w, "this document is not shared with the phone", http.StatusForbidden)
+					return
+				}
 			}
 		}
 		if r.Method == "POST" && r.URL.Path == "/api/file" {
@@ -334,10 +357,18 @@ func gatewayGroupServe(mux http.Handler, grp gatewayGroup, w http.ResponseWriter
 		return
 	}
 	q := r.URL.Query()
-	for _, k := range []string{"path", "f"} {
-		if pp := q.Get(k); pp != "" && !groupAllows(grp, pp) {
+	if p == "/api/asset" {
+		// here f is the image beside the document, not a document
+		if !groupAllows(grp, q.Get("path")) || !gatewayAssetOK(q.Get("path"), q.Get("f")) {
 			http.Error(w, "this document is not shared with your group", http.StatusForbidden)
 			return
+		}
+	} else {
+		for _, k := range []string{"path", "f"} {
+			if pp := q.Get(k); pp != "" && !groupAllows(grp, pp) {
+				http.Error(w, "this document is not shared with your group", http.StatusForbidden)
+				return
+			}
 		}
 	}
 	if r.Method == "POST" && p == "/api/file" {
