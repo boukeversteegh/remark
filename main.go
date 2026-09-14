@@ -67,6 +67,10 @@ func main() {
 		runUnseen(os.Args[2:])
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "query" {
+		runQuery(os.Args[2:])
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "tag" {
 		runTag(os.Args[2:])
 		return

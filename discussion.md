@@ -3376,3 +3376,39 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     Installed. The test now flips Show resolved and asserts the outline and the board change together, in both directions, so they cannot drift apart again.
 
     Worth saying plainly: this is the third control today that had grown its own private copy of a rule — the unread pill and the outline row, then the date filter against Show resolved, now this. I have been collapsing them onto one function each time rather than syncing two, because syncing is what breaks later.
+
+- [ ] Bouke (2026-09-14 09:23:46): **A query verb for the CLI** <!--thread--> <!--seen:🤖 Claude-->
+  please include a query command for the cli that matches the datefilter in the ui.
+  so an agent can easily find all threads with activity or comments over a certain timerange (expressed by number of days, or a start+end date). it should list the root thread id with its title, and the ids of the posts that matched. full read out is not necessary, that is possible already with the cli, so we shouldn't duplicate this.
+
+  ideally this is part of a broader query/search tool and date is just a query option
+
+  - 🤖 Claude (2026-09-14 09:24:31): Claiming, and building it as the general tool you describe rather than a date command: remark query <file> with filters that AND together - a date window, an author, a tag, a text match - so date is one option among several and the next filter slots in beside them. The window matches the UI exactly: -days 1 is Today, -days 2 Since yesterday, -days 7 and -days 30 the other two presets, and -since/-until take dates for anything else. Output stays lean, as you asked: one line per thread with its root id and title, then the ids of the comments that matched, with the author for orientation and nothing more - remark read is still the way to see a thread. -json for the machine-readable form.
+
+  - 🤖 Claude (2026-09-14 09:31:00): Built and installed, as the general verb you asked for rather than a date command.
+
+    ```
+    remark query <file> [-days N | -since <date> [-until <date>]]
+                        [-author <name>] [-tag <tag>] [-text <substring>] [-json]
+    ```
+
+    Filters AND together, so date is one option among several and the next one slots in beside them. The window matches the UI exactly: `-days 1` is Today, `-days 2` Since yesterday, `-days 7` and `-days 30` the other two presets — today counts as day 1, and days are whole days from local midnight. `-since`/`-until` take dates, both ends inclusive, a bare date covering the whole of that day.
+
+    The answer stays as lean as you asked:
+
+    ```
+    2026-09-11 13:43:34  Filter threads by date
+        2026-09-11 13:43:34  Bouke
+        2026-09-11 14:21:53  Bouke
+    3 comment(s) in 2 thread(s)
+    ```
+
+    Root id and title, then the id of each comment that matched with its author for orientation — no bodies, since `remark read <file> <id>` already does that and this exists to tell you which ids are worth its time. `-json` gives the same as an array with root, title, author, section and matches.
+
+    Three decisions you might want to overrule:
+
+    - **A date matches activity, not age** — the same rule as the window. A thread from January whose latest reply is today appears under `-days 1`, and the matched ids under it tell you what is new. That is what makes "what moved since yesterday" work.
+    - **A query with no filter is refused** rather than printing every comment in the file. Silence would be wrong there and a full dump would be worse.
+    - **`-tag` counts reader tags**, so a comment someone else tagged `#sharing` is found by its tag, matching how the tag filter behaves in the window.
+
+    `remark help query` carries the detail and the preset mapping; the first help screen gained a line for it and is back at exactly 60. Ten test cases cover the day boundaries, the explicit window, each filter alone, the AND, the id-not-body shape, `-json`, and the refusal.

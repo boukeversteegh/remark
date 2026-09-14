@@ -5,6 +5,11 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-14
+
+### remark query finds the threads worth reading
+A query verb for the CLI, with the window's date filter as one of its options: remark query <file> -days 2 lists what moved since yesterday. Filters AND together — a date window (-days N counting today as 1, or -since/-until dates), -author, -tag, -text — and the answer stays lean on purpose: each thread's root id and title, then the id and author of every comment that matched. Bodies are remark read's job; this tells you which ids are worth its time. -json for the machine-readable form, remark help query for the detail.
+
 ## 2026-09-13
 
 ### Composer buttons wrap together on a narrow screen
