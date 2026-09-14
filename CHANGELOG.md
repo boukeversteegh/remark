@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-14
 
+### A notification opened in single-thread mode takes you there
+Clicking a notification while single-thread mode held a different thread did nothing at all: the comment was not on the board, so there was nothing to scroll to. Being sent to a comment now moves the focus to its thread — for notifications, bookmarks and #r links alike — and unfolds the way down to it. When a jump really cannot land, the warning names the filter that is hiding the thread instead of always blaming resolved threads.
+
 ### remark query finds the threads worth reading
 A query verb for the CLI, with the window's date filter as one of its options: remark query <file> -days 2 lists what moved since yesterday. Filters AND together — a date window (-days N counting today as 1, or -since/-until dates), -author, -tag, -text — and the answer stays lean on purpose: each thread's root id and title, then the id and author of every comment that matched. Bodies are remark read's job; this tells you which ids are worth its time. -json for the machine-readable form, remark help query for the detail.
 

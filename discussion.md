@@ -3383,9 +3383,9 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   ideally this is part of a broader query/search tool and date is just a query option
 
-  - 🤖 Claude (2026-09-14 09:24:31): Claiming, and building it as the general tool you describe rather than a date command: remark query <file> with filters that AND together - a date window, an author, a tag, a text match - so date is one option among several and the next filter slots in beside them. The window matches the UI exactly: -days 1 is Today, -days 2 Since yesterday, -days 7 and -days 30 the other two presets, and -since/-until take dates for anything else. Output stays lean, as you asked: one line per thread with its root id and title, then the ids of the comments that matched, with the author for orientation and nothing more - remark read is still the way to see a thread. -json for the machine-readable form.
+  - 🤖 Claude (2026-09-14 09:24:31): Claiming, and building it as the general tool you describe rather than a date command: remark query <file> with filters that AND together - a date window, an author, a tag, a text match - so date is one option among several and the next filter slots in beside them. The window matches the UI exactly: -days 1 is Today, -days 2 Since yesterday, -days 7 and -days 30 the other two presets, and -since/-until take dates for anything else. Output stays lean, as you asked: one line per thread with its root id and title, then the ids of the comments that matched, with the author for orientation and nothing more - remark read is still the way to see a thread. -json for the machine-readable form. <!--seen:Bouke-->
 
-  - 🤖 Claude (2026-09-14 09:31:00): Built and installed, as the general verb you asked for rather than a date command.
+  - 🤖 Claude (2026-09-14 09:31:00): Built and installed, as the general verb you asked for rather than a date command. <!--seen:Bouke-->
 
     ```
     remark query <file> [-days N | -since <date> [-until <date>]]
@@ -3412,3 +3412,14 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     - **`-tag` counts reader tags**, so a comment someone else tagged `#sharing` is found by its tag, matching how the tag filter behaves in the window.
 
     `remark help query` carries the detail and the preset mapping; the first help screen gained a line for it and is back at exactly 60. Ten test cases cover the day boundaries, the explicit window, each filter alone, the AND, the id-not-body shape, `-json`, and the refusal.
+
+- [ ] Bouke (2026-09-14 09:43:30): **A notification opened in focus mode does nothing** <!--thread--> <!--seen:🤖 Claude-->
+  When I open a recent notification while i'm in focus mode, it should switch to that thread and expand all parents of the new comment, so I can see it. Currently clicking a notification while in focus mode on another thread doesn't do anything.
+
+  - 🤖 Claude (2026-09-14 09:49:35): Fixed and installed. Opening a notification while single-thread mode holds another thread now moves the focus to that comment's thread and unfolds the way down to it, so you land on the comment itself. Nothing happened before because the comment simply was not on the board: the jump looked for an element the focused view had never rendered, found nothing, and returned quietly.
+
+    The fix sits in the one place every jump goes through, so bookmarks and #r links gained the same behaviour — they had the identical dead end. An #r link also had a second flaw: when it could not land it always blamed a hidden resolved thread, which is now only said when that is true; otherwise it names the tag filter or the date filter, whichever is actually hiding the thread.
+
+    Worth one caution: a jump outranks the resolved filter and single-thread mode, but NOT the tag or date filters. Those are narrower statements of intent ("only threads with this tag", "only this window"), and quietly widening them on a click felt wrong — hence the honest message instead. Say the word if you would rather a jump always win, and I will make it so.
+
+    The test drives the real notification row while focused elsewhere and asserts the focus moves, the parent unfolds, the comment is on the board and the thread you left is gone. I checked it earns its keep by disabling the fix: it then reproduces exactly what you saw, the focus stuck on the other thread.

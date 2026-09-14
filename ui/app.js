@@ -2331,6 +2331,14 @@ function revealItem(it) {
   let root = it;
   while (root.parent) root = root.parent;
   if (root.time) S.reveal.add(root.time);
+  // …and past single-thread mode: in focus mode the board holds one thread,
+  // so a jump into another one used to land on nothing at all. Being sent to
+  // a comment moves the focus to its thread, and the parents unfolded above
+  // bring the comment itself into view.
+  if (S.focusThread && root.time && S.focusThread !== root.time) {
+    S.focusThread = root.time;
+    unreadCursor = -1; // a new thread starts its unread cycle at the top
+  }
   render();
   const el = $('[data-ikey="' + CSS.escape(it.key) + '"]');
   if (!el) return;
@@ -4522,10 +4530,21 @@ function handleLinkClick(e) {
           S.collapsed.set(p.key, false);
           persistCollapse(p.key, false);
         }
+        // the same rule revealItem follows: a link outranks the resolved
+        // filter and moves single-thread mode onto the thread it points at
+        const linkRoot = found[0];
+        if (linkRoot.time) S.reveal.add(linkRoot.time);
+        if (S.focusThread && linkRoot.time && S.focusThread !== linkRoot.time) {
+          S.focusThread = linkRoot.time;
+        }
         render();
         target = document.getElementById(want);
         if (!target) {
-          toast('warn', 'That comment is in a hidden resolved thread — turn on “Show resolved” to jump to it.');
+          // name what is actually hiding it rather than guessing "resolved"
+          const why = S.tagFilter.size ? 'the tag filter is hiding its thread — clear it to jump there'
+            : dateFilterOn() ? 'its thread is outside the date filter — clear it to jump there'
+            : 'its thread is not on the board — check the filters in the toolbar';
+          toast('warn', 'Cannot jump to that comment: ' + why + '.');
           return;
         }
       }
