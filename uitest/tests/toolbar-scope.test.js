@@ -74,6 +74,30 @@ module.exports = async ctx => {
   assertEq(after.from, after.todayStart, '"today" still means today after a restart');
   assert(/today/.test(after.chip), 'the chip names it: ' + after.chip);
 
+  // single-thread mode comes back with the document too
+  await page.evaluate(() => { S.focusThread = S.parsed.blocks.find(b => b.type === 'thread').thread.time; render(); });
+  await page.waitForTimeout(400);
+  const focused = await page.evaluate(() => S.focusThread);
+  await page.reload();
+  await page.waitForSelector('#doc .thread', { timeout: 6000 });
+  await page.waitForTimeout(600);
+  assertEq(await page.evaluate(() => S.focusThread), focused, 'focus mode was remembered');
+  assertEq(await page.evaluate(() => document.querySelectorAll('#doc .thread').length), 1,
+    'and the board opened on that one thread');
+  await page.evaluate(() => exitFocus());
+  await page.waitForTimeout(400);
+  await page.reload();
+  await page.waitForSelector('#doc .thread', { timeout: 6000 });
+  await page.waitForTimeout(600);
+  assertEq(await page.evaluate(() => S.focusThread), null, 'leaving it is remembered as well');
+
+  // the react button hides until the header is hovered, like its neighbours
+  const react = await page.evaluate(() => {
+    const b = document.querySelector('#doc .citem > .chead .reactadd');
+    return b ? getComputedStyle(b).opacity : null;
+  });
+  assertEq(react, '0', 'the react button is quiet until hover');
+
   // the code block carries a copy button, and using it does not fold anything
   await page.evaluate(() => document.getElementById('expandAll').click());
   await page.waitForTimeout(400);

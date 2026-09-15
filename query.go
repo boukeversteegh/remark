@@ -60,6 +60,11 @@ func (q queryFilter) matches(lines []string, n *readNode) bool {
 	if n.author == "" {
 		return false // not a comment
 	}
+	// a bare reply — reader tags, an emoji reaction, or both — belongs to its
+	// parent and is not a comment anyone can be sent to read
+	if _, bare := readNodeTags(lines, n); bare {
+		return false
+	}
 	if q.author != "" && n.author != q.author {
 		return false
 	}
@@ -76,10 +81,7 @@ func (q queryFilter) matches(lines []string, n *readNode) bool {
 		}
 	}
 	if q.tag != "" {
-		tags, bare := readNodeTags(lines, n)
-		if bare {
-			return false // a reader tag is a label, not a comment
-		}
+		tags, _ := readNodeTags(lines, n)
 		found := false
 		for _, t := range tags {
 			if t == q.tag {

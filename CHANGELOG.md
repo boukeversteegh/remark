@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-15
 
+### Single-thread mode is remembered per document
+Reopening a document puts you back in the thread you were reading, or back in the whole document if that is where you left it. The phone keeps its own one-thread view unchanged.
+
 ### React to a comment with emoji
 A smiley button beside the tag button opens a picker — your five most recent, a fixed row of five, then sets by category — and the chosen emoji becomes a reaction on that comment. The convention is the reader tag's: a reply whose body is nothing but emoji belongs to its parent rather than being a comment of its own, so the file stays plain markdown and grep still finds everything. One reply carries both, so a reaction and a tag never make two. Each emoji is a chip with a count naming who gave it; clicking joins or takes back your own. Emoji inside ordinary prose stay prose. remark read counts reactions as reactions rather than replies and shows them on the thread's line, and monitors get a reaction event on the parent, mirroring the tag event.
 

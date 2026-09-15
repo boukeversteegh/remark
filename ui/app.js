@@ -497,6 +497,27 @@ function setDateFilter(from, to, label, presetDays) {
   render();
   scroller().scrollTop = 0;
 }
+// single-thread mode is remembered per document too. Saved from render(),
+// which is the one place that sees the settled value — focus is set from half
+// a dozen controls, and each of them keeping its own copy is how they drift.
+// The phone uses focusThread for its one-thread view, so it does not persist:
+// opening a document into a single thread would be a surprise there.
+function focusKey() { return 'remark:focus:' + S.path; }
+function saveFocus() {
+  if (S.mobile || !S.path) return;
+  try {
+    if (S.focusThread) localStorage.setItem(focusKey(), S.focusThread);
+    else localStorage.removeItem(focusKey());
+  } catch (e) { /* blocked storage: session-only */ }
+}
+function loadFocus() {
+  S.focusThread = null;
+  if (S.mobile || !S.path) return;
+  try {
+    // a thread that has since gone is dropped by render's own check
+    S.focusThread = localStorage.getItem(focusKey()) || null;
+  } catch (e) { /* unreadable: no focus */ }
+}
 function dateFilterKey() { return 'remark:datefilter:' + S.path; }
 function saveDateFilter() {
   try {
@@ -777,7 +798,7 @@ function reactAddButton(item) {
       for (const e of list) {
         const b = document.createElement('button');
         b.textContent = e;
-        b.title = e;
+        // no tooltip: it would repeat the emoji you are already looking at
         b.addEventListener('click', () => { closeEmojiPicker(); toggleReaction(item, e); });
         grid.appendChild(b);
       }
@@ -1334,6 +1355,7 @@ function render() {
   renderConflicts();
   updateUnreadUI();
   buildOutline();
+  saveFocus(); // the settled value, after a vanished thread has been dropped
 
   // flash newly arrived comments
   for (const it of fresh) {
@@ -4999,6 +5021,7 @@ async function init() {
   } catch (e) { S.collapsedSaved = {}; }
   loadBookmarks();
   loadDateFilter(); // per document, like the bookmarks and the fold state
+  loadFocus();
   applyZoom();
   wireWindowChrome(); // the landing page has the toolbar too
   if (!S.path) { showLanding(); dismissSplash(); return; }

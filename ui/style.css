@@ -1481,12 +1481,16 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .reactchip:hover { border-color: var(--accent); }
 .reactchip.mine { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .reactchip .rn { font: 600 10.5px var(--font-display); opacity: .85; }
+/* quiet until the header is hovered, like the tag and reference buttons */
 .reactadd {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 20px; height: 19px; padding: 0; border: 0; border-radius: 6px;
   background: none; color: var(--faint); cursor: pointer;
+  opacity: 0; transition: opacity .12s;
 }
-.reactadd:hover { color: var(--accent); background: var(--accent-soft); }
+.chead:hover .reactadd { opacity: .8; }
+.reactadd:hover { opacity: 1; color: var(--accent); background: var(--accent-soft); }
+body.mobile .chead .reactadd { opacity: .6; } /* no hover on a phone */
 .reactadd svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
 /* the picker: recents, a fixed row, then the sets */
 .emojipick {

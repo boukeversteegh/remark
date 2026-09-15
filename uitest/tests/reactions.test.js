@@ -74,6 +74,9 @@ module.exports = async ctx => {
       .querySelectorAll('.egrid button').length,
   }));
   assert(pick.rows.includes('Recent'), 'the recents row is there: ' + JSON.stringify(pick.rows));
+  const titled = await page.evaluate(() =>
+    [...document.querySelectorAll('.emojipick .egrid button')].filter(b => b.title).length);
+  assertEq(titled, 0, 'no tooltip repeating the emoji you are looking at');
   assert(pick.rows.includes('Common') && pick.common === 5, 'five common ones in a fixed order');
   assert(pick.rows.length > 3, 'and the category sets: ' + JSON.stringify(pick.rows));
 

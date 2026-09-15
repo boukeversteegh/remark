@@ -31,12 +31,14 @@ func TestQuery(t *testing.T) {
 		"- [ ] Bouke (" + day(0) + " 09:00:00): **Fresh** <!--thread-->\n" +
 		"  opened today, about #sharing\n\n" +
 		"  - Codex (" + day(0) + " 10:00:00): a reply today, mentioning WIDGETS.\n\n" +
+		"  - Dana (" + day(0) + " 10:30:00): 👍 #sharing\n\n" +
 		"- [ ] Bouke (" + day(3) + " 09:00:00): **Older** <!--thread-->\n" +
 		"  three days back\n\n" +
 		"  - Bouke (" + day(1) + " 11:00:00): answered yesterday.\n\n" +
 		"- [ ] Codex (2026-01-05 09:00:00): **Ancient** <!--thread-->\n" +
 		"  from january, about widgets\n\n" +
-		"  - Bouke (2026-01-06 09:00:00): #sharing\n"
+		"  - Bouke (2026-01-06 09:00:00): a reply the next day.\n\n" +
+		"  - Dana (2026-01-06 10:00:00): #sharing\n"
 	dir := t.TempDir()
 	p := filepath.Join(dir, "q.md")
 	if err := os.WriteFile(p, []byte(doc), 0o644); err != nil {
@@ -114,6 +116,22 @@ func TestQuery(t *testing.T) {
 		none := run(t, "-days", "1", "-author", "Nobody")
 		if !strings.Contains(none, "no comments match") {
 			t.Errorf("an empty result should say so plainly:\n%s", none)
+		}
+	})
+
+	// a bare reply belongs to its parent: a reaction or a reader tag is not a
+	// comment, so it must never be offered as one to go and read
+	t.Run("reactions and reader tags are not comments", func(t *testing.T) {
+		out := run(t, "-days", "1")
+		if strings.Contains(out, day(0)+" 10:30:00") {
+			t.Errorf("a bare emoji+tag reply was listed as a comment:\n%s", out)
+		}
+		tagged := run(t, "-tag", "#sharing")
+		if strings.Contains(tagged, day(0)+" 10:30:00") {
+			t.Errorf("the reader tag's own reply was listed:\n%s", tagged)
+		}
+		if !strings.Contains(tagged, "Fresh") {
+			t.Errorf("but the comment it tags should still be found:\n%s", tagged)
 		}
 	})
 

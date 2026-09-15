@@ -3490,7 +3490,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   so comment parsing works similar to tag comment parsing. if the comment only contains emojis, those are rendered on the parent as emoji reactions, rather than as text comments. it should compose with tags too.
 
-  - 🤖 Claude (2026-09-15 13:56:53): Claiming. The convention first, since it is the part that has to live in the file forever:
+  - 🤖 Claude (2026-09-15 13:56:53): Claiming. The convention first, since it is the part that has to live in the file forever: <!--seen:Bouke-->
 
     A reply whose body is nothing but emoji is a **reaction** on its parent, not a comment — the same shape the reader tags already use, so `grep` still finds everything and an editor still shows plain markdown:
 
@@ -3509,7 +3509,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     One question I will answer myself unless you say otherwise: an emoji written inside ordinary prose stays prose. Only a reply that is *nothing but* emoji becomes a reaction — the same rule that keeps `#tag` in a sentence from being a reader tag.
 
-  - 🤖 Claude (2026-09-15 14:06:51): Built and installed. React with the smiley beside the tag button; the picker opens with your five most recent, then a fixed row — 👍 👎 🎉 ❤️ 😄 — then sets by category. The recents row appears once you have used some.
+  - 🤖 Claude (2026-09-15 14:06:51): Built and installed. React with the smiley beside the tag button; the picker opens with your five most recent, then a fixed row — 👍 👎 🎉 ❤️ 😄 — then sets by category. The recents row appears once you have used some. <!--seen:Bouke-->
 
     The file stays plain markdown, because a reaction is just a reply that holds nothing but emoji:
 
@@ -3526,3 +3526,24 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     Both parsers learned it together. That turned up something the tags have quietly had wrong since they shipped: `remark read` counted bare replies as replies, so a thread with two reader tags claimed two replies that nobody had written. It now counts comments only, and shows the reactions on the thread's line instead: `(1 reply)  👍`. Monitors get a `reaction` event on the parent — actor, emoji added or taken back — mirroring the `tag` event, so an agent sees a 👍 rather than a phantom reply.
 
     Ten checks in the test: the two reaction shapes, the prose reply that keeps its emoji and stays a comment, the counts, joining and taking back, the file each writes, the tag composing in the same reply, and the picker's three kinds of row.
+
+    - Bouke (2026-09-15 14:08:18): 👍
+
+    - Bouke (2026-09-15 14:09:49): testing what happens if i include an emoji in a reply 🔥 <!--seen:🤖 Claude,Bouke-->
+
+      - Bouke (2026-09-15 14:10:39): 🚀 ❤️ ☕
+
+    - Bouke (2026-09-15 14:10:06): nothing. this is expected. great
+
+  - Bouke (2026-09-15 14:09:10): that works, and it marks it as read! great. <!--seen:🤖 Claude-->
+
+    i notice an emoji also has a tooltip showing the same emoji, that is not useful, pelase remove that.
+
+  - Bouke (2026-09-15 14:10:31): please hide the button until hovered, like the other buttons <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-15 14:17:52): Done - it now sits at zero opacity until the header is hovered, exactly like the tag and reference buttons, and stays faintly visible on the phone where there is no hover. The tooltip that echoed the emoji back at you is gone too. Both installed.
+
+- [ ] Bouke (2026-09-15 14:11:06): **Remember focus mode per document** <!--thread--> <!--seen:🤖 Claude-->
+  please remember focus mode status per document on restart.
+
+  - 🤖 Claude (2026-09-15 14:17:53): Done and installed. Reopening a document puts you back in the thread you were reading, or in the whole document if that is where you left it. It is saved from the render pass rather than from the controls: focus is set by the toolbar toggle, an outline click, a notification jump, Esc and a new thread, and giving each of them its own save is exactly how two of them end up disagreeing. The phone is left alone, since it uses the same state for its one-thread view and opening a document into a single thread would be a surprise there. A remembered thread that has since been deleted is dropped by the check that was already in the render pass. Test reloads with focus on and off and asserts both come back.
