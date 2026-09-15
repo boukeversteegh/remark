@@ -642,7 +642,9 @@ function tagChip(e, item) {
 // my bare-tag reply under item rewritten to carry exactly adds + negs;
 // emptied out, the reply goes with it
 function rewriteMyBare(item, mine, adds, negs) {
-  const text = adds.map(t => '#' + t).concat(negs.map(t => '-#' + t)).join(' ');
+  // your reactions live in the same reply: rewriting the tags must not throw
+  // your 👍 away
+  const text = bareReplyText(mine.bareEmoji || [], adds, negs);
   submitOps([text
     ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
     : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
@@ -667,7 +669,7 @@ function removeTag(item, e) {
   if (needNeg && negs.indexOf(t) === -1) negs.push(t);
   if (mine) {
     if (adds.length !== mine.bareTags.length || negs.length !== mine.bareNegs.length) {
-      const text = adds.map(x => '#' + x).concat(negs.map(x => '-#' + x)).join(' ');
+      const text = bareReplyText(mine.bareEmoji || [], adds, negs);
       ops.push(text
         ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
         : { type: 'delete', hash: mine.hash, occ: mine.occ });
@@ -681,6 +683,129 @@ function removeTag(item, e) {
   }
   if (ops.length) submitOps(ops);
 }
+// ---------------------------------------------------------------------------
+// reactions: a reply that is nothing but emoji belongs to its parent. A chip
+// per emoji with a count; clicking adds or removes YOUR OWN, which joins the
+// bare reply you already have under that comment rather than opening another.
+// ---------------------------------------------------------------------------
+const REACT_DEFAULTS = ['👍', '👎', '🎉', '❤️', '😄'];
+const REACT_SETS = [
+  ['Faces', ['😀', '😄', '😅', '😂', '🙂', '😉', '😍', '🤔', '😐', '😴', '😢', '😡', '🤯', '🥳', '😎', '🤝']],
+  ['Hands', ['👍', '👎', '👏', '🙌', '🙏', '👌', '✌️', '💪', '👀', '🫡', '🤞', '✋']],
+  ['Marks', ['✅', '❌', '⚠️', '❓', '❗', '💯', '🔥', '⭐', '✨', '🚀', '🐛', '🧪', '📌', '🔒', '⏱️', '🧹']],
+  ['Things', ['❤️', '🎉', '🎯', '💡', '📝', '📈', '🍀', '☕', '🧠', '🛠️', '🧩', '🚧']],
+];
+const REACT_RECENT_KEY = 'remark:emoji-recent';
+function reactRecent() {
+  try {
+    const a = JSON.parse(localStorage.getItem(REACT_RECENT_KEY) || '[]');
+    return Array.isArray(a) ? a.slice(0, 5) : [];
+  } catch (e) { return []; }
+}
+function reactRemember(emoji) {
+  try {
+    const next = [emoji].concat(reactRecent().filter(e => e !== emoji)).slice(0, 5);
+    localStorage.setItem(REACT_RECENT_KEY, JSON.stringify(next));
+  } catch (e) { /* blocked storage: recents stay empty */ }
+}
+// my bare reply under an item, whatever it carries — reactions and tags share
+// one, so a 👍 and a #tag never make two replies
+function myBareUnder(item) {
+  return item.children.find(c => c.bare && isMe(c.author)) || null;
+}
+function bareReplyText(emoji, tags, negs) {
+  return emoji.concat(tags.map(t => '#' + t), negs.map(t => '-#' + t)).join(' ');
+}
+function toggleReaction(item, emoji) {
+  const mine = myBareUnder(item);
+  const had = mine && mine.bareEmoji.includes(emoji);
+  reactRemember(emoji);
+  if (!mine) {
+    const ops = [{ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me,
+      text: emoji, time: uniqueStamp(), opener: false }];
+    if (!seenByMe(item)) {
+      S.optimisticSeen.set(item.key, true);
+      ops.push({ type: 'seen', hash: item.hash, occ: item.occ, reader: S.me, on: true });
+    }
+    submitOps(ops);
+    return;
+  }
+  const emoji2 = had ? mine.bareEmoji.filter(e => e !== emoji) : mine.bareEmoji.concat([emoji]);
+  const text = bareReplyText(emoji2, mine.bareTags, mine.bareNegs);
+  submitOps([text
+    ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
+    : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
+}
+function reactionChip(r, item) {
+  const chip = document.createElement('button');
+  const mine = r.by.some(isMe);
+  chip.className = 'reactchip' + (mine ? ' mine' : '');
+  chip.appendChild(document.createTextNode(r.emoji));
+  const n = document.createElement('span');
+  n.className = 'rn';
+  n.textContent = String(r.by.length);
+  chip.appendChild(n);
+  chip.title = r.by.join(', ') + (mine ? ' — click to take yours back' : ' — click to join');
+  chip.addEventListener('click', ev => {
+    ev.stopPropagation();
+    toggleReaction(item, r.emoji);
+  });
+  return chip;
+}
+// the picker: your five most recent, a fixed row of five, then the sets
+function reactAddButton(item) {
+  const btn = document.createElement('button');
+  btn.className = 'reactadd';
+  btn.innerHTML = iconHTML('smile-plus');
+  btn.title = 'React with an emoji';
+  btn.addEventListener('click', ev => {
+    ev.stopPropagation();
+    if (document.querySelector('.emojipick')) { closeEmojiPicker(); return; }
+    const pick = document.createElement('div');
+    pick.className = 'emojipick';
+    pick.addEventListener('click', e => e.stopPropagation());
+    const row = (label, list) => {
+      if (!list.length) return;
+      const r = document.createElement('div');
+      r.className = 'erow';
+      const h = document.createElement('div');
+      h.className = 'elabel';
+      h.textContent = label;
+      r.appendChild(h);
+      const grid = document.createElement('div');
+      grid.className = 'egrid';
+      for (const e of list) {
+        const b = document.createElement('button');
+        b.textContent = e;
+        b.title = e;
+        b.addEventListener('click', () => { closeEmojiPicker(); toggleReaction(item, e); });
+        grid.appendChild(b);
+      }
+      r.appendChild(grid);
+      pick.appendChild(r);
+    };
+    row('Recent', reactRecent());
+    row('Common', REACT_DEFAULTS);
+    for (const [label, list] of REACT_SETS) row(label, list);
+    document.body.appendChild(pick);
+    const rect = btn.getBoundingClientRect();
+    const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
+    const w = pick.offsetWidth * z, h = pick.offsetHeight * z;
+    const left = Math.max(8, Math.min(rect.left, innerWidth - w - 8));
+    // above the button when there is no room below
+    const top = rect.bottom + 6 + h < innerHeight ? rect.bottom + 6 : Math.max(8, rect.top - h - 6);
+    pick.style.left = left / z + 'px';
+    pick.style.top = top / z + 'px';
+  });
+  return btn;
+}
+function closeEmojiPicker() {
+  const p = document.querySelector('.emojipick');
+  if (p) p.remove();
+}
+document.addEventListener('click', closeEmojiPicker);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEmojiPicker(); });
+
 // "+ tag" on a comment: a tiny input in the header; Enter writes the tag —
 // into your own text (appended, on the tag row at the end) or, on someone
 // else's comment, as a bare-tag reply of yours (merged into an existing one)
@@ -726,7 +851,7 @@ function addTags(item, tags) {
   const have = new Set((item.tags || []).filter(e => !e.negated).map(e => e.tag));
   const add = tags.filter(t => !have.has(t));
   if (!add.length) { toast('ok', 'Already tagged #' + tags.join(' #')); return; }
-  const mineBare = item.children.find(c => c.bare && isMe(c.author));
+  const mineBare = myBareUnder(item);
   if (mineBare && add.some(t => mineBare.bareNegs.includes(t))) {
     const negs = mineBare.bareNegs.filter(t => !add.includes(t));
     const adds = mineBare.bareTags.concat(add.filter(t =>
@@ -745,7 +870,8 @@ function addTags(item, tags) {
   } else {
     const mine = item.children.find(c => c.bare && isMe(c.author));
     if (mine) {
-      ops.push({ type: 'edit', hash: mine.hash, occ: mine.occ, text: mine.bareTags.concat(add).map(t => '#' + t).concat(mine.bareNegs.map(t => '-#' + t)).join(' ') });
+      ops.push({ type: 'edit', hash: mine.hash, occ: mine.occ,
+        text: bareReplyText(mine.bareEmoji || [], mine.bareTags.concat(add), mine.bareNegs) });
     } else {
       ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me, text: add.map(t => '#' + t).join(' '), time: uniqueStamp(), opener: false });
       if (!seenByMe(item)) {
@@ -1581,11 +1707,15 @@ function buildItem(item, opts) {
   // tags: chips after the time (the comment's own plus reader tags), and
   // a hover "+ tag" — on your own comment it lands in the text, on
   // another's it is a bare-tag reply of yours
-  if ((item.tags && item.tags.length) || !collapsed) {
+  if ((item.tags && item.tags.length) || (item.reactions && item.reactions.length) || !collapsed) {
     const ct = document.createElement('span');
     ct.className = 'ctags';
     for (const e of item.tags || []) ct.appendChild(tagChip(e, item));
-    if (!collapsed && !S.chat) ct.appendChild(tagAddButton(item));
+    for (const r of item.reactions || []) ct.appendChild(reactionChip(r, item));
+    if (!collapsed && !S.chat) {
+      ct.appendChild(reactAddButton(item));
+      ct.appendChild(tagAddButton(item));
+    }
     head.appendChild(ct);
   }
 

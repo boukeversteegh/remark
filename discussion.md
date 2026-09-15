@@ -3484,3 +3484,45 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   Please add copy buttons to code fences
 
   - 🤖 Claude (2026-09-15 09:40:40): Added and installed. Every fenced block has a copy button in its corner - in comments, in the document's own prose, and in the composer preview - appearing on hover, confirming with a tick, and always visible on the phone where there is no hover. It stops the click from reaching the comment, so copying never folds the comment it sits in; the test checks exactly that, since that is the mistake this kind of button usually makes here.
+
+- [ ] Bouke (2026-09-15 13:55:55): **React to a comment with emoji** <!--thread--> <!--seen:🤖 Claude-->
+  let me react to a post with emojis. a single emoji placeholder button next to tag that will simply post a reply containing the chosen emoji from the popout (first row contains recent 5, then a row with a 5 popular default emojis like thumbs up and down in predefined order, then category based emoji sets).
+
+  so comment parsing works similar to tag comment parsing. if the comment only contains emojis, those are rendered on the parent as emoji reactions, rather than as text comments. it should compose with tags too.
+
+  - 🤖 Claude (2026-09-15 13:56:53): Claiming. The convention first, since it is the part that has to live in the file forever:
+
+    A reply whose body is nothing but emoji is a **reaction** on its parent, not a comment — the same shape the reader tags already use, so `grep` still finds everything and an editor still shows plain markdown:
+
+    ```
+    - Bouke (2026-09-15 13:55:55): the proposal
+      - 🤖 Claude (2026-09-15 14:02:11): 👍
+    ```
+
+    Composing with tags falls out of that: one bare reply may hold emoji and tags together (`👍 #important`), and both get lifted onto the parent. Several emoji in one reply are several reactions. Reactions never count as unread, never appear in notifications, and never show as comments — again exactly like the reader tags.
+
+    On the parent, each distinct emoji becomes a chip with a count, naming who reacted in the tooltip. Clicking a chip adds or removes **your own** reaction; yours joins the bare reply you already have under that comment rather than opening a second one.
+
+    The button goes beside the tag button, and the popout is as you describe: your five most recent (remembered per device), then a fixed row of five — 👍 👎 🎉 ❤️ 😄 — then the category sets.
+
+    Both parsers learn it together, the window's and the Go one, or `remark read` and the monitor would show reactions as comments. Monitors get a `reaction` event on the parent, mirroring the `tag` event, so an agent sees "someone gave this a 👍" rather than a phantom reply.
+
+    One question I will answer myself unless you say otherwise: an emoji written inside ordinary prose stays prose. Only a reply that is *nothing but* emoji becomes a reaction — the same rule that keeps `#tag` in a sentence from being a reader tag.
+
+  - 🤖 Claude (2026-09-15 14:06:51): Built and installed. React with the smiley beside the tag button; the picker opens with your five most recent, then a fixed row — 👍 👎 🎉 ❤️ 😄 — then sets by category. The recents row appears once you have used some.
+
+    The file stays plain markdown, because a reaction is just a reply that holds nothing but emoji:
+
+    ```
+    - Bouke (2026-09-15 13:55:55): the proposal
+      - Codex (2026-09-15 14:01:12): 👍
+      - Dana (2026-09-15 14:02:40): 👍 🎉 #important
+    ```
+
+    Both of those are reactions on the parent and neither shows as a comment. Dana's shows the composition you asked for: one reply carrying emoji and a tag, both lifted onto the parent, so a reaction and a tag never make two replies — and if you already have a bare reply there, a new reaction joins it instead of opening another.
+
+    Each emoji is a chip with a count, naming who gave it in the tooltip; clicking joins, clicking again takes yours back and deletes the reply if it is left empty. Emoji written inside ordinary prose stay prose — the rule that keeps `#tag` in a sentence from being a reader tag.
+
+    Both parsers learned it together. That turned up something the tags have quietly had wrong since they shipped: `remark read` counted bare replies as replies, so a thread with two reader tags claimed two replies that nobody had written. It now counts comments only, and shows the reactions on the thread's line instead: `(1 reply)  👍`. Monitors get a `reaction` event on the parent — actor, emoji added or taken back — mirroring the `tag` event, so an agent sees a 👍 rather than a phantom reply.
+
+    Ten checks in the test: the two reaction shapes, the prose reply that keeps its emoji and stays a comment, the counts, joining and taking back, the file each writes, the tag composing in the same reply, and the picker's three kinds of row.

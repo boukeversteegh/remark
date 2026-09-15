@@ -292,12 +292,31 @@ func readSubtreeEnd(n *readNode) int {
 	return n.ownEnd
 }
 
-func readCountBelow(n *readNode) int {
+// readCountBelow counts the COMMENTS under n. A bare reply — reader tags, an
+// emoji reaction, or both — belongs to its parent rather than being a comment,
+// so counting it would promise a reply that nobody wrote.
+func readCountBelow(lines []string, n *readNode) int {
 	c := 0
 	for _, ch := range n.children {
-		c += 1 + readCountBelow(ch)
+		if _, bare := readNodeTags(lines, ch); bare {
+			continue
+		}
+		c += 1 + readCountBelow(lines, ch)
 	}
 	return c
+}
+
+// readReactions gathers the emoji given to n by its bare replies, so an index
+// line can show them instead of silently dropping them.
+func readReactions(lines []string, n *readNode) []string {
+	var out []string
+	for _, ch := range n.children {
+		if _, bare := readNodeTags(lines, ch); !bare {
+			continue
+		}
+		out = tagUnion(out, tagEmoji(readNodeBody(lines, ch)))
+	}
+	return out
 }
 
 func readFirstLine(n *readNode) string {
@@ -324,7 +343,7 @@ func readPrintOwn(lines []string, n *readNode) {
 func readPrintTree(lines []string, n *readNode, depth int) {
 	readPrintOwn(lines, n)
 	if depth == 0 {
-		if c := readCountBelow(n); c > 0 {
+		if c := readCountBelow(lines, n); c > 0 {
 			fmt.Printf("     │ %s… %d deeper repl%s hidden (raise -depth)\n",
 				strings.Repeat(" ", n.indent+2), c, map[bool]string{true: "y", false: "ies"}[c == 1])
 		}
@@ -385,8 +404,13 @@ func runRead(args []string) {
 					state = "[x]"
 				}
 			}
-			fmt.Printf("%s %-19s  %-12s %s  (%d repl%s)\n", state, r.time, r.author,
-				readFirstLine(r), readCountBelow(r), map[bool]string{true: "y", false: "ies"}[readCountBelow(r) == 1])
+			n := readCountBelow(lines, r)
+			extra := ""
+			if re := readReactions(lines, r); len(re) > 0 {
+				extra = "  " + strings.Join(re, "")
+			}
+			fmt.Printf("%s %-19s  %-12s %s  (%d repl%s)%s\n", state, r.time, r.author,
+				readFirstLine(r), n, map[bool]string{true: "y", false: "ies"}[n == 1], extra)
 		}
 		return
 	}

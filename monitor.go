@@ -42,8 +42,9 @@ type monItem struct {
 	Text       string   `json:"text"`
 	Indent     int      `json:"indent"`
 	Key        string   `json:"key"`
-	Tags       []string `json:"tags,omitempty"` // effective: written in the text plus reader tags (bare-tag replies)
-	Bare       bool     `json:"bare,omitempty"` // a reply that is nothing but tags: tags its parent, not a comment
+	Tags       []string `json:"tags,omitempty"`      // effective: written in the text plus reader tags (bare-tag replies)
+	Reactions  []string `json:"reactions,omitempty"` // emoji given by bare replies, in first-seen order
+	Bare       bool     `json:"bare,omitempty"`      // a reply that is nothing but tags: tags its parent, not a comment
 	body       string   // the full own text, for the tag scan (Text is capped)
 }
 
@@ -447,6 +448,8 @@ func monParse(content string) []*monItem {
 			if len(stack) > 0 {
 				p := stack[len(stack)-1]
 				p.Tags = tagUnion(p.Tags, tagExtract(it.body))
+				// the same reply may carry reactions: "👍 #important"
+				p.Reactions = tagUnion(p.Reactions, tagEmoji(it.body))
 				if n := tagExtractNeg(it.body); len(n) > 0 {
 					negs = append(negs, monNeg{p, n})
 				}
@@ -495,23 +498,24 @@ func monThreadScope(items []*monItem, sels []string, mine bool, as string) map[s
 }
 
 type monEvent struct {
-	Type    string   `json:"type"` // comment | toggle | seen
-	File    string   `json:"file"`
-	Author  string   `json:"author"`
-	Time    string   `json:"time,omitempty"`
-	Checked bool     `json:"checked"`
-	Reader  string   `json:"reader,omitempty"` // seen-events: who was added to the marker
-	SeenBy  []string `json:"seenBy,omitempty"`
-	Section string   `json:"section,omitempty"`
-	Thread  string   `json:"thread,omitempty"`
-	Root    string   `json:"root,omitempty"`   // thread root's timestamp: `remark read <file> <root>`
-	Parent  string   `json:"parent,omitempty"` // the comment this one answers; "" for a root
-	Dm      bool     `json:"dm,omitempty"`     // from the agent's own DM channel, not a document
-	To      string   `json:"to,omitempty"`     // DM: the instance it was addressed to
-	Text    string   `json:"text"`
-	Tags    []string `json:"tags,omitempty"`    // the comment's current tag set
-	Added   []string `json:"added,omitempty"`   // tag-events: what the actor put on
-	Removed []string `json:"removed,omitempty"` // tag-events: what went away
+	Type      string   `json:"type"` // comment | toggle | seen
+	File      string   `json:"file"`
+	Author    string   `json:"author"`
+	Time      string   `json:"time,omitempty"`
+	Checked   bool     `json:"checked"`
+	Reader    string   `json:"reader,omitempty"` // seen-events: who was added to the marker
+	SeenBy    []string `json:"seenBy,omitempty"`
+	Section   string   `json:"section,omitempty"`
+	Thread    string   `json:"thread,omitempty"`
+	Root      string   `json:"root,omitempty"`   // thread root's timestamp: `remark read <file> <root>`
+	Parent    string   `json:"parent,omitempty"` // the comment this one answers; "" for a root
+	Dm        bool     `json:"dm,omitempty"`     // from the agent's own DM channel, not a document
+	To        string   `json:"to,omitempty"`     // DM: the instance it was addressed to
+	Text      string   `json:"text"`
+	Tags      []string `json:"tags,omitempty"`      // the comment's current tag set
+	Added     []string `json:"added,omitempty"`     // tag/reaction events: what the actor put on
+	Removed   []string `json:"removed,omitempty"`   // tag/reaction events: what went away
+	Reactions []string `json:"reactions,omitempty"` // reaction events: the emoji now on the comment
 	// on the FIRST comment a monitor delivers: how to acknowledge it. Agents
 	// otherwise answer first and mark read afterwards, which leaves the human
 	// looking at a comment nobody has picked up.
@@ -672,6 +676,37 @@ func monDiff(file string, oldItems, newItems []*monItem) []monEvent {
 				evs = append(evs, monEvent{Type: "tag", File: file, Author: actor,
 					Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread, Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text,
 					Tags: it.Tags, Added: byAdd[actor], Removed: byRem[actor]})
+			}
+		}
+		// reactions move like tags: the actor is whoever's bare reply carries
+		// the emoji, so an agent's own 👍 never wakes it
+		if added, removed := tagDiff(prev.Reactions, it.Reactions), tagDiff(it.Reactions, prev.Reactions); len(added) > 0 || len(removed) > 0 {
+			byActor := map[string][]string{}
+			var order []string
+			for _, e := range added {
+				actor := it.Author
+				for _, b := range taggers[it.Time] {
+					if len(tagDiff(tagEmoji(b.body), []string{e})) == 0 {
+						actor = b.Author
+						break
+					}
+				}
+				if _, ok := byActor[actor]; !ok {
+					order = append(order, actor)
+				}
+				byActor[actor] = append(byActor[actor], e)
+			}
+			for _, actor := range order {
+				evs = append(evs, monEvent{Type: "reaction", File: file, Author: actor,
+					Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread,
+					Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text,
+					Reactions: it.Reactions, Added: byActor[actor]})
+			}
+			if len(removed) > 0 {
+				evs = append(evs, monEvent{Type: "reaction", File: file, Author: it.Author,
+					Time: it.Time, Checked: it.Checked, Section: it.Section, Thread: it.Thread,
+					Root: it.Root, Parent: it.Parent, To: it.To, Text: it.Text,
+					Reactions: it.Reactions, Removed: removed})
 			}
 		}
 		if prev.Time == "now" && it.Time != "" && it.Time != "now" {
@@ -1021,6 +1056,13 @@ func runMonitor(args []string) {
 						}
 					case "stamped":
 						mark = "🕒" // a (now) placeholder received its real stamp
+					case "reaction":
+						mark = "🙂"
+						if len(ev.Added) > 0 {
+							suffix = " (" + strings.Join(ev.Added, " ") + ")"
+						} else {
+							suffix = " (took back " + strings.Join(ev.Removed, " ") + ")"
+						}
 					case "tag":
 						mark = "🏷"
 						var parts []string

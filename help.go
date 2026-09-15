@@ -122,8 +122,9 @@ The rules, in full — for when you must hand-edit after all:
   * Tags: "#word" in a comment, preceded by whitespace (letter first;
     not in code, URLs or link anchors; not "#123", not hex colors, not
     "#r..." references). A reply
-    whose whole body is tags is a READER TAG on its parent, not a
-    comment — that is what remark tag writes. "-#word" in such a reply
+    whose whole body is tags — or emoji, which are REACTIONS on the
+    parent — belongs to that parent and is not a comment; one reply may
+    carry both. That is what remark tag writes. "-#word" in such a reply
     NEGATES the tag: it leaves the parent's effective set (filters,
     counts, tag events) without editing anyone's text, and wins over
     additions; dropping the -# token restores the tag.
