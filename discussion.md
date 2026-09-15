@@ -3272,12 +3272,14 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     The test covers the pill's landing position, the row selecting a thread and hitting its first unread, the step to the next one, and the pill picking up that same cursor afterwards.
 
-- [ ] Bouke (2026-09-10 20:16:58): **What's new overflows the screen** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-10 20:16:58): **What's new overflows the screen** <!--thread--> <!--seen:🤖 Claude-->
   A giant "whats new" list overflows the screen, and i cannot access the button to dismiss it. ![discussion-20260910-201646.png](discussion-20260910-201646.png)
 
   - 🤖 Claude (2026-09-10 20:17:28): Claiming. The panel is taller than the window, so its header and the dismiss button sit above and below the viewport, and only the middle scrolls. Fix: cap it to the visible area with the header and the dismiss row pinned, so the list scrolls inside and both controls stay reachable at any window height. Regression test to follow. <!--seen:Bouke,🤖 Claude-->
 
-  - 🤖 Claude (2026-09-10 20:23:15): Fixed, installed and pushed (3e116f4); your window picks it up on its next restart. Cause: CSS zoom multiplies every length in the page, viewport units included, so the panel's cap of 70% of the screen became 70% times your zoom. At 170% in a 640px-high window the panel opened 149 pixels above the top edge, which is why the header with Restart and the close button was unreachable while the middle still scrolled. The zoom factor is now published to the stylesheet, and both What's new and Sharing cap against the real window instead, so the header stays put and the list scrolls inside. Regression test whatsnew-fits checks both panel edges, that the close button is actually hit-testable, and that the list scrolls, at 100, 130, 170 and 250 percent; the suite is green at 43 of 43. One related thing I did not touch: the image popout sizes its picture with the same viewport-unit trick, so a very large image at high zoom can still overflow. Say the word and I will bring it under the same rule with a test.
+  - 🤖 Claude (2026-09-10 20:23:15): Fixed, installed and pushed (3e116f4); your window picks it up on its next restart. Cause: CSS zoom multiplies every length in the page, viewport units included, so the panel's cap of 70% of the screen became 70% times your zoom. At 170% in a 640px-high window the panel opened 149 pixels above the top edge, which is why the header with Restart and the close button was unreachable while the middle still scrolled. The zoom factor is now published to the stylesheet, and both What's new and Sharing cap against the real window instead, so the header stays put and the list scrolls inside. Regression test whatsnew-fits checks both panel edges, that the close button is actually hit-testable, and that the list scrolls, at 100, 130, 170 and 250 percent; the suite is green at 43 of 43. One related thing I did not touch: the image popout sizes its picture with the same viewport-unit trick, so a very large image at high zoom can still overflow. Say the word and I will bring it under the same rule with a test. <!--seen:Bouke-->
+
+  - Bouke (2026-09-14 17:04:59): Fixed, thanks! <!--seen:🤖 Claude-->
 
 - [ ] CIBuild (2026-09-11 13:10:44): **Een verloren bevestiging leidt tot dubbele comments** <!--thread--> <!--seen:🤖 Claude-->
   Vanmiddag heb ik vier keer dezelfde comment in een document gezet: twee keer in een paar seconden, en twee keer met 7 en 13 seconden ertussen. Bouke zag alles dubbel en vroeg me ermee te stoppen. Hieronder wat ik wel en niet heb kunnen vaststellen, want twee van de dingen die je zou verwachten blijken al goed te werken.
@@ -3423,3 +3425,48 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     Worth one caution: a jump outranks the resolved filter and single-thread mode, but NOT the tag or date filters. Those are narrower statements of intent ("only threads with this tag", "only this window"), and quietly widening them on a click felt wrong — hence the honest message instead. Say the word if you would rather a jump always win, and I will make it so.
 
     The test drives the real notification row while focused elsewhere and asserts the focus moves, the parent unfolds, the comment is on the board and the thread you left is gone. I checked it earns its keep by disabling the fix: it then reproduces exactly what you saw, the focus stuck on the other thread.
+
+- [ ] Bouke (2026-09-15 09:20:58): **A search bar over the whole document** <!--thread--> <!--seen:🤖 Claude-->
+  I need a proper search bar. It should find issues matching my current search settings.
+  We'll basically treat the main content section of the application as a search result page.
+  When i enter a term in the search bar, It will filter all threads by those containing that term.
+
+  so subthreads/comments are also included in the search, but these are not hidden when they don't match.
+  matching subthreads should keep their collapse state, but should be marked with a magenta indicator. while in search mode, expanding a matching collapsed (sub)thread, it will automatically expand all the way to the (deeply nested) matching comment. non-matching comments do not expand along with it, and keep their original state.
+  the expansion is not transient. when removing the search query (x in the field), the expansion state is kept (normal expansion state).
+
+  - 🤖 Claude (2026-09-15 09:22:10): Claiming. Reading it back so you can stop me early if I have it wrong:
+
+    - A search box in the toolbar. Typing filters the board to threads that contain the term **anywhere** — root or any comment at any depth — and the outline narrows to the same threads, so the document reads as a result page.
+    - Inside a surviving thread **nothing is hidden**: non-matching comments stay exactly as they are. Only the threads themselves are filtered.
+    - Matching comments wear a magenta marker. A collapsed comment with a match buried inside wears it too, dimmer, with the number of matches under it — otherwise a fold hides the only thing you searched for.
+    - Collapse state is left alone when the search starts. When you expand something that holds matches, it opens **the whole way down to them**: every ancestor on a path to a match, and the matching comments themselves. Anything not on such a path keeps its own state.
+    - That expansion is real, not a view: clearing the search with the × leaves it exactly as it stands.
+    - It composes with what is already on — tag, date, Show resolved — each narrowing what the others leave, and the term joins them as a chip in the same filter bar with its own way out.
+
+    Two things I am deciding unless you say otherwise: the match is case-insensitive on the comment's text (author names are not text, and `remark query -author` covers those), and the search is session-only like the other filters. Building it now.
+
+  - 🤖 Claude (2026-09-15 09:30:19): Built and installed, to the spec as I read it back.
+
+    The box sits in the toolbar. Typing narrows the board to threads containing the term, the outline narrows with it, and the bar above the document says what you are looking at — "2 matches in 2 threads" — with the term as a chip carrying its own ×. Inside a surviving thread nothing is hidden: comments that do not match are exactly where they were.
+
+    Matches wear magenta. A folded comment says how many matches its fold is hiding, and opening it opens the whole way down to them — every ancestor on a path to a match, and the matches themselves. A branch with nothing in it keeps the state it had. That expansion is written like any other, so clearing the search leaves it standing, as you asked.
+
+    Two things came out of looking at it rather than trusting the tests. The match marker started as a magenta edge down the card, which for a thread root is exactly where the thread's own state ribbon sits — blue, amber or green — so it was invisible on the very comments most likely to match. The marker is a header chip now, which reads at any depth. And the fold counted only matches BELOW it, so a folded comment whose own body held the term showed nothing at all: it appeared in the results with no visible reason. A fold now counts everything it hides, its own body included.
+
+    It composes with the tag filter, the date filter and Show resolved: each narrows what the others leave. The test covers the filtering, the non-hiding, both marker cases, the expand-to-match, the expansion surviving the clear, and the empty result.
+
+    Two decisions I made on your behalf, easily changed: the match is case-insensitive over the comment's text only — author names are not text, and `remark query -author` covers those — and the search is session-only. That last one I would now put to you directly, since you have just asked for the date filter to be remembered per document: say the word and search can be remembered the same way.
+
+- [ ] Bouke (2026-09-15 09:25:37): **Back and forward navigation** <!--thread--> <!--seen:🤖 Claude-->
+  I would like to have a back/forward navigation button, similar to vscode.
+  it should be based on the actively viewed thread, sharing logic with the scroll spy, but per thread should remember the last comment.
+
+  each time i press `<--` it goes back to the previous _thread_, showing the last viewed comment within that thread. pressing it again jumps to the thread viewed before that, not another comment within that thread.
+
+- [ ] Bouke (2026-09-15 09:27:37): **Remember the date filter per document** <!--thread--> <!--seen:🤖 Claude-->
+  please remember the date filter state for that document when i restart
+
+- [ ] Bouke (2026-09-15 09:28:13): **Collapse and expand all: what is the scope?** <!--thread--> <!--seen:🤖 Claude-->
+  collapse and expand all not clear what their scope is. all visible threads or all threads?
+  please make it act on all visible threads, and clarify the tooltip

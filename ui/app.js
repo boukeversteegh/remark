@@ -36,6 +36,7 @@ const S = {
   dateFrom: null,         // ms, inclusive; null = open
   dateTo: null,           // ms, inclusive; null = open
   dateLabel: '',          // what the preset was called, for the chip
+  search: '',             // the search term; session-only, like the filters
 };
 
 const $ = (s, el) => (el || document).querySelector(s);
@@ -378,6 +379,35 @@ function subtreeTags(root) {
   return out;
 }
 // ---------------------------------------------------------------------------
+// search: the document becomes a result page. Threads without the term drop
+// out; inside the ones that stay, NOTHING is hidden — the matches are marked
+// instead, so a hit keeps the conversation it came from.
+// ---------------------------------------------------------------------------
+function searchOn() { return S.search.trim() !== ''; }
+function itemMatchesSearch(it) {
+  if (!searchOn() || it.bare) return false;
+  return (it.rawBody || '').toLowerCase().includes(S.search.trim().toLowerCase());
+}
+// how many matches sit at or below an item — the number a fold would hide
+function searchHitsIn(it) {
+  let n = itemMatchesSearch(it) ? 1 : 0;
+  for (const c of it.children) n += searchHitsIn(c);
+  return n;
+}
+function threadHasSearchMatch(root) { return searchHitsIn(root) > 0; }
+// unfold every path that leads to a match, and the matches themselves —
+// anything not on such a path keeps the state it had. The writes go through
+// persistCollapse, so clearing the search leaves this standing.
+function expandToMatches(item) {
+  for (const c of item.children) {
+    if (searchHitsIn(c) === 0) continue; // not on the way to anything
+    S.collapsed.set(c.key, false);
+    persistCollapse(c.key, false);
+    expandToMatches(c);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // date filter: "what moved since yesterday". A thread matches when any of its
 // comments was written inside the window — activity, not the age of the root.
 // ---------------------------------------------------------------------------
@@ -408,6 +438,16 @@ function daysAgoStart(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return startOfDay(d);
+}
+// the search box, the chip in the filter bar and Esc all go through here, so
+// the input and the document can never disagree about what is being searched
+function setSearch(term) {
+  S.search = term || '';
+  const box = $('#searchInput');
+  if (box && box.value !== S.search) box.value = S.search;
+  const clr = $('#searchClear');
+  if (clr) clr.hidden = !searchOn();
+  render();
 }
 function dateRangeLabel() {
   if (S.dateLabel) return S.dateLabel;
@@ -918,13 +958,15 @@ function render() {
   // one bar names whichever are on.
   let tagKeep = null;
   const dateOn = dateFilterOn() && !S.focusThread;
-  if ((S.tagFilter.size || dateOn) && !S.focusThread) {
+  const findOn = searchOn() && !S.focusThread;
+  if ((S.tagFilter.size || dateOn || findOn) && !S.focusThread) {
     tagKeep = new Set();
     let lastHeading = null;
     for (const b of parsed.blocks) {
       if (b.type === 'heading') lastHeading = b;
       if (b.type === 'thread' && threadMatchesFilter(b.thread) &&
-          (!dateOn || threadInDateRange(b.thread))) {
+          (!dateOn || threadInDateRange(b.thread)) &&
+          (!findOn || threadHasSearchMatch(b.thread))) {
         if (lastHeading) tagKeep.add(lastHeading);
         tagKeep.add(b);
       }
@@ -939,9 +981,22 @@ function render() {
       S.tagFilter.clear();
       S.dateFrom = S.dateTo = null;
       S.dateLabel = '';
-      render();
+      setSearch('');
     });
     bar.appendChild(back);
+    if (findOn) {
+      const chip = document.createElement('button');
+      chip.className = 'tagchip findchip';
+      chip.innerHTML = iconHTML('search');
+      chip.appendChild(document.createTextNode(S.search.trim()));
+      chip.title = 'Threads containing this text — click to drop the search';
+      chip.addEventListener('click', () => setSearch(''));
+      const x = document.createElement('span');
+      x.className = 'tagx';
+      x.textContent = '×';
+      chip.appendChild(x);
+      bar.appendChild(chip);
+    }
     for (const t of S.tagFilter) bar.appendChild(tagChip({ tag: t, authored: true, by: [] }, null));
     if (dateOn) {
       const chip = document.createElement('button');
@@ -958,10 +1013,20 @@ function render() {
     }
     const n = document.createElement('span');
     n.className = 'tagn';
-    const nt = [...tagKeep].filter(b => b.type === 'thread').length;
-    n.textContent = nt ? nt + (nt === 1 ? ' thread' : ' threads')
-      : S.tagFilter.size && dateOn ? 'nothing matches both'
-      : dateOn ? 'no activity in this window' : 'no thread carries all of these';
+    const kept = [...tagKeep].filter(b => b.type === 'thread');
+    const nt = kept.length;
+    if (nt && findOn) {
+      // a result page says how much there is to read, not just how many
+      // conversations survived
+      const hits = kept.reduce((s, b) => s + searchHitsIn(b.thread), 0);
+      n.textContent = hits + (hits === 1 ? ' match in ' : ' matches in ') +
+        nt + (nt === 1 ? ' thread' : ' threads');
+    } else {
+      n.textContent = nt ? nt + (nt === 1 ? ' thread' : ' threads')
+        : findOn ? 'nothing contains that'
+        : S.tagFilter.size && dateOn ? 'nothing matches both'
+        : dateOn ? 'no activity in this window' : 'no thread carries all of these';
+    }
     bar.appendChild(n);
     doc.appendChild(bar);
   }
@@ -1301,10 +1366,16 @@ function buildItem(item, opts) {
     item.parent.children[item.parent.children.length - 1] === item;
   const unreplied = !(root.resolvable && effChecked(root)) &&
     isMe(item.author) && kids.length === 0 && lastAtLevel;
+  // search markers: a comment that matches, and one that merely holds matches
+  // further down — the second matters most when it is folded, since the fold
+  // is then hiding the only thing you were looking for
+  const isHit = itemMatchesSearch(item);
+  const hitsBelow = searchOn() ? searchHitsIn(item) - (isHit ? 1 : 0) : 0;
   el.className = 'citem' +
     (isUnread(item) ? ' unread' : '') +
     (collapsed ? ' collapsed' : '') +
     (unreplied ? ' unreplied' : '') +
+    (isHit ? ' hit' : hitsBelow ? ' hitdeep' : '') +
     (isMe(item.author) ? ' mine' : '');
   el.dataset.ikey = item.key;
   // timestamps are comment identity — expose each as a linkable anchor, so
@@ -1335,6 +1406,17 @@ function buildItem(item, opts) {
     el.appendChild(rail);
   }
 
+  // one fold action for the header band and the caret alike. Opening a
+  // comment that holds matches opens the way down to them as well — a real
+  // expansion, written like any other, so it survives the search being cleared
+  const toggleFold = () => {
+    const want = !collapsed;
+    S.collapsed.set(item.key, want);
+    persistCollapse(item.key, want);
+    if (!want && searchOn() && hitsBelow) expandToMatches(item);
+    render();
+  };
+
   const head = document.createElement('div');
   head.className = 'chead';
   // the header spans the card's padding (see .chead in the stylesheet), so
@@ -1342,9 +1424,7 @@ function buildItem(item, opts) {
   // keep their own action
   head.addEventListener('click', e => {
     if (e.target.closest('button, input, a')) return;
-    S.collapsed.set(item.key, !collapsed);
-    persistCollapse(item.key, !collapsed);
-    render();
+    toggleFold();
   });
   // hovering it tints the comment that will fold — the same whole-card
   // highlight the gutter strip gives, so the control reads as one thing
@@ -1355,11 +1435,7 @@ function buildItem(item, opts) {
   tw.className = 'twisty';
   tw.innerHTML = iconHTML('chevron-down');
   tw.title = collapsed ? 'Expand' : 'Collapse';
-  tw.addEventListener('click', () => {
-    S.collapsed.set(item.key, !collapsed);
-    persistCollapse(item.key, !collapsed);
-    render();
-  });
+  tw.addEventListener('click', toggleFold);
   // caret and gutter strip are one control: hovering the caret previews
   // the same fold the strip does
   if (!collapsed) {
@@ -1453,6 +1529,22 @@ function buildItem(item, opts) {
   sp.className = 'spacer';
   head.appendChild(sp);
 
+  // the header carries the search marker, since the card's left edge belongs
+  // to the thread's own state. Folded, it counts everything the fold hides —
+  // its own body included, or a folded comment that matches shows nothing.
+  if (searchOn()) {
+    const shown = collapsed ? searchHitsIn(item) : (isHit ? 1 : 0);
+    if (shown) {
+      const hc = document.createElement('span');
+      hc.className = 'hitchip';
+      hc.innerHTML = iconHTML('search');
+      hc.appendChild(document.createTextNode(shown + (shown === 1 ? ' match' : ' matches')));
+      hc.title = collapsed
+        ? 'Open to go straight to ' + (shown === 1 ? 'it' : 'them')
+        : 'This comment contains the search term';
+      head.appendChild(hc);
+    }
+  }
   if (collapsed && st.count > 1) {
     const rc = document.createElement('span');
     rc.className = 'rcount';
@@ -3613,6 +3705,7 @@ function buildOutline() {
         // board is not showing
         if (!threadMatchesFilter(th)) continue;
         if (!threadInDateRange(th)) continue;
+        if (searchOn() && !threadHasSearchMatch(th)) continue;
       }
       const trow = document.createElement('div');
       trow.className = 'otrow' + (marks.length ? ' bookmarked' : '') +
@@ -4363,6 +4456,22 @@ function wireTopbar() {
       : 'Showing resolved threads — click to hide them';
   };
   syncHideResolved();
+  // the search box: typing narrows the board to threads containing the term
+  const sBox = $('#searchInput');
+  if (sBox) {
+    $('.searchbox .sicon').innerHTML = iconHTML('search');
+    let typing = null;
+    sBox.addEventListener('input', () => {
+      clearTimeout(typing); // a keystroke should not re-render the document
+      typing = setTimeout(() => setSearch(sBox.value), 140);
+    });
+    sBox.addEventListener('keydown', e => {
+      e.stopPropagation(); // the document's own shortcuts stay out of the box
+      if (e.key === 'Escape') { clearTimeout(typing); setSearch(''); sBox.blur(); }
+      if (e.key === 'Enter') { clearTimeout(typing); setSearch(sBox.value); }
+    });
+    $('#searchClear').addEventListener('click', () => { setSearch(''); sBox.focus(); });
+  }
   // date filter: presets you would reach for daily, plus a range you type.
   // It narrows whatever the other filters leave rather than replacing them.
   const dfBtn = $('#dateFilterBtn');

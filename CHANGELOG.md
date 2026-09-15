@@ -5,6 +5,11 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-15
+
+### A search bar over the whole document
+A search box in the toolbar turns the board into a result page: threads without the term drop out, the outline narrows with them, and the bar counts the matches and the threads holding them. Inside a surviving thread nothing is hidden — non-matching comments stay exactly as they were — and matches wear a magenta marker, with a folded comment saying how many matches its fold is hiding, its own body included. Opening such a fold opens the whole way down to the matches and no further: branches without matches keep the state they had. That expansion is real, so clearing the search leaves it standing. Composes with the tag filter, the date filter and Show resolved, and joins them as a chip in the same bar.
+
 ## 2026-09-14
 
 ### A notification opened in single-thread mode takes you there

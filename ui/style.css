@@ -20,6 +20,7 @@
   --danger-soft: #fff1f1;
   --ok: #1a7f37;
   --ok-soft: #e9f7ee;
+  --hit: #c026d3; /* search matches: a colour no state already uses */
   --shadow-card: 0 1px 2px rgba(27, 35, 44, .05), 0 3px 10px rgba(27, 35, 44, .05);
   --shadow-float: 0 4px 10px rgba(27, 35, 44, .08), 0 12px 32px rgba(27, 35, 44, .10);
   --code-bg: #eef1f5;
@@ -51,6 +52,7 @@
     --danger-soft: #2c1517;
     --ok: #4ac26b;
     --ok-soft: #12291a;
+    --hit: #e879f9;
     --shadow-card: 0 1px 2px rgba(0, 0, 0, .35), 0 4px 14px rgba(0, 0, 0, .25);
     --shadow-float: 0 6px 16px rgba(0, 0, 0, .45), 0 16px 40px rgba(0, 0, 0, .35);
     --code-bg: #1d2630;
@@ -1469,6 +1471,37 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .tagchip:hover { filter: brightness(1.04); border-color: var(--accent); }
 .tagchip.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
 .tagchip.reader { border-style: dashed; }
+/* search: the box in the toolbar, and magenta wherever a match sits */
+.searchbox {
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 1 190px; min-width: 96px;
+  border: 1px solid var(--border); border-radius: 9px; background: var(--surface);
+  padding: 0 6px 0 8px; height: 28px;
+}
+.searchbox:focus-within { outline: 2px solid var(--accent); border-color: transparent; }
+.searchbox .sicon { display: inline-flex; color: var(--faint); flex: none; }
+.searchbox .sicon svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
+.searchbox input {
+  border: 0; background: none; color: var(--fg); font: inherit; font-size: 12.5px;
+  min-width: 0; flex: 1; outline: none; padding: 0;
+}
+.searchbox input::-webkit-search-cancel-button { display: none; }
+.searchbox .sclear {
+  border: 0; background: none; color: var(--muted); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0 2px; flex: none;
+}
+.searchbox .sclear:hover { color: var(--danger); }
+.tagchip.findchip svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+/* a comment that matches, and one that only holds matches further down */
+.citem.hit { box-shadow: inset 3px 0 0 var(--hit); }
+.citem.hitdeep { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--hit) 40%, transparent); }
+.chead .hitchip {
+  display: inline-flex; align-items: center; gap: 4px; flex: none; white-space: nowrap;
+  border: 1px solid color-mix(in srgb, var(--hit) 45%, transparent);
+  background: color-mix(in srgb, var(--hit) 12%, transparent); color: var(--hit);
+  border-radius: 999px; padding: 0 8px; height: 19px; line-height: 17px;
+  font: 600 11px var(--font-display);
+}
+.chead .hitchip svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
 /* the active date window, beside the tag chips in the same filter bar */
 .tagchip.datechip { gap: 5px; }
 .tagchip.datechip svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
