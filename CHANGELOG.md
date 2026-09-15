@@ -7,6 +7,15 @@ eye; nothing depends on them.
 
 ## 2026-09-15
 
+### Copy buttons on code blocks
+Every fenced block carries a copy button in its corner — in comments, in the document's own prose and in the composer preview. It appears on hover, confirms with a tick, and never folds the comment it sits in.
+
+### Collapse all and Expand all act on what is on screen
+Their scope was the whole file, so they quietly folded threads a filter was hiding. Both now act on the threads actually shown — what the tag filter, the date filter, the search and Show resolved leave — and the tooltips say so. Expand all opens replies all the way down.
+
+### The date filter is remembered per document
+Reopening a document brings back the window you left it in. A preset is remembered as what it meant rather than when it was: "Today" reopened tomorrow means tomorrow, not the day you picked it. A typed range stays exactly as typed.
+
 ### A search bar over the whole document
 A search box in the toolbar turns the board into a result page: threads without the term drop out, the outline narrows with them, and the bar counts the matches and the threads holding them. Inside a surviving thread nothing is hidden — non-matching comments stay exactly as they were — and matches wear a magenta marker, with a folded comment saying how many matches its fold is hiding, its own body included. Opening such a fold opens the whole way down to the matches and no further: branches without matches keep the state they had. That expansion is real, so clearing the search leaves it standing. Composes with the tag filter, the date filter and Show resolved, and joins them as a chip in the same bar.
 

@@ -1847,7 +1847,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-05 00:04:08): By composer I mean the box you type a comment in: the textarea that opens when you click Reply…, a seam, or the 💬 on a paragraph, together with its footer row (as Me, the needs-resolution toggle, Preview, Discard, Send). The no agent is watching note sits in that footer row, next to as Me. I will call it the reply box from now on. <!--seen:Me-->
 
-- [x] Me (2026-09-04 23:39:02): **Update notice and restart** <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Me (2026-09-04 23:39:02): **Update notice and restart** <!--thread--> <!--seen:🤖 Claude-->
   I would love it if there was a notification when remark had an update, like locally i mean.
 
   since we rename running versions while installing, an instance should recognize if it was renamed an a new exe was available, then it should offer to restart.
@@ -1869,6 +1869,11 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   - 🤖 Claude (2026-09-05 00:38:14): Found the cause: the restore fires right after the first paint, which can be before the document is tall enough; the scroll clamps to the top and that zero immediately overwrites the saved position. Fixing: the restore retries until the page can hold the position, and nothing is saved while a restore is pending. <!--seen:Me-->
 
   - 🤖 Claude (2026-09-05 00:38:58): Installed and on main: the restore now waits until the page is tall enough for the saved position, up to five seconds, and the position is not saved while that is pending, so a short first paint can no longer wipe it. If it still lands at the top after this build, tell me whether the document had images above the spot; that would be the next suspect. <!--seen:Me-->
+
+  - Bouke (2026-09-15 09:36:09): I suspect that only one active remark window gets the restart notice, and the others don't.
+    But I do see that only the one that i restarted gets updated, and so i have multiple windows open with different versions.
+
+    I would like all windows to receive the notice, and an option to restart this window or restart all
 
 - [x] Me (2026-09-04 23:40:00): **Thread titles** <!--thread--> <!--seen:🤖 Claude-->
   Please keep automatically adding topic titles for all threads, thank you! It's ok to rename them if the topic drifted a  lot
@@ -3467,6 +3472,15 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 - [ ] Bouke (2026-09-15 09:27:37): **Remember the date filter per document** <!--thread--> <!--seen:🤖 Claude-->
   please remember the date filter state for that document when i restart
 
+  - 🤖 Claude (2026-09-15 09:40:39): Done and installed - and you were right to overrule me on this. One detail I decided while building, which you may want to check: a preset is remembered as WHAT IT MEANT rather than as the instant it resolved to. Reopen a document you left on 'Today' tomorrow morning and it means tomorrow, not the day you picked it. Storing the instant would have hidden the new day's work behind a filter that looked innocent - the exact failure I was worried about when I made it session-only. A typed from/to range is absolute and comes back exactly as typed. It is per document, alongside the fold state and bookmarks. The test reloads the page and asserts the preset returns as a preset and still resolves to today's midnight.
+
 - [ ] Bouke (2026-09-15 09:28:13): **Collapse and expand all: what is the scope?** <!--thread--> <!--seen:🤖 Claude-->
   collapse and expand all not clear what their scope is. all visible threads or all threads?
   please make it act on all visible threads, and clarify the tooltip
+
+  - 🤖 Claude (2026-09-15 09:40:38): Fixed and installed. Both now act on the threads actually on screen - what the tag filter, the date filter, the search and Show resolved leave standing - rather than on the whole file. The old scope was the file, so they quietly folded threads a filter was hiding, which you would only meet later when the filter came off. Tooltips say it plainly now: 'Fold every thread on screen (what the filters leave)' and 'Unfold every thread on screen, replies and all'. Expand all opens the replies all the way down, not just the roots. The test turns on a date filter, checks the hidden thread's fold state is left untouched by both buttons, and that the visible one folds and unfolds.
+
+- [ ] Bouke (2026-09-15 09:32:15): **Copy buttons on code fences** <!--thread--> <!--seen:🤖 Claude-->
+  Please add copy buttons to code fences
+
+  - 🤖 Claude (2026-09-15 09:40:40): Added and installed. Every fenced block has a copy button in its corner - in comments, in the document's own prose, and in the composer preview - appearing on hover, confirming with a tick, and always visible on the phone where there is no hover. It stops the click from reaching the comment, so copying never folds the comment it sits in; the test checks exactly that, since that is the mistake this kind of button usually makes here.

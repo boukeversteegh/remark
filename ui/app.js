@@ -126,6 +126,35 @@ function highlightIn(rootNode) {
   }
 }
 
+// a copy button on every code block: selecting one by hand across a scrolling
+// pre is the kind of thing a screen should do for you
+function addCopyButtons(rootNode) {
+  for (const pre of rootNode.querySelectorAll('pre')) {
+    if (pre.querySelector(':scope > .codecopy')) continue;
+    const code = pre.querySelector('code') || pre;
+    const btn = document.createElement('button');
+    btn.className = 'codecopy';
+    btn.type = 'button';
+    btn.innerHTML = iconHTML('copy');
+    btn.title = 'Copy this code';
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation(); // never folds the comment it sits in
+      const text = code.innerText.replace(/\n$/, '');
+      navigator.clipboard.writeText(text).then(() => {
+        btn.classList.add('done');
+        btn.innerHTML = iconHTML('check');
+        setTimeout(() => {
+          if (!btn.isConnected) return;
+          btn.classList.remove('done');
+          btn.innerHTML = iconHTML('copy');
+        }, 1400);
+      }, () => toast('warn', 'Could not reach the clipboard'));
+    });
+    pre.appendChild(btn);
+  }
+}
+
 // the BOM travels like the EOL style: stripped before parsing, restored on
 // save, so the file keeps its signature and "# Header" is line one's start
 function normEol(s) { return s.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n'); }
@@ -456,12 +485,71 @@ function dateRangeLabel() {
   if (S.dateFrom != null) return 'since ' + d(S.dateFrom);
   return 'until ' + d(S.dateTo);
 }
-function setDateFilter(from, to, label) {
+// A preset is stored as the number of days it meant, not as the instant it
+// resolved to: "today" reopened tomorrow has to mean tomorrow, or the filter
+// silently hides the day's work. A typed range is absolute and stays so.
+function setDateFilter(from, to, label, presetDays) {
   S.dateFrom = from;
   S.dateTo = to;
   S.dateLabel = label || '';
+  S.datePreset = presetDays == null ? null : presetDays;
+  saveDateFilter();
   render();
   scroller().scrollTop = 0;
+}
+function dateFilterKey() { return 'remark:datefilter:' + S.path; }
+function saveDateFilter() {
+  try {
+    if (!S.path) return;
+    if (!dateFilterOn()) { localStorage.removeItem(dateFilterKey()); return; }
+    localStorage.setItem(dateFilterKey(), JSON.stringify({
+      preset: S.datePreset, from: S.dateFrom, to: S.dateTo, label: S.dateLabel,
+    }));
+  } catch (e) { /* blocked storage: the filter stays session-only */ }
+}
+function loadDateFilter() {
+  S.dateFrom = S.dateTo = null;
+  S.dateLabel = '';
+  S.datePreset = null;
+  try {
+    const raw = localStorage.getItem(dateFilterKey());
+    if (!raw) return;
+    const v = JSON.parse(raw);
+    if (v && v.preset != null) {
+      S.datePreset = v.preset;
+      S.dateFrom = daysAgoStart(v.preset);
+      S.dateLabel = v.label || '';
+    } else if (v && (v.from != null || v.to != null)) {
+      S.dateFrom = v.from;
+      S.dateTo = v.to;
+      S.dateLabel = v.label || '';
+    }
+  } catch (e) { /* unreadable: no filter */ }
+}
+// every filter that can drop a thread, asked once. The board, the outline and
+// the collapse/expand buttons all consult this, so none of them can end up
+// with a private opinion about what is on screen.
+function threadPassesFilters(th) {
+  if (!threadMatchesFilter(th)) return false;
+  if (!threadInDateRange(th)) return false;
+  if (searchOn() && !threadHasSearchMatch(th)) return false;
+  return true;
+}
+// the threads actually on the board right now — focus mode shows exactly one
+function visibleThreadRoots() {
+  if (!S.parsed) return [];
+  const out = [];
+  for (const b of S.parsed.blocks) {
+    if (b.type !== 'thread') continue;
+    const th = b.thread;
+    if (S.focusThread) {
+      if (th.time === S.focusThread) out.push(th);
+      continue;
+    }
+    if (threadHiddenByResolved(th) || !threadPassesFilters(th)) continue;
+    out.push(th);
+  }
+  return out;
 }
 function threadMatchesFilter(root) {
   if (!S.tagFilter.size) return true;
@@ -964,9 +1052,7 @@ function render() {
     let lastHeading = null;
     for (const b of parsed.blocks) {
       if (b.type === 'heading') lastHeading = b;
-      if (b.type === 'thread' && threadMatchesFilter(b.thread) &&
-          (!dateOn || threadInDateRange(b.thread)) &&
-          (!findOn || threadHasSearchMatch(b.thread))) {
+      if (b.type === 'thread' && threadPassesFilters(b.thread)) {
         if (lastHeading) tagKeep.add(lastHeading);
         tagKeep.add(b);
       }
@@ -1072,6 +1158,7 @@ function render() {
     el.dataset.key = block.key;
     el.innerHTML = md(block.text);
     highlightIn(el);
+  addCopyButtons(el);
     markExternalLinks(el);
     const btn = document.createElement('button');
     btn.className = 'addbtn';
@@ -1689,6 +1776,7 @@ function buildItem(item, opts) {
         pe.className = 'cpara';
         pe.innerHTML = md(chunk);
         highlightIn(pe);
+        addCopyButtons(pe);
         markExternalLinks(pe);
         if (chunk.indexOf('#') !== -1) linkTags(pe);
         if (chunk.indexOf('@') !== -1) linkMentions(pe);
@@ -2045,6 +2133,7 @@ function buildEditor(key, target) {
       const titleText = titleIn ? titleIn.value.trim() : '';
       preview.innerHTML = md((titleText ? '**' + titleText + '**\n\n' : '') + (ta.value || '*nothing to preview*'));
       highlightIn(preview);
+      addCopyButtons(preview);
       markExternalLinks(preview);
       preview.style.display = '';
       ta.style.display = 'none';
@@ -3703,9 +3792,7 @@ function buildOutline() {
         if (!marks.length && threadHiddenByResolved(th)) continue;
         // the filters narrow the outline too, or it would list threads the
         // board is not showing
-        if (!threadMatchesFilter(th)) continue;
-        if (!threadInDateRange(th)) continue;
-        if (searchOn() && !threadHasSearchMatch(th)) continue;
+        if (!threadPassesFilters(th)) continue;
       }
       const trow = document.createElement('div');
       trow.className = 'otrow' + (marks.length ? ' bookmarked' : '') +
@@ -4483,11 +4570,13 @@ function wireTopbar() {
       : 'Show only threads with recent activity';
   };
   syncDateBtn();
+  // [label, days back] — the days are what gets remembered, so a preset means
+  // the same thing whenever the document is reopened
   const PRESETS = [
-    ['Today', () => [daysAgoStart(0), null, 'today']],
-    ['Since yesterday', () => [daysAgoStart(1), null, 'since yesterday']],
-    ['Last 7 days', () => [daysAgoStart(6), null, 'last 7 days']],
-    ['Last 30 days', () => [daysAgoStart(29), null, 'last 30 days']],
+    ['Today', 0, 'today'],
+    ['Since yesterday', 1, 'since yesterday'],
+    ['Last 7 days', 6, 'last 7 days'],
+    ['Last 30 days', 29, 'last 30 days'],
   ];
   let dfMenu = null;
   const closeDateMenu = () => { if (dfMenu) { dfMenu.remove(); dfMenu = null; } };
@@ -4497,10 +4586,15 @@ function wireTopbar() {
     dfMenu = document.createElement('div');
     dfMenu.className = 'datemenu';
     dfMenu.addEventListener('click', ev => ev.stopPropagation());
-    for (const [label, calc] of PRESETS) {
+    for (const [label, back, chip] of PRESETS) {
       const b = document.createElement('button');
       b.textContent = label;
-      b.addEventListener('click', () => { closeDateMenu(); setDateFilter(...calc()); syncDateBtn(); });
+      if (S.datePreset === back) b.classList.add('on');
+      b.addEventListener('click', () => {
+        closeDateMenu();
+        setDateFilter(daysAgoStart(back), null, chip, back);
+        syncDateBtn();
+      });
       dfMenu.appendChild(b);
     }
     const row = document.createElement('div');
@@ -4571,17 +4665,22 @@ function wireTopbar() {
       render();
     });
   }
+  // both act on what is ON SCREEN. Acting on the whole file would fold
+  // threads a filter is hiding, which you would only discover later.
   $('#collapseAll').addEventListener('click', () => {
-    for (const b of S.parsed.blocks) if (b.type === 'thread') {
-      S.collapsed.set(b.thread.key, true);
-      persistCollapse(b.thread.key, true);
+    for (const th of visibleThreadRoots()) {
+      S.collapsed.set(th.key, true);
+      persistCollapse(th.key, true);
     }
     render();
   });
   $('#expandAll').addEventListener('click', () => {
-    for (const it of S.parsed.items) {
-      S.collapsed.set(it.key, false);
-      persistCollapse(it.key, false);
+    for (const th of visibleThreadRoots()) {
+      (function walk(it) {
+        S.collapsed.set(it.key, false);
+        persistCollapse(it.key, false);
+        it.children.forEach(walk);
+      })(th);
     }
     render();
   });
@@ -4769,6 +4868,7 @@ async function init() {
     S.collapsedSaved = JSON.parse(localStorage.getItem('remark:collapsed:' + S.path) || '{}');
   } catch (e) { S.collapsedSaved = {}; }
   loadBookmarks();
+  loadDateFilter(); // per document, like the bookmarks and the fold state
   applyZoom();
   wireWindowChrome(); // the landing page has the toolbar too
   if (!S.path) { showLanding(); dismissSplash(); return; }

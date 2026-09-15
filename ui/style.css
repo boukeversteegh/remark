@@ -1471,6 +1471,21 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .tagchip:hover { filter: brightness(1.04); border-color: var(--accent); }
 .tagchip.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
 .tagchip.reader { border-style: dashed; }
+/* copy button on a code block: quiet until the block is under the pointer */
+pre { position: relative; }
+pre > .codecopy {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 7px;
+  background: var(--card); color: var(--muted);
+  opacity: 0; transition: opacity .12s ease-out;
+}
+pre:hover > .codecopy, pre > .codecopy:focus-visible { opacity: 1; }
+pre > .codecopy:hover { color: var(--accent); border-color: var(--accent); }
+pre > .codecopy.done { opacity: 1; color: var(--ok); border-color: var(--ok); }
+pre > .codecopy svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
+body.mobile pre > .codecopy { opacity: 1; } /* no hover on a phone */
 /* search: the box in the toolbar, and magenta wherever a match sits */
 .searchbox {
   display: inline-flex; align-items: center; gap: 5px; flex: 0 1 190px; min-width: 96px;
