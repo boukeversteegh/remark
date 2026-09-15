@@ -472,11 +472,27 @@ function daysAgoStart(n) {
 // the input and the document can never disagree about what is being searched
 function setSearch(term) {
   S.search = term || '';
+  searchCursor = -1; // a new term starts at its first match
   const box = $('#searchInput');
   if (box && box.value !== S.search) box.value = S.search;
-  const clr = $('#searchClear');
-  if (clr) clr.hidden = !searchOn();
+  for (const id of ['#searchClear', '#searchPrev', '#searchNext']) {
+    const el = $(id);
+    if (el) el.hidden = !searchOn();
+  }
   render();
+}
+// walking the matches: the matching COMMENTS in document order, so running off
+// the end of one thread lands on the first match in the next
+let searchCursor = -1;
+function searchMatches() {
+  if (!S.parsed || !searchOn()) return [];
+  return S.parsed.items.filter(itemMatchesSearch);
+}
+function jumpSearch(dir) {
+  const list = searchMatches();
+  if (!list.length) return;
+  searchCursor = ((searchCursor + dir) % list.length + list.length) % list.length;
+  revealItem(list[searchCursor]);
 }
 function dateRangeLabel() {
   if (S.dateLabel) return S.dateLabel;
@@ -953,6 +969,39 @@ function markExternalLinks(rootNode) {
     ic.innerHTML = iconHTML('external-link');
     ic.title = 'Opens outside remark';
     a.appendChild(ic);
+  }
+}
+// the search term, marked where it actually sits in the text. Walks text
+// nodes so markup is never cut in half, and leaves the chips alone — they are
+// labels about the comment, not its words.
+function highlightSearch(rootNode) {
+  if (!searchOn()) return;
+  const term = S.search.trim().toLowerCase();
+  if (!term) return;
+  const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    if (n.parentElement && n.parentElement.closest('.tagchip, .mention, .hitchip, .reactchip')) continue;
+    if (n.nodeValue.toLowerCase().includes(term)) hits.push(n);
+  }
+  for (const n of hits) {
+    const s = n.nodeValue;
+    const low = s.toLowerCase();
+    const frag = document.createDocumentFragment();
+    let i = 0;
+    for (;;) {
+      const at = low.indexOf(term, i);
+      if (at === -1) break;
+      frag.appendChild(document.createTextNode(s.slice(i, at)));
+      const mk = document.createElement('mark');
+      mk.className = 'searchhit';
+      mk.textContent = s.slice(at, at + term.length);
+      frag.appendChild(mk);
+      i = at + term.length;
+    }
+    frag.appendChild(document.createTextNode(s.slice(i)));
+    n.parentNode.replaceChild(frag, n);
   }
 }
 // "@Name" in rendered comment text becomes a mention chip when the name is
@@ -1932,6 +1981,7 @@ function buildItem(item, opts) {
         markExternalLinks(pe);
         if (chunk.indexOf('#') !== -1) linkTags(pe);
         if (chunk.indexOf('@') !== -1) linkMentions(pe);
+        highlightSearch(pe);
         body.appendChild(pe);
         // interject zone BETWEEN paragraphs only — a single-paragraph
         // comment has no in-between, so it gets none (reply covers it)
@@ -4688,7 +4738,10 @@ function wireTopbar() {
   // are visible, quiet/dark while they are filtered out
   const syncHideResolved = () => {
     hrBtn.innerHTML = iconHTML('check-check');
-    hrBtn.appendChild(document.createTextNode('Show resolved'));
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = 'Show resolved';
+    hrBtn.appendChild(lbl);
     hrBtn.classList.toggle('active', !S.hideResolved);
     hrBtn.title = S.hideResolved
       ? 'Resolved threads are hidden — click to show them'
@@ -4707,9 +4760,24 @@ function wireTopbar() {
     sBox.addEventListener('keydown', e => {
       e.stopPropagation(); // the document's own shortcuts stay out of the box
       if (e.key === 'Escape') { clearTimeout(typing); setSearch(''); sBox.blur(); }
-      if (e.key === 'Enter') { clearTimeout(typing); setSearch(sBox.value); }
+      if (e.key === 'Enter') {
+        clearTimeout(typing);
+        // Enter on an unchanged term walks the matches, as a find box does
+        if (sBox.value === S.search && searchOn()) jumpSearch(e.shiftKey ? -1 : 1);
+        else setSearch(sBox.value);
+      }
     });
     $('#searchClear').addEventListener('click', () => { setSearch(''); sBox.focus(); });
+    $('#searchPrev').addEventListener('click', e => { e.preventDefault(); jumpSearch(-1); });
+    $('#searchNext').addEventListener('click', e => { e.preventDefault(); jumpSearch(1); });
+    // Ctrl/Cmd+F belongs to the document's own search, not the browser's
+    document.addEventListener('keydown', e => {
+      if ((e.key === 'f' || e.key === 'F') && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        sBox.focus();
+        sBox.select(); // typing replaces the last term, as a find box should
+      }
+    });
   }
   // date filter: presets you would reach for daily, plus a range you type.
   // It narrows whatever the other filters leave rather than replacing them.
@@ -4798,7 +4866,12 @@ function wireTopbar() {
   const segIcons = { inline: 'wrap-text', margin: 'panel-right' };
   for (const b of $$('#modeSeg button')) {
     b.innerHTML = iconHTML(segIcons[b.dataset.mode]);
-    b.appendChild(document.createTextNode(' ' + b.dataset.mode[0].toUpperCase() + b.dataset.mode.slice(1)));
+    // the label is its own element so a narrow toolbar can drop it and keep
+    // the icon, instead of crushing the control or wrapping its text
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = ' ' + b.dataset.mode[0].toUpperCase() + b.dataset.mode.slice(1);
+    b.appendChild(lbl);
   }
   const meIn = $('#meInput');
   meIn.value = S.me;

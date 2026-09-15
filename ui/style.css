@@ -188,7 +188,7 @@ body.maximized #capMax::before { content: "\E923"; }
 .unread-pill:hover { border-color: transparent; filter: brightness(1.08); }
 
 .seg {
-  display: flex; border: 1px solid var(--border); border-radius: 9px;
+  display: flex; flex: none; border: 1px solid var(--border); border-radius: 9px;
   overflow: hidden; background: var(--surface); padding: 2px; gap: 2px;
 }
 .seg button {
@@ -199,16 +199,25 @@ body.maximized #capMax::before { content: "\E923"; }
 .seg button:hover { color: var(--fg); }
 .seg button.active { background: var(--accent); color: var(--accent-fg); }
 
-.tools { display: flex; gap: 4px; }
+/* min-width:0 or the group refuses to shrink below its content, and the
+   search box inside it never gets the chance to give way */
+.tools { display: flex; gap: 4px; align-items: center; min-width: 0; }
 .iconbtn {
-  display: inline-flex; align-items: center; justify-content: center;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 28px; height: 28px; border: 1px solid transparent; border-radius: 8px;
   background: none; color: var(--muted); cursor: pointer; font-size: 15px;
+  white-space: nowrap; /* a label breaking in two is never the right answer */
   transition: background .12s, color .12s, border-color .12s;
 }
 .iconbtn:hover { background: var(--surface); border-color: var(--border); color: var(--fg); }
 .iconbtn.active { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
 #hideResolvedBtn { width: auto; padding: 0 10px; gap: 6px; font-size: 12px; font-weight: 550; }
+/* a tight toolbar drops the words and keeps the icons — every one of these
+   has a tooltip — rather than crushing a control or breaking a label in two */
+@media (max-width: 1080px) {
+  .seg .lbl, #hideResolvedBtn .lbl { display: none; }
+  #hideResolvedBtn { padding: 0 8px; }
+}
 
 .me {
   display: inline-flex; align-items: center; gap: 6px;
@@ -1525,12 +1534,18 @@ pre > .codecopy.done { opacity: 1; color: var(--ok); border-color: var(--ok); }
 pre > .codecopy svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
 body.mobile pre > .codecopy { opacity: 1; } /* no hover on a phone */
 /* search: the box in the toolbar, and magenta wherever a match sits */
+/* the one control that gives when the toolbar is tight: it shrinks to its
+   magnifier rather than crushing the mode switch or wrapping a label, and
+   takes its full width back the moment you click into it */
 .searchbox {
-  display: inline-flex; align-items: center; gap: 5px; flex: 0 1 190px; min-width: 96px;
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 1 190px;
+  /* it may shrink, but never to a box you cannot click into or type in.
+     Wider while searching, since it then carries ‹ › and × as well. */
+  min-width: 92px;
   border: 1px solid var(--border); border-radius: 9px; background: var(--surface);
-  padding: 0 6px 0 8px; height: 28px;
+  padding: 0 6px 0 8px; height: 28px; overflow: hidden;
 }
-.searchbox:focus-within { outline: 2px solid var(--accent); border-color: transparent; }
+.searchbox:focus-within { outline: 2px solid var(--accent); border-color: transparent; flex: 0 0 190px; }
 .searchbox .sicon { display: inline-flex; color: var(--faint); flex: none; }
 .searchbox .sicon svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
 .searchbox input {
@@ -1538,6 +1553,11 @@ body.mobile pre > .codecopy { opacity: 1; } /* no hover on a phone */
   min-width: 0; flex: 1; outline: none; padding: 0;
 }
 .searchbox input::-webkit-search-cancel-button { display: none; }
+.searchbox .snav {
+  border: 0; background: none; color: var(--muted); cursor: pointer; flex: none;
+  font-size: 15px; line-height: 1; padding: 0 1px; border-radius: 5px;
+}
+.searchbox .snav:hover { color: var(--accent); background: var(--accent-soft); }
 .searchbox .sclear {
   border: 0; background: none; color: var(--muted); cursor: pointer;
   font-size: 15px; line-height: 1; padding: 0 2px; flex: none;
@@ -1555,6 +1575,11 @@ body.mobile pre > .codecopy { opacity: 1; } /* no hover on a phone */
   font: 600 11px var(--font-display);
 }
 .chead .hitchip svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
+/* the term where it actually sits in the text */
+mark.searchhit {
+  background: color-mix(in srgb, var(--hit) 28%, transparent);
+  color: inherit; border-radius: 3px; padding: 0 1px;
+}
 /* the active date window, beside the tag chips in the same filter bar */
 .tagchip.datechip { gap: 5px; }
 .tagchip.datechip svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }

@@ -1875,6 +1875,10 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     I would like all windows to receive the notice, and an option to restart this window or restart all
 
+  - Bouke (2026-09-15 14:38:47): never got a reply to this. <!--seen:🤖 Claude-->
+
+    another issue i notice, i think that "update notices" should replace the previous one, rather than be suppressed (my assumption that this is the case, because i sometimes see whats new missing several features that were also built after it).
+
 - [x] Me (2026-09-04 23:40:00): **Thread titles** <!--thread--> <!--seen:🤖 Claude-->
   Please keep automatically adding topic titles for all threads, thank you! It's ok to rename them if the topic drifted a  lot
 
@@ -3440,7 +3444,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   matching subthreads should keep their collapse state, but should be marked with a magenta indicator. while in search mode, expanding a matching collapsed (sub)thread, it will automatically expand all the way to the (deeply nested) matching comment. non-matching comments do not expand along with it, and keep their original state.
   the expansion is not transient. when removing the search query (x in the field), the expansion state is kept (normal expansion state).
 
-  - 🤖 Claude (2026-09-15 09:22:10): Claiming. Reading it back so you can stop me early if I have it wrong:
+  - 🤖 Claude (2026-09-15 09:22:10): Claiming. Reading it back so you can stop me early if I have it wrong: <!--seen:Bouke-->
 
     - A search box in the toolbar. Typing filters the board to threads that contain the term **anywhere** — root or any comment at any depth — and the outline narrows to the same threads, so the document reads as a result page.
     - Inside a surviving thread **nothing is hidden**: non-matching comments stay exactly as they are. Only the threads themselves are filtered.
@@ -3451,7 +3455,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     Two things I am deciding unless you say otherwise: the match is case-insensitive on the comment's text (author names are not text, and `remark query -author` covers those), and the search is session-only like the other filters. Building it now.
 
-  - 🤖 Claude (2026-09-15 09:30:19): Built and installed, to the spec as I read it back.
+  - 🤖 Claude (2026-09-15 09:30:19): Built and installed, to the spec as I read it back. <!--seen:Bouke-->
 
     The box sits in the toolbar. Typing narrows the board to threads containing the term, the outline narrows with it, and the bar above the document says what you are looking at — "2 matches in 2 threads" — with the term as a chip carrying its own ×. Inside a surviving thread nothing is hidden: comments that do not match are exactly where they were.
 
@@ -3462,6 +3466,22 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     It composes with the tag filter, the date filter and Show resolved: each narrows what the others leave. The test covers the filtering, the non-hiding, both marker cases, the expand-to-match, the expansion surviving the clear, and the empty result.
 
     Two decisions I made on your behalf, easily changed: the match is case-insensitive over the comment's text only — author names are not text, and `remark query -author` covers those — and the search is session-only. That last one I would now put to you directly, since you have just asked for the date filter to be remembered per document: say the word and search can be remembered the same way.
+
+  - Bouke (2026-09-15 14:41:09): please let ctrl F focus the search bar <!--seen:🤖 Claude-->
+
+  - Bouke (2026-09-15 14:41:19): also highlight the matched words in the comments themselves <!--seen:🤖 Claude-->
+
+  - Bouke (2026-09-15 14:42:40): include a next prev result button that will cycle through the matched _comments_ (not threads). at the end of the thread, jump to the next thread that matched (First comment) etc. small angled brackets are enough, shown only when search query is there. <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-15 14:57:44): All three in, installed.
+
+    **Highlighting.** The term is marked where it actually sits in the text, each match keeping its own casing, walking text nodes so markup is never cut in half. The chips are left alone — they are labels about a comment, not its words.
+
+    **Ctrl+F** puts the cursor in the box and selects what is there, so typing replaces the last term.
+
+    **‹ ›** sit in the box, only while there is a query, and walk the matching COMMENTS in document order: off the end of one thread and straight into the first match of the next, wrapping at the end. Enter does the same from the keyboard, Shift+Enter backwards. Walking to a buried match opens the way down to it, since a jump you cannot see is no jump.
+
+    One caution on Ctrl+F: it now belongs to the document's search everywhere in the window, including while you are typing a comment. That is what a find box usually does, but say the word and I will leave textareas to the browser.
 
 - [ ] Bouke (2026-09-15 09:25:37): **Back and forward navigation** <!--thread--> <!--seen:🤖 Claude-->
   I would like to have a back/forward navigation button, similar to vscode.
@@ -3474,11 +3494,11 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-15 09:40:39): Done and installed - and you were right to overrule me on this. One detail I decided while building, which you may want to check: a preset is remembered as WHAT IT MEANT rather than as the instant it resolved to. Reopen a document you left on 'Today' tomorrow morning and it means tomorrow, not the day you picked it. Storing the instant would have hidden the new day's work behind a filter that looked innocent - the exact failure I was worried about when I made it session-only. A typed from/to range is absolute and comes back exactly as typed. It is per document, alongside the fold state and bookmarks. The test reloads the page and asserts the preset returns as a preset and still resolves to today's midnight.
 
-- [ ] Bouke (2026-09-15 09:28:13): **Collapse and expand all: what is the scope?** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-15 09:28:13): **Collapse and expand all: what is the scope?** <!--thread--> <!--seen:🤖 Claude-->
   collapse and expand all not clear what their scope is. all visible threads or all threads?
   please make it act on all visible threads, and clarify the tooltip
 
-  - 🤖 Claude (2026-09-15 09:40:38): Fixed and installed. Both now act on the threads actually on screen - what the tag filter, the date filter, the search and Show resolved leave standing - rather than on the whole file. The old scope was the file, so they quietly folded threads a filter was hiding, which you would only meet later when the filter came off. Tooltips say it plainly now: 'Fold every thread on screen (what the filters leave)' and 'Unfold every thread on screen, replies and all'. Expand all opens the replies all the way down, not just the roots. The test turns on a date filter, checks the hidden thread's fold state is left untouched by both buttons, and that the visible one folds and unfolds.
+  - 🤖 Claude (2026-09-15 09:40:38): Fixed and installed. Both now act on the threads actually on screen - what the tag filter, the date filter, the search and Show resolved leave standing - rather than on the whole file. The old scope was the file, so they quietly folded threads a filter was hiding, which you would only meet later when the filter came off. Tooltips say it plainly now: 'Fold every thread on screen (what the filters leave)' and 'Unfold every thread on screen, replies and all'. Expand all opens the replies all the way down, not just the roots. The test turns on a date filter, checks the hidden thread's fold state is left untouched by both buttons, and that the visible one folds and unfolds. <!--seen:Bouke-->
 
 - [ ] Bouke (2026-09-15 09:32:15): **Copy buttons on code fences** <!--thread--> <!--seen:🤖 Claude-->
   Please add copy buttons to code fences
@@ -3547,3 +3567,8 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   please remember focus mode status per document on restart.
 
   - 🤖 Claude (2026-09-15 14:17:53): Done and installed. Reopening a document puts you back in the thread you were reading, or in the whole document if that is where you left it. It is saved from the render pass rather than from the controls: focus is set by the toolbar toggle, an outline click, a notification jump, Esc and a new thread, and giving each of them its own save is exactly how two of them end up disagreeing. The phone is left alone, since it uses the same state for its one-thread view and opening a document into a single thread would be a surprise there. A remembered thread that has since been deleted is dropped by the check that was already in the render pass. Test reloads with focus on and off and asserts both come back.
+
+- [ ] Bouke (2026-09-15 14:37:23): **Show resolved wraps when space is tight** <!--thread--> <!--seen:🤖 Claude-->
+  make sure the button 'show resolved' doesn't wrap when there is little space for it.
+
+  - 🤖 Claude (2026-09-15 14:57:45): Fixed and installed - and it turned up that I had caused a worse version of the same thing. Toolbar controls no longer deform: below 1080px the mode switch and Show resolved drop their words and keep their icons, every one of which has a tooltip. The search box I added this morning was the real culprit: it took 190px and made the toolbar overflow by 90px at 760px wide, crushing the Inline/Margin switch to six pixels. It is now the one control that gives - shrinking toward its magnifier and taking its width back when you click into it - and it never shrinks to something you cannot click or type in. A test measures four widths and asserts nothing overflows, no label breaks in two, and the mode switch keeps its size.

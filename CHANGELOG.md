@@ -7,6 +7,12 @@ eye; nothing depends on them.
 
 ## 2026-09-15
 
+### Search: walk the matches, see them marked, reach it with Ctrl+F
+The term is now highlighted where it sits in the text, each match keeping its own casing. Ctrl+F puts the cursor in the box, and ‹ › beside it — shown only while searching — walk the matching comments in document order, crossing from the end of one thread to the first match in the next and wrapping at the end; Enter and Shift+Enter do the same from the keyboard. Walking to a buried match opens the way down to it.
+
+### A tight toolbar keeps its shape
+"Show resolved" broke its label across two lines when space ran short. Toolbar controls no longer deform: below 1080px the mode switch and Show resolved drop their words and keep their icons, and the search box is the one control that gives, shrinking toward its magnifier and taking its width back when you click into it. It never shrinks to something you cannot click or type in.
+
 ### Single-thread mode is remembered per document
 Reopening a document puts you back in the thread you were reading, or back in the whole document if that is where you left it. The phone keeps its own one-thread view unchanged.
 

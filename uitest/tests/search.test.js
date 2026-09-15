@@ -51,6 +51,23 @@ module.exports = async ctx => {
   assert(s.chip, 'the term shows as a chip in the filter bar');
   assert(/2 matches in 2 threads/.test(s.bar), 'the bar counts matches and threads: ' + s.bar);
 
+  // the term is marked where it sits in the text, matching however it was cased
+  const marks = await page.evaluate(() =>
+    [...document.querySelectorAll('#doc .cbody mark.searchhit')].map(m => m.textContent));
+  assert(marks.length > 0, 'the words themselves are highlighted');
+  assert(marks.some(m => m === 'platypus') && marks.some(m => m === 'PLATYPUS'),
+    'each match keeps its own casing: ' + JSON.stringify(marks));
+  const intact = await page.evaluate(() =>
+    document.querySelector('#r20260901110000 .cbody').textContent.trim());
+  assertEq(intact, 'this root mentions a platypus itself', 'the text around it is untouched');
+
+  // Ctrl+F puts the cursor in the box
+  await page.evaluate(() => document.getElementById('searchInput').blur());
+  await page.keyboard.press('Control+f');
+  await page.waitForTimeout(200);
+  assertEq(await page.evaluate(() => document.activeElement.id), 'searchInput',
+    'Ctrl+F focuses the search box');
+
   // nothing inside a surviving thread is hidden: Beta's unrelated reply stays
   const betaReply = await page.evaluate(() => !!document.getElementById('r20260901110500'));
   assert(betaReply, 'a non-matching comment in a matching thread is not hidden');
@@ -95,6 +112,30 @@ module.exports = async ctx => {
   }));
   assert(alpha.deepVisible && alpha.midOpen, 'expanding reached the buried match: ' + JSON.stringify(alpha));
   assert(alpha.hitMark, 'the matching comment itself is marked');
+
+  // ‹ › walk the matching COMMENTS in document order, so running off the end
+  // of one thread lands on the first match in the next, and it wraps
+  const nav = await page.evaluate(() => ({
+    prev: !document.getElementById('searchPrev').hidden,
+    next: !document.getElementById('searchNext').hidden,
+  }));
+  assert(nav.prev && nav.next, 'the walk buttons appear with a query');
+  const landed = () => page.evaluate(() => {
+    const at = searchMatches()[searchCursor];
+    return at ? at.time : null;
+  });
+  const step = async dir => {
+    await page.evaluate(d => document.getElementById(d > 0 ? 'searchNext' : 'searchPrev').click(), dir);
+    await page.waitForTimeout(600);
+  };
+  await step(1);
+  assertEq(await landed(), '2026-09-01 10:06:00', 'the first match is the buried one in Alpha');
+  await step(1);
+  assertEq(await landed(), '2026-09-01 11:00:00', 'then across to the next thread that matched');
+  await step(1);
+  assertEq(await landed(), '2026-09-01 10:06:00', 'and it wraps round');
+  await step(-1);
+  assertEq(await landed(), '2026-09-01 11:00:00', 'the other bracket walks backwards');
 
   // clearing the search keeps that expansion — it was a real one
   await page.evaluate(() => document.getElementById('searchClear').click());
