@@ -20,6 +20,7 @@
   --danger-soft: #fff1f1;
   --ok: #1a7f37;
   --ok-soft: #e9f7ee;
+  --hit: #c026d3; /* search matches: a colour no state already uses */
   --shadow-card: 0 1px 2px rgba(27, 35, 44, .05), 0 3px 10px rgba(27, 35, 44, .05);
   --shadow-float: 0 4px 10px rgba(27, 35, 44, .08), 0 12px 32px rgba(27, 35, 44, .10);
   --code-bg: #eef1f5;
@@ -51,6 +52,7 @@
     --danger-soft: #2c1517;
     --ok: #4ac26b;
     --ok-soft: #12291a;
+    --hit: #e879f9;
     --shadow-card: 0 1px 2px rgba(0, 0, 0, .35), 0 4px 14px rgba(0, 0, 0, .25);
     --shadow-float: 0 6px 16px rgba(0, 0, 0, .45), 0 16px 40px rgba(0, 0, 0, .35);
     --code-bg: #1d2630;
@@ -186,7 +188,7 @@ body.maximized #capMax::before { content: "\E923"; }
 .unread-pill:hover { border-color: transparent; filter: brightness(1.08); }
 
 .seg {
-  display: flex; border: 1px solid var(--border); border-radius: 9px;
+  display: flex; flex: none; border: 1px solid var(--border); border-radius: 9px;
   overflow: hidden; background: var(--surface); padding: 2px; gap: 2px;
 }
 .seg button {
@@ -197,16 +199,25 @@ body.maximized #capMax::before { content: "\E923"; }
 .seg button:hover { color: var(--fg); }
 .seg button.active { background: var(--accent); color: var(--accent-fg); }
 
-.tools { display: flex; gap: 4px; }
+/* min-width:0 or the group refuses to shrink below its content, and the
+   search box inside it never gets the chance to give way */
+.tools { display: flex; gap: 4px; align-items: center; min-width: 0; }
 .iconbtn {
-  display: inline-flex; align-items: center; justify-content: center;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 28px; height: 28px; border: 1px solid transparent; border-radius: 8px;
   background: none; color: var(--muted); cursor: pointer; font-size: 15px;
+  white-space: nowrap; /* a label breaking in two is never the right answer */
   transition: background .12s, color .12s, border-color .12s;
 }
 .iconbtn:hover { background: var(--surface); border-color: var(--border); color: var(--fg); }
 .iconbtn.active { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
 #hideResolvedBtn { width: auto; padding: 0 10px; gap: 6px; font-size: 12px; font-weight: 550; }
+/* a tight toolbar drops the words and keeps the icons — every one of these
+   has a tooltip — rather than crushing a control or breaking a label in two */
+@media (max-width: 1080px) {
+  .seg .lbl, #hideResolvedBtn .lbl { display: none; }
+  #hideResolvedBtn { padding: 0 8px; }
+}
 
 .me {
   display: inline-flex; align-items: center; gap: 6px;
@@ -1469,6 +1480,106 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 .tagchip:hover { filter: brightness(1.04); border-color: var(--accent); }
 .tagchip.on { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
 .tagchip.reader { border-style: dashed; }
+/* reactions: a chip per emoji with its count; yours reads as pressed */
+.reactchip {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  border: 1px solid var(--border); background: var(--surface); color: var(--fg);
+  border-radius: 999px; padding: 0 7px; height: 19px; line-height: 17px;
+  font-size: 11.5px; cursor: pointer; white-space: nowrap;
+}
+.reactchip:hover { border-color: var(--accent); }
+.reactchip.mine { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.reactchip .rn { font: 600 10.5px var(--font-display); opacity: .85; }
+/* quiet until the header is hovered, like the tag and reference buttons */
+.reactadd {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 20px; height: 19px; padding: 0; border: 0; border-radius: 6px;
+  background: none; color: var(--faint); cursor: pointer;
+  opacity: 0; transition: opacity .12s;
+}
+.chead:hover .reactadd { opacity: .8; }
+.reactadd:hover { opacity: 1; color: var(--accent); background: var(--accent-soft); }
+body.mobile .chead .reactadd { opacity: .6; } /* no hover on a phone */
+.reactadd svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
+/* the picker: recents, a fixed row, then the sets */
+.emojipick {
+  position: fixed; z-index: 80; width: 268px; max-height: 60vh; overflow-y: auto;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-float); padding: 8px;
+}
+.emojipick .erow + .erow { margin-top: 6px; border-top: 1px solid var(--border-soft); padding-top: 6px; }
+.emojipick .elabel {
+  color: var(--faint); font: 650 10px var(--font-display);
+  text-transform: uppercase; letter-spacing: .08em; padding: 0 2px 4px;
+}
+.emojipick .egrid { display: flex; flex-wrap: wrap; gap: 2px; }
+.emojipick .egrid button {
+  width: 30px; height: 28px; border: 0; border-radius: 7px; background: none;
+  font-size: 16px; line-height: 1; cursor: pointer; padding: 0;
+}
+.emojipick .egrid button:hover { background: var(--accent-soft); }
+/* copy button on a code block: quiet until the block is under the pointer */
+pre { position: relative; }
+pre > .codecopy {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 7px;
+  background: var(--card); color: var(--muted);
+  opacity: 0; transition: opacity .12s ease-out;
+}
+pre:hover > .codecopy, pre > .codecopy:focus-visible { opacity: 1; }
+pre > .codecopy:hover { color: var(--accent); border-color: var(--accent); }
+pre > .codecopy.done { opacity: 1; color: var(--ok); border-color: var(--ok); }
+pre > .codecopy svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
+body.mobile pre > .codecopy { opacity: 1; } /* no hover on a phone */
+/* search: the box in the toolbar, and magenta wherever a match sits */
+/* the one control that gives when the toolbar is tight: it shrinks to its
+   magnifier rather than crushing the mode switch or wrapping a label, and
+   takes its full width back the moment you click into it */
+.searchbox {
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 1 190px;
+  /* it may shrink, but never to a box you cannot click into or type in.
+     Wider while searching, since it then carries ‹ › and × as well. */
+  min-width: 92px;
+  border: 1px solid var(--border); border-radius: 9px; background: var(--surface);
+  padding: 0 6px 0 8px; height: 28px; overflow: hidden;
+}
+.searchbox:focus-within { outline: 2px solid var(--accent); border-color: transparent; flex: 0 0 190px; }
+.searchbox .sicon { display: inline-flex; color: var(--faint); flex: none; }
+.searchbox .sicon svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
+.searchbox input {
+  border: 0; background: none; color: var(--fg); font: inherit; font-size: 12.5px;
+  min-width: 0; flex: 1; outline: none; padding: 0;
+}
+.searchbox input::-webkit-search-cancel-button { display: none; }
+.searchbox .snav {
+  border: 0; background: none; color: var(--muted); cursor: pointer; flex: none;
+  font-size: 15px; line-height: 1; padding: 0 1px; border-radius: 5px;
+}
+.searchbox .snav:hover { color: var(--accent); background: var(--accent-soft); }
+.searchbox .sclear {
+  border: 0; background: none; color: var(--muted); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0 2px; flex: none;
+}
+.searchbox .sclear:hover { color: var(--danger); }
+.tagchip.findchip svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+/* a comment that matches, and one that only holds matches further down */
+.citem.hit { box-shadow: inset 3px 0 0 var(--hit); }
+.citem.hitdeep { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--hit) 40%, transparent); }
+.chead .hitchip {
+  display: inline-flex; align-items: center; gap: 4px; flex: none; white-space: nowrap;
+  border: 1px solid color-mix(in srgb, var(--hit) 45%, transparent);
+  background: color-mix(in srgb, var(--hit) 12%, transparent); color: var(--hit);
+  border-radius: 999px; padding: 0 8px; height: 19px; line-height: 17px;
+  font: 600 11px var(--font-display);
+}
+.chead .hitchip svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
+/* the term where it actually sits in the text */
+mark.searchhit {
+  background: color-mix(in srgb, var(--hit) 28%, transparent);
+  color: inherit; border-radius: 3px; padding: 0 1px;
+}
 /* the active date window, beside the tag chips in the same filter bar */
 .tagchip.datechip { gap: 5px; }
 .tagchip.datechip svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }

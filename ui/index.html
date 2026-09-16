@@ -29,10 +29,17 @@
     <button data-mode="margin" title="Comments in a side margin, like Word review"></button>
   </div>
   <div class="tools">
+    <label class="searchbox" title="Show only threads containing this text">
+      <span class="sicon"></span>
+      <input id="searchInput" type="search" placeholder="Search" spellcheck="false" autocomplete="off">
+      <button id="searchPrev" class="snav" title="Previous match" hidden>‹</button>
+      <button id="searchNext" class="snav" title="Next match" hidden>›</button>
+      <button id="searchClear" class="sclear" title="Clear the search" hidden>×</button>
+    </label>
     <button id="dateFilterBtn" class="iconbtn" title="Show only threads with recent activity"></button>
     <button id="hideResolvedBtn" class="iconbtn" title="Hide resolved threads"></button>
-    <button id="collapseAll" class="iconbtn" title="Collapse all threads"></button>
-    <button id="expandAll" class="iconbtn" title="Expand all threads"></button>
+    <button id="collapseAll" class="iconbtn" title="Fold every thread on screen (what the filters leave)"></button>
+    <button id="expandAll" class="iconbtn" title="Unfold every thread on screen, replies and all"></button>
     <button id="openWithBtn" class="iconbtn" title="Open in another app…"></button>
     <button id="gatewayBtn" class="iconbtn" title="Gateway — put this document on your phone"></button>
   </div>

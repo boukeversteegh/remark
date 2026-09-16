@@ -104,15 +104,47 @@
     return out;
   }
 
-  // a body that is nothing but tags (whitespace separated): a "reader tag"
-  // reply, which tags its parent instead of being a comment of its own.
-  // "-#tag" tokens count too: a reply may mix additions and removals
+  // ---- reactions ---------------------------------------------------------
+  // An emoji in a reply that holds nothing else is a REACTION on the parent,
+  // the same shape the reader tags use. Emoji inside ordinary prose stay
+  // prose, exactly as "#tag" in a sentence stays a word.
+  // A grapheme is: a pictographic character, plus any variation selector,
+  // skin tone or ZWJ-joined continuation; or a keycap like 1️⃣; or a flag.
+  var EMOJI_RE = new RegExp(
+    '(?:\\p{RI}\\p{RI}' +                                  // flags
+    '|[0-9#*]\\uFE0F?\\u20E3' +                            // keycaps
+    '|\\p{Extended_Pictographic}(?:\\uFE0F|\\uFE0E)?' +
+    '(?:[\\u{1F3FB}-\\u{1F3FF}])?' +
+    '(?:\\u200D\\p{Extended_Pictographic}(?:\\uFE0F)?(?:[\\u{1F3FB}-\\u{1F3FF}])?)*' +
+    ')', 'gu');
+
+  function extractEmoji(text) {
+    var seen = {};
+    var out = [];
+    var m;
+    EMOJI_RE.lastIndex = 0;
+    while ((m = EMOJI_RE.exec(text || ''))) {
+      var e = m[0];
+      // a lone digit or "#" is only a keycap WITH the enclosing mark
+      if (/^[0-9#*]$/.test(e)) continue;
+      if (seen[e]) continue;
+      seen[e] = true;
+      out.push(e);
+    }
+    return out;
+  }
+
+  // a body that is nothing but tags and/or emoji: a reader tag, a reaction,
+  // or both at once — it belongs to its parent rather than being a comment.
+  // "-#tag" tokens count too: a reply may mix additions and removals.
   function isBareTags(text) {
     var s = (text || '').trim();
     if (!s) return false;
-    var words = s.split(/\s+/);
-    for (var i = 0; i < words.length; i++) {
-      var w = words[i];
+    var words = s.replace(EMOJI_RE, ' ').trim();
+    if (words === '') return true; // emoji only
+    var parts = words.split(/\s+/);
+    for (var i = 0; i < parts.length; i++) {
+      var w = parts[i];
       if (w.charAt(0) === '-') w = w.slice(1);
       if (!/^#[A-Za-z][\w-]*$/.test(w) || TAG_REF_RE.test(w.slice(1))) return false;
     }
@@ -364,6 +396,7 @@
     item.ownTags = item.bare ? [] : extractTags(item.rawBody);
     item.bareTags = item.bare ? extractTags(item.rawBody) : [];
     item.bareNegs = item.bare ? extractNegTags(item.rawBody) : [];
+    item.bareEmoji = item.bare ? extractEmoji(item.rawBody) : [];
     var byTag = {};
     item.tags = [];
     var claim = function (t, author, authored) {
@@ -391,6 +424,22 @@
     });
     item.tags.forEach(function (e) {
       if (negBy[e.tag]) { e.negated = true; e.negBy = negBy[e.tag]; }
+    });
+    // reactions: each distinct emoji, with everyone who gave it, in the order
+    // they first appear — a chip per emoji, a count per chip
+    var byEmoji = {};
+    item.reactions = [];
+    item.children.forEach(function (c) {
+      if (!c.bare) return;
+      c.bareEmoji.forEach(function (e) {
+        var r = byEmoji[e];
+        if (!r) {
+          r = { emoji: e, by: [] };
+          byEmoji[e] = r;
+          item.reactions.push(r);
+        }
+        if (c.author && r.by.indexOf(c.author) === -1) r.by.push(c.author);
+      });
     });
   }
 
@@ -857,6 +906,7 @@
     itemParagraphs: itemParagraphs,
     extractTags: extractTags,
     extractNegTags: extractNegTags,
+    extractEmoji: extractEmoji,
     isBareTags: isBareTags,
     MARKER: MARKER
   };

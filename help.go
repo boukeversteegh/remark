@@ -14,19 +14,20 @@ const agentHelp = `remark — a discussion tool built on top of markdown.
 
 remark renders a markdown file and lets people and agents hold threaded
 discussions inside it; the conversation lives in the file as list items.
-WRITE THROUGH THE VERBS below — they place, indent, stamp and mark read
-for you. Hand-editing is how formatting faults happen: keep it for what
-no verb covers, and re-read the file right before.
+WRITE THROUGH THE VERBS below — they place, indent, stamp and mark read.
+Hand-edit only what no verb covers, re-reading the file right before.
 
 Reading and watching:
   remark [flags] [files.md]      open each document in its own window
   remark read <file>             thread index: stamp, author, title, replies
   remark read <file> <sel>       one comment plus subtree; selectors:
                                  "14:05:31", "16:58#2" (nth), "@1310" (line)
-  remark monitor <files> -as <name>   stream new comments — needs a tool
-                                 delivering lines WHILE it runs, not plain
-                                 backgrounding: remark help monitor
+  remark monitor <files> -as <name>   stream new comments; needs a tool
+                                 delivering lines WHILE it runs (help monitor)
   remark unseen <files> -as <name>    everything you have not read yet
+  remark query <file> [-days N|-since|-author|-tag|-text|-json]
+                                 threads holding matching comments, by id
+                                 (remark help query)
   remark recent [open]           recent files; "open" opens windows
 
 Writing — the verbs:
@@ -38,21 +39,20 @@ Writing — the verbs:
                  (-after <sel> | -section <h> | -end) [-text|-file|stdin]
                                  open a new thread root
   remark edit <file> <sel> -title <t>    set the thread's title
-  remark seen <file> <sel> -as <name>    write your read-marker the MOMENT
-                                 a comment reaches you — not needed before
-                                 reply, which marks it for you
+  remark seen <file> <sel> -as <name>    your read-marker, the MOMENT a
+                                 comment reaches you (reply does it too)
   remark delete <file> <sel> -as <name>  remove YOUR OWN comment and its
-                                 subtree (refused if others replied)
+                                 subtree (refused once others replied)
+  remark stamp <file>            fill "(now)" placeholders with real stamps
   remark tag <file> <sel> #a #b -as <name>   tag someone's comment
   remark dm <author> -as <name> [-to <sid>] [-text|-file|stdin]
                                  direct message on <author>'s channel
-  remark stamp <file>            fill "(now)" placeholders with real stamps
 
 Sharing and the rest:
   remark gateway [status|stop|add|remove|qr|rotate]   phone and group
                                  access (groups: remark help sharing)
   remark changelog | install     what this build changed; onto your PATH
-  remark help [topic]            topics: format, monitor, sharing
+  remark help [topic]            format, monitor, sharing, query
 
 The five rules that matter (the long form: remark help format):
   1. Sign every comment "Name (now): " — remark replaces (now) with the
@@ -122,8 +122,9 @@ The rules, in full — for when you must hand-edit after all:
   * Tags: "#word" in a comment, preceded by whitespace (letter first;
     not in code, URLs or link anchors; not "#123", not hex colors, not
     "#r..." references). A reply
-    whose whole body is tags is a READER TAG on its parent, not a
-    comment — that is what remark tag writes. "-#word" in such a reply
+    whose whole body is tags — or emoji, which are REACTIONS on the
+    parent — belongs to that parent and is not a comment; one reply may
+    carry both. That is what remark tag writes. "-#word" in such a reply
     NEGATES the tag: it leaves the parent's effective set (filters,
     counts, tag events) without editing anyone's text, and wins over
     additions; dropping the -# token restores the tag.
@@ -137,6 +138,38 @@ The rules, in full — for when you must hand-edit after all:
     never rewrite the file from a stale copy.
   * Do not touch document text outside the discussion items unless
     asked; checklists without <!--thread--> are content, not comments.
+`
+
+const helpQuery = `remark query <file> [filters]
+
+Finds the threads holding comments that match, and says only that: the
+thread's root id and title, then the id and author of each comment that
+matched. It never prints bodies — remark read <file> <id> does that, and
+this exists so you know which ids are worth reading.
+
+Filters, which AND together:
+  -days N               activity in the last N days, TODAY COUNTING AS 1.
+                        -days 1 is today, -days 2 is "since yesterday",
+                        -days 7 and -days 30 are the window's other two
+                        presets. Whole days, from local midnight.
+  -since <date>         from that date, inclusive; a bare date starts at
+                        midnight ("2026-09-14", or with a time)
+  -until <date>         to that date, inclusive: a bare date covers the
+                        whole of it
+  -author <name>        comments signed exactly <name>
+  -tag <tag>            comments carrying the tag, reader tags included
+  -text <substring>     case-insensitive match on the comment's own text
+  -json                 one array of threads, each with root, title,
+                        author, section and its matches
+
+A date matches ACTIVITY, not the age of the thread: a thread opened in
+January whose latest reply is today is in "-days 1", and the matches
+under it tell you which comments are new. A query with no filter is
+refused rather than printing the whole file.
+
+  remark query notes.md -days 2                what moved since yesterday
+  remark query notes.md -days 7 -author Bouke  his week
+  remark query notes.md -tag "#sharing" -json  every tagged comment
 `
 
 const helpMonitor = `remark monitor <files...> -as <yourname> [-json]
@@ -228,8 +261,10 @@ func runHelp(args []string) {
 		fmt.Print(helpMonitor)
 	case "sharing":
 		fmt.Print(helpSharing)
+	case "query", "search":
+		fmt.Print(helpQuery)
 	default:
-		fmt.Fprintf(os.Stderr, "remark help: unknown topic %q — topics: format, monitor, sharing\n", topic)
+		fmt.Fprintf(os.Stderr, "remark help: unknown topic %q — topics: format, monitor, sharing, query\n", topic)
 		os.Exit(2)
 	}
 }

@@ -257,6 +257,10 @@ var uiReadyOnce sync.Once
 // a null value deletes a key.
 var prefsMu sync.Mutex
 
+// processStart is when this window came up: a restart-all asked for before
+// that is not meant for it.
+var processStart = time.Now()
+
 // selfStamp is the size and mtime of this process's binary as it was at
 // start; selfUpdated compares the file now at that path against it
 var selfStamp = func() string {
@@ -698,7 +702,8 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("GET /api/update", authed(func(w http.ResponseWriter, r *http.Request) {
 		// "stamp" identifies the build now at the path, so the UI can notify
 		// once per distinct update — a dismissal covers that build only
-		jsonOut(w, http.StatusOK, map[string]any{"updated": selfUpdated(), "stamp": selfCurrentStamp(), "gateway": gatewayMode})
+		jsonOut(w, http.StatusOK, map[string]any{"updated": selfUpdated(), "stamp": selfCurrentStamp(),
+			"gateway": gatewayMode, "restartAll": restartAllPending(processStart)})
 	}))
 	// what the newer binary at this path knows that this process does not
 	// (entries keyed on title); ok=false means it could not be asked and the
@@ -707,7 +712,14 @@ func newMux() *http.ServeMux {
 		// ?since=seen: this build's entries this MACHINE has not shown yet
 		// (the "updated elsewhere" case), instead of the newer-binary diff
 		if r.URL.Query().Get("since") == "seen" {
-			jsonOut(w, http.StatusOK, map[string]any{"ok": true, "entries": changelogUnseen()})
+			// &ack=1 records them as shown IN THE SAME CALL. Acking separately
+			// raced the read: whichever landed first decided, and when the ack
+			// won the panel opened empty, which is how entries went missing.
+			entries := changelogUnseen()
+			if r.URL.Query().Get("ack") == "1" {
+				changelogAck()
+			}
+			jsonOut(w, http.StatusOK, map[string]any{"ok": true, "entries": entries})
 			return
 		}
 		entries, ok := whatsNew()
@@ -718,6 +730,15 @@ func newMux() *http.ServeMux {
 	}))
 	mux.HandleFunc("POST /api/whatsnew/ack", authed(func(w http.ResponseWriter, r *http.Request) {
 		changelogAck()
+		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
+	}))
+	// "restart all": leave a mark every window sees on its next poll, so each
+	// restarts itself. No window needs another's port or token for that.
+	mux.HandleFunc("POST /api/restartall", authed(func(w http.ResponseWriter, r *http.Request) {
+		if err := restartAllRequest(); err != nil {
+			jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
 		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 	}))
 	mux.HandleFunc("POST /api/restart", authed(func(w http.ResponseWriter, r *http.Request) {

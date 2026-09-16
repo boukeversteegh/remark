@@ -5,6 +5,46 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-15
+
+### The gateway finds a port Windows will actually give it
+Windows reserves whole blocks of ports for Hyper-V and WSL, and those blocks move on every reboot. The gateway stepped upward one port at a time from its usual one, which can stay inside a reserved block the whole way, and then gave up with a bind error — sharing simply refusing to start, one morning, for no reason you could see. After ten tries it now asks the system for a port it knows is free and says which one it took.
+
+### Restart all windows, and a What's new that stops losing entries
+The update notice gained "Restart all" beside "Restart": every open window restarts onto the new build, so they stop drifting apart in versions. It works through a mark on disk that each window sees on its own poll, which means no window needs another's port or token. And "What's new since last time" was racing itself — it recorded the entries as shown at the same moment it asked for them, so whenever the record won, the panel opened with entries missing. It now reads and records in one call.
+
+### Search: walk the matches, see them marked, reach it with Ctrl+F
+The term is now highlighted where it sits in the text, each match keeping its own casing. Ctrl+F puts the cursor in the box, and ‹ › beside it — shown only while searching — walk the matching comments in document order, crossing from the end of one thread to the first match in the next and wrapping at the end; Enter and Shift+Enter do the same from the keyboard. Walking to a buried match opens the way down to it.
+
+### A tight toolbar keeps its shape
+"Show resolved" broke its label across two lines when space ran short. Toolbar controls no longer deform: below 1080px the mode switch and Show resolved drop their words and keep their icons, and the search box is the one control that gives, shrinking toward its magnifier and taking its width back when you click into it. It never shrinks to something you cannot click or type in.
+
+### Single-thread mode is remembered per document
+Reopening a document puts you back in the thread you were reading, or back in the whole document if that is where you left it. The phone keeps its own one-thread view unchanged.
+
+### React to a comment with emoji
+A smiley button beside the tag button opens a picker — your five most recent, a fixed row of five, then sets by category — and the chosen emoji becomes a reaction on that comment. The convention is the reader tag's: a reply whose body is nothing but emoji belongs to its parent rather than being a comment of its own, so the file stays plain markdown and grep still finds everything. One reply carries both, so a reaction and a tag never make two. Each emoji is a chip with a count naming who gave it; clicking joins or takes back your own. Emoji inside ordinary prose stay prose. remark read counts reactions as reactions rather than replies and shows them on the thread's line, and monitors get a reaction event on the parent, mirroring the tag event.
+
+### Copy buttons on code blocks
+Every fenced block carries a copy button in its corner — in comments, in the document's own prose and in the composer preview. It appears on hover, confirms with a tick, and never folds the comment it sits in.
+
+### Collapse all and Expand all act on what is on screen
+Their scope was the whole file, so they quietly folded threads a filter was hiding. Both now act on the threads actually shown — what the tag filter, the date filter, the search and Show resolved leave — and the tooltips say so. Expand all opens replies all the way down.
+
+### The date filter is remembered per document
+Reopening a document brings back the window you left it in. A preset is remembered as what it meant rather than when it was: "Today" reopened tomorrow means tomorrow, not the day you picked it. A typed range stays exactly as typed.
+
+### A search bar over the whole document
+A search box in the toolbar turns the board into a result page: threads without the term drop out, the outline narrows with them, and the bar counts the matches and the threads holding them. Inside a surviving thread nothing is hidden — non-matching comments stay exactly as they were — and matches wear a magenta marker, with a folded comment saying how many matches its fold is hiding, its own body included. Opening such a fold opens the whole way down to the matches and no further: branches without matches keep the state they had. That expansion is real, so clearing the search leaves it standing. Composes with the tag filter, the date filter and Show resolved, and joins them as a chip in the same bar.
+
+## 2026-09-14
+
+### A notification opened in single-thread mode takes you there
+Clicking a notification while single-thread mode held a different thread did nothing at all: the comment was not on the board, so there was nothing to scroll to. Being sent to a comment now moves the focus to its thread — for notifications, bookmarks and #r links alike — and unfolds the way down to it. When a jump really cannot land, the warning names the filter that is hiding the thread instead of always blaming resolved threads.
+
+### remark query finds the threads worth reading
+A query verb for the CLI, with the window's date filter as one of its options: remark query <file> -days 2 lists what moved since yesterday. Filters AND together — a date window (-days N counting today as 1, or -since/-until dates), -author, -tag, -text — and the answer stays lean on purpose: each thread's root id and title, then the id and author of every comment that matched. Bodies are remark read's job; this tells you which ids are worth its time. -json for the machine-readable form, remark help query for the detail.
+
 ## 2026-09-13
 
 ### Composer buttons wrap together on a narrow screen

@@ -90,12 +90,77 @@ func tagExtractNeg(text string) []string {
 	return out
 }
 
-// tagIsBare reports whether text is nothing but tags; "-#tag" negations
-// count, so one reply can mix additions and removals.
+// emojiRune reports whether r is part of an emoji grapheme: a pictographic
+// character, or one of the joiners and selectors that hang off one. Go's
+// regexp has no Extended_Pictographic class, so the ranges are spelled out —
+// ui/parser.js uses the property directly and the two must agree.
+func emojiRune(r rune) bool {
+	switch {
+	case r == 0x200D || r == 0xFE0F || r == 0xFE0E || r == 0x20E3: // ZWJ, selectors, keycap
+		return true
+	case r >= 0x1F3FB && r <= 0x1F3FF: // skin tones
+		return true
+	case r >= 0x1F1E6 && r <= 0x1F1FF: // regional indicators (flags)
+		return true
+	case r >= 0x2190 && r <= 0x2BFF: // arrows, misc symbols, dingbats
+		return true
+	case r >= 0x1F000 && r <= 0x1FAFF: // the emoji planes
+		return true
+	case r == 0x00A9 || r == 0x00AE || r == 0x203C || r == 0x2049:
+		return true
+	case r >= 0x3030 && r <= 0x303D, r == 0x3297, r == 0x3299:
+		return true
+	}
+	return false
+}
+
+// tagEmoji returns the distinct emoji graphemes in text, in order. A run of
+// emoji runes is one reaction: "👍" and "👨‍👩‍👧" each count once.
+func tagEmoji(text string) []string {
+	var out []string
+	seen := map[string]bool{}
+	var cur []rune
+	flush := func() {
+		if len(cur) == 0 {
+			return
+		}
+		s := string(cur)
+		cur = nil
+		// a lone selector or joiner is not a reaction
+		if strings.TrimFunc(s, func(r rune) bool {
+			return r == 0x200D || r == 0xFE0F || r == 0xFE0E || r == 0x20E3
+		}) == "" {
+			return
+		}
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	for _, r := range text {
+		if emojiRune(r) {
+			cur = append(cur, r)
+			continue
+		}
+		flush()
+	}
+	flush()
+	return out
+}
+
+// tagIsBare reports whether text is nothing but tags and/or emoji — a reader
+// tag, a reaction, or both. "-#tag" negations count, so one reply can mix
+// additions and removals.
 func tagIsBare(text string) bool {
-	words := strings.Fields(text)
+	stripped := strings.Map(func(r rune) rune {
+		if emojiRune(r) {
+			return -1
+		}
+		return r
+	}, text)
+	words := strings.Fields(stripped)
 	if len(words) == 0 {
-		return false
+		return len(strings.Fields(text)) > 0 // emoji only
 	}
 	for _, w := range words {
 		w = strings.TrimPrefix(w, "-")

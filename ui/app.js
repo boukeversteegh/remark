@@ -36,6 +36,7 @@ const S = {
   dateFrom: null,         // ms, inclusive; null = open
   dateTo: null,           // ms, inclusive; null = open
   dateLabel: '',          // what the preset was called, for the chip
+  search: '',             // the search term; session-only, like the filters
 };
 
 const $ = (s, el) => (el || document).querySelector(s);
@@ -122,6 +123,35 @@ function highlightIn(rootNode) {
   if (!window.hljs) return;
   for (const c of rootNode.querySelectorAll('pre code')) {
     try { hljs.highlightElement(c); } catch (e) { /* an odd block stays plain */ }
+  }
+}
+
+// a copy button on every code block: selecting one by hand across a scrolling
+// pre is the kind of thing a screen should do for you
+function addCopyButtons(rootNode) {
+  for (const pre of rootNode.querySelectorAll('pre')) {
+    if (pre.querySelector(':scope > .codecopy')) continue;
+    const code = pre.querySelector('code') || pre;
+    const btn = document.createElement('button');
+    btn.className = 'codecopy';
+    btn.type = 'button';
+    btn.innerHTML = iconHTML('copy');
+    btn.title = 'Copy this code';
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation(); // never folds the comment it sits in
+      const text = code.innerText.replace(/\n$/, '');
+      navigator.clipboard.writeText(text).then(() => {
+        btn.classList.add('done');
+        btn.innerHTML = iconHTML('check');
+        setTimeout(() => {
+          if (!btn.isConnected) return;
+          btn.classList.remove('done');
+          btn.innerHTML = iconHTML('copy');
+        }, 1400);
+      }, () => toast('warn', 'Could not reach the clipboard'));
+    });
+    pre.appendChild(btn);
   }
 }
 
@@ -378,6 +408,35 @@ function subtreeTags(root) {
   return out;
 }
 // ---------------------------------------------------------------------------
+// search: the document becomes a result page. Threads without the term drop
+// out; inside the ones that stay, NOTHING is hidden — the matches are marked
+// instead, so a hit keeps the conversation it came from.
+// ---------------------------------------------------------------------------
+function searchOn() { return S.search.trim() !== ''; }
+function itemMatchesSearch(it) {
+  if (!searchOn() || it.bare) return false;
+  return (it.rawBody || '').toLowerCase().includes(S.search.trim().toLowerCase());
+}
+// how many matches sit at or below an item — the number a fold would hide
+function searchHitsIn(it) {
+  let n = itemMatchesSearch(it) ? 1 : 0;
+  for (const c of it.children) n += searchHitsIn(c);
+  return n;
+}
+function threadHasSearchMatch(root) { return searchHitsIn(root) > 0; }
+// unfold every path that leads to a match, and the matches themselves —
+// anything not on such a path keeps the state it had. The writes go through
+// persistCollapse, so clearing the search leaves this standing.
+function expandToMatches(item) {
+  for (const c of item.children) {
+    if (searchHitsIn(c) === 0) continue; // not on the way to anything
+    S.collapsed.set(c.key, false);
+    persistCollapse(c.key, false);
+    expandToMatches(c);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // date filter: "what moved since yesterday". A thread matches when any of its
 // comments was written inside the window — activity, not the age of the root.
 // ---------------------------------------------------------------------------
@@ -409,6 +468,32 @@ function daysAgoStart(n) {
   d.setDate(d.getDate() - n);
   return startOfDay(d);
 }
+// the search box, the chip in the filter bar and Esc all go through here, so
+// the input and the document can never disagree about what is being searched
+function setSearch(term) {
+  S.search = term || '';
+  searchCursor = -1; // a new term starts at its first match
+  const box = $('#searchInput');
+  if (box && box.value !== S.search) box.value = S.search;
+  for (const id of ['#searchClear', '#searchPrev', '#searchNext']) {
+    const el = $(id);
+    if (el) el.hidden = !searchOn();
+  }
+  render();
+}
+// walking the matches: the matching COMMENTS in document order, so running off
+// the end of one thread lands on the first match in the next
+let searchCursor = -1;
+function searchMatches() {
+  if (!S.parsed || !searchOn()) return [];
+  return S.parsed.items.filter(itemMatchesSearch);
+}
+function jumpSearch(dir) {
+  const list = searchMatches();
+  if (!list.length) return;
+  searchCursor = ((searchCursor + dir) % list.length + list.length) % list.length;
+  revealItem(list[searchCursor]);
+}
 function dateRangeLabel() {
   if (S.dateLabel) return S.dateLabel;
   const d = ms => new Date(ms).toISOString().slice(0, 10);
@@ -416,12 +501,92 @@ function dateRangeLabel() {
   if (S.dateFrom != null) return 'since ' + d(S.dateFrom);
   return 'until ' + d(S.dateTo);
 }
-function setDateFilter(from, to, label) {
+// A preset is stored as the number of days it meant, not as the instant it
+// resolved to: "today" reopened tomorrow has to mean tomorrow, or the filter
+// silently hides the day's work. A typed range is absolute and stays so.
+function setDateFilter(from, to, label, presetDays) {
   S.dateFrom = from;
   S.dateTo = to;
   S.dateLabel = label || '';
+  S.datePreset = presetDays == null ? null : presetDays;
+  saveDateFilter();
   render();
   scroller().scrollTop = 0;
+}
+// single-thread mode is remembered per document too. Saved from render(),
+// which is the one place that sees the settled value — focus is set from half
+// a dozen controls, and each of them keeping its own copy is how they drift.
+// The phone uses focusThread for its one-thread view, so it does not persist:
+// opening a document into a single thread would be a surprise there.
+function focusKey() { return 'remark:focus:' + S.path; }
+function saveFocus() {
+  if (S.mobile || !S.path) return;
+  try {
+    if (S.focusThread) localStorage.setItem(focusKey(), S.focusThread);
+    else localStorage.removeItem(focusKey());
+  } catch (e) { /* blocked storage: session-only */ }
+}
+function loadFocus() {
+  S.focusThread = null;
+  if (S.mobile || !S.path) return;
+  try {
+    // a thread that has since gone is dropped by render's own check
+    S.focusThread = localStorage.getItem(focusKey()) || null;
+  } catch (e) { /* unreadable: no focus */ }
+}
+function dateFilterKey() { return 'remark:datefilter:' + S.path; }
+function saveDateFilter() {
+  try {
+    if (!S.path) return;
+    if (!dateFilterOn()) { localStorage.removeItem(dateFilterKey()); return; }
+    localStorage.setItem(dateFilterKey(), JSON.stringify({
+      preset: S.datePreset, from: S.dateFrom, to: S.dateTo, label: S.dateLabel,
+    }));
+  } catch (e) { /* blocked storage: the filter stays session-only */ }
+}
+function loadDateFilter() {
+  S.dateFrom = S.dateTo = null;
+  S.dateLabel = '';
+  S.datePreset = null;
+  try {
+    const raw = localStorage.getItem(dateFilterKey());
+    if (!raw) return;
+    const v = JSON.parse(raw);
+    if (v && v.preset != null) {
+      S.datePreset = v.preset;
+      S.dateFrom = daysAgoStart(v.preset);
+      S.dateLabel = v.label || '';
+    } else if (v && (v.from != null || v.to != null)) {
+      S.dateFrom = v.from;
+      S.dateTo = v.to;
+      S.dateLabel = v.label || '';
+    }
+  } catch (e) { /* unreadable: no filter */ }
+}
+// every filter that can drop a thread, asked once. The board, the outline and
+// the collapse/expand buttons all consult this, so none of them can end up
+// with a private opinion about what is on screen.
+function threadPassesFilters(th) {
+  if (!threadMatchesFilter(th)) return false;
+  if (!threadInDateRange(th)) return false;
+  if (searchOn() && !threadHasSearchMatch(th)) return false;
+  return true;
+}
+// the threads actually on the board right now — focus mode shows exactly one
+function visibleThreadRoots() {
+  if (!S.parsed) return [];
+  const out = [];
+  for (const b of S.parsed.blocks) {
+    if (b.type !== 'thread') continue;
+    const th = b.thread;
+    if (S.focusThread) {
+      if (th.time === S.focusThread) out.push(th);
+      continue;
+    }
+    if (threadHiddenByResolved(th) || !threadPassesFilters(th)) continue;
+    out.push(th);
+  }
+  return out;
 }
 function threadMatchesFilter(root) {
   if (!S.tagFilter.size) return true;
@@ -514,7 +679,9 @@ function tagChip(e, item) {
 // my bare-tag reply under item rewritten to carry exactly adds + negs;
 // emptied out, the reply goes with it
 function rewriteMyBare(item, mine, adds, negs) {
-  const text = adds.map(t => '#' + t).concat(negs.map(t => '-#' + t)).join(' ');
+  // your reactions live in the same reply: rewriting the tags must not throw
+  // your 👍 away
+  const text = bareReplyText(mine.bareEmoji || [], adds, negs);
   submitOps([text
     ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
     : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
@@ -539,7 +706,7 @@ function removeTag(item, e) {
   if (needNeg && negs.indexOf(t) === -1) negs.push(t);
   if (mine) {
     if (adds.length !== mine.bareTags.length || negs.length !== mine.bareNegs.length) {
-      const text = adds.map(x => '#' + x).concat(negs.map(x => '-#' + x)).join(' ');
+      const text = bareReplyText(mine.bareEmoji || [], adds, negs);
       ops.push(text
         ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
         : { type: 'delete', hash: mine.hash, occ: mine.occ });
@@ -553,6 +720,129 @@ function removeTag(item, e) {
   }
   if (ops.length) submitOps(ops);
 }
+// ---------------------------------------------------------------------------
+// reactions: a reply that is nothing but emoji belongs to its parent. A chip
+// per emoji with a count; clicking adds or removes YOUR OWN, which joins the
+// bare reply you already have under that comment rather than opening another.
+// ---------------------------------------------------------------------------
+const REACT_DEFAULTS = ['👍', '👎', '🎉', '❤️', '😄'];
+const REACT_SETS = [
+  ['Faces', ['😀', '😄', '😅', '😂', '🙂', '😉', '😍', '🤔', '😐', '😴', '😢', '😡', '🤯', '🥳', '😎', '🤝']],
+  ['Hands', ['👍', '👎', '👏', '🙌', '🙏', '👌', '✌️', '💪', '👀', '🫡', '🤞', '✋']],
+  ['Marks', ['✅', '❌', '⚠️', '❓', '❗', '💯', '🔥', '⭐', '✨', '🚀', '🐛', '🧪', '📌', '🔒', '⏱️', '🧹']],
+  ['Things', ['❤️', '🎉', '🎯', '💡', '📝', '📈', '🍀', '☕', '🧠', '🛠️', '🧩', '🚧']],
+];
+const REACT_RECENT_KEY = 'remark:emoji-recent';
+function reactRecent() {
+  try {
+    const a = JSON.parse(localStorage.getItem(REACT_RECENT_KEY) || '[]');
+    return Array.isArray(a) ? a.slice(0, 5) : [];
+  } catch (e) { return []; }
+}
+function reactRemember(emoji) {
+  try {
+    const next = [emoji].concat(reactRecent().filter(e => e !== emoji)).slice(0, 5);
+    localStorage.setItem(REACT_RECENT_KEY, JSON.stringify(next));
+  } catch (e) { /* blocked storage: recents stay empty */ }
+}
+// my bare reply under an item, whatever it carries — reactions and tags share
+// one, so a 👍 and a #tag never make two replies
+function myBareUnder(item) {
+  return item.children.find(c => c.bare && isMe(c.author)) || null;
+}
+function bareReplyText(emoji, tags, negs) {
+  return emoji.concat(tags.map(t => '#' + t), negs.map(t => '-#' + t)).join(' ');
+}
+function toggleReaction(item, emoji) {
+  const mine = myBareUnder(item);
+  const had = mine && mine.bareEmoji.includes(emoji);
+  reactRemember(emoji);
+  if (!mine) {
+    const ops = [{ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me,
+      text: emoji, time: uniqueStamp(), opener: false }];
+    if (!seenByMe(item)) {
+      S.optimisticSeen.set(item.key, true);
+      ops.push({ type: 'seen', hash: item.hash, occ: item.occ, reader: S.me, on: true });
+    }
+    submitOps(ops);
+    return;
+  }
+  const emoji2 = had ? mine.bareEmoji.filter(e => e !== emoji) : mine.bareEmoji.concat([emoji]);
+  const text = bareReplyText(emoji2, mine.bareTags, mine.bareNegs);
+  submitOps([text
+    ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
+    : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
+}
+function reactionChip(r, item) {
+  const chip = document.createElement('button');
+  const mine = r.by.some(isMe);
+  chip.className = 'reactchip' + (mine ? ' mine' : '');
+  chip.appendChild(document.createTextNode(r.emoji));
+  const n = document.createElement('span');
+  n.className = 'rn';
+  n.textContent = String(r.by.length);
+  chip.appendChild(n);
+  chip.title = r.by.join(', ') + (mine ? ' — click to take yours back' : ' — click to join');
+  chip.addEventListener('click', ev => {
+    ev.stopPropagation();
+    toggleReaction(item, r.emoji);
+  });
+  return chip;
+}
+// the picker: your five most recent, a fixed row of five, then the sets
+function reactAddButton(item) {
+  const btn = document.createElement('button');
+  btn.className = 'reactadd';
+  btn.innerHTML = iconHTML('smile-plus');
+  btn.title = 'React with an emoji';
+  btn.addEventListener('click', ev => {
+    ev.stopPropagation();
+    if (document.querySelector('.emojipick')) { closeEmojiPicker(); return; }
+    const pick = document.createElement('div');
+    pick.className = 'emojipick';
+    pick.addEventListener('click', e => e.stopPropagation());
+    const row = (label, list) => {
+      if (!list.length) return;
+      const r = document.createElement('div');
+      r.className = 'erow';
+      const h = document.createElement('div');
+      h.className = 'elabel';
+      h.textContent = label;
+      r.appendChild(h);
+      const grid = document.createElement('div');
+      grid.className = 'egrid';
+      for (const e of list) {
+        const b = document.createElement('button');
+        b.textContent = e;
+        // no tooltip: it would repeat the emoji you are already looking at
+        b.addEventListener('click', () => { closeEmojiPicker(); toggleReaction(item, e); });
+        grid.appendChild(b);
+      }
+      r.appendChild(grid);
+      pick.appendChild(r);
+    };
+    row('Recent', reactRecent());
+    row('Common', REACT_DEFAULTS);
+    for (const [label, list] of REACT_SETS) row(label, list);
+    document.body.appendChild(pick);
+    const rect = btn.getBoundingClientRect();
+    const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
+    const w = pick.offsetWidth * z, h = pick.offsetHeight * z;
+    const left = Math.max(8, Math.min(rect.left, innerWidth - w - 8));
+    // above the button when there is no room below
+    const top = rect.bottom + 6 + h < innerHeight ? rect.bottom + 6 : Math.max(8, rect.top - h - 6);
+    pick.style.left = left / z + 'px';
+    pick.style.top = top / z + 'px';
+  });
+  return btn;
+}
+function closeEmojiPicker() {
+  const p = document.querySelector('.emojipick');
+  if (p) p.remove();
+}
+document.addEventListener('click', closeEmojiPicker);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEmojiPicker(); });
+
 // "+ tag" on a comment: a tiny input in the header; Enter writes the tag —
 // into your own text (appended, on the tag row at the end) or, on someone
 // else's comment, as a bare-tag reply of yours (merged into an existing one)
@@ -598,7 +888,7 @@ function addTags(item, tags) {
   const have = new Set((item.tags || []).filter(e => !e.negated).map(e => e.tag));
   const add = tags.filter(t => !have.has(t));
   if (!add.length) { toast('ok', 'Already tagged #' + tags.join(' #')); return; }
-  const mineBare = item.children.find(c => c.bare && isMe(c.author));
+  const mineBare = myBareUnder(item);
   if (mineBare && add.some(t => mineBare.bareNegs.includes(t))) {
     const negs = mineBare.bareNegs.filter(t => !add.includes(t));
     const adds = mineBare.bareTags.concat(add.filter(t =>
@@ -617,7 +907,8 @@ function addTags(item, tags) {
   } else {
     const mine = item.children.find(c => c.bare && isMe(c.author));
     if (mine) {
-      ops.push({ type: 'edit', hash: mine.hash, occ: mine.occ, text: mine.bareTags.concat(add).map(t => '#' + t).concat(mine.bareNegs.map(t => '-#' + t)).join(' ') });
+      ops.push({ type: 'edit', hash: mine.hash, occ: mine.occ,
+        text: bareReplyText(mine.bareEmoji || [], mine.bareTags.concat(add), mine.bareNegs) });
     } else {
       ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me, text: add.map(t => '#' + t).join(' '), time: uniqueStamp(), opener: false });
       if (!seenByMe(item)) {
@@ -678,6 +969,39 @@ function markExternalLinks(rootNode) {
     ic.innerHTML = iconHTML('external-link');
     ic.title = 'Opens outside remark';
     a.appendChild(ic);
+  }
+}
+// the search term, marked where it actually sits in the text. Walks text
+// nodes so markup is never cut in half, and leaves the chips alone — they are
+// labels about the comment, not its words.
+function highlightSearch(rootNode) {
+  if (!searchOn()) return;
+  const term = S.search.trim().toLowerCase();
+  if (!term) return;
+  const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  while (walker.nextNode()) {
+    const n = walker.currentNode;
+    if (n.parentElement && n.parentElement.closest('.tagchip, .mention, .hitchip, .reactchip')) continue;
+    if (n.nodeValue.toLowerCase().includes(term)) hits.push(n);
+  }
+  for (const n of hits) {
+    const s = n.nodeValue;
+    const low = s.toLowerCase();
+    const frag = document.createDocumentFragment();
+    let i = 0;
+    for (;;) {
+      const at = low.indexOf(term, i);
+      if (at === -1) break;
+      frag.appendChild(document.createTextNode(s.slice(i, at)));
+      const mk = document.createElement('mark');
+      mk.className = 'searchhit';
+      mk.textContent = s.slice(at, at + term.length);
+      frag.appendChild(mk);
+      i = at + term.length;
+    }
+    frag.appendChild(document.createTextNode(s.slice(i)));
+    n.parentNode.replaceChild(frag, n);
   }
 }
 // "@Name" in rendered comment text becomes a mention chip when the name is
@@ -918,13 +1242,13 @@ function render() {
   // one bar names whichever are on.
   let tagKeep = null;
   const dateOn = dateFilterOn() && !S.focusThread;
-  if ((S.tagFilter.size || dateOn) && !S.focusThread) {
+  const findOn = searchOn() && !S.focusThread;
+  if ((S.tagFilter.size || dateOn || findOn) && !S.focusThread) {
     tagKeep = new Set();
     let lastHeading = null;
     for (const b of parsed.blocks) {
       if (b.type === 'heading') lastHeading = b;
-      if (b.type === 'thread' && threadMatchesFilter(b.thread) &&
-          (!dateOn || threadInDateRange(b.thread))) {
+      if (b.type === 'thread' && threadPassesFilters(b.thread)) {
         if (lastHeading) tagKeep.add(lastHeading);
         tagKeep.add(b);
       }
@@ -939,9 +1263,22 @@ function render() {
       S.tagFilter.clear();
       S.dateFrom = S.dateTo = null;
       S.dateLabel = '';
-      render();
+      setSearch('');
     });
     bar.appendChild(back);
+    if (findOn) {
+      const chip = document.createElement('button');
+      chip.className = 'tagchip findchip';
+      chip.innerHTML = iconHTML('search');
+      chip.appendChild(document.createTextNode(S.search.trim()));
+      chip.title = 'Threads containing this text — click to drop the search';
+      chip.addEventListener('click', () => setSearch(''));
+      const x = document.createElement('span');
+      x.className = 'tagx';
+      x.textContent = '×';
+      chip.appendChild(x);
+      bar.appendChild(chip);
+    }
     for (const t of S.tagFilter) bar.appendChild(tagChip({ tag: t, authored: true, by: [] }, null));
     if (dateOn) {
       const chip = document.createElement('button');
@@ -958,10 +1295,20 @@ function render() {
     }
     const n = document.createElement('span');
     n.className = 'tagn';
-    const nt = [...tagKeep].filter(b => b.type === 'thread').length;
-    n.textContent = nt ? nt + (nt === 1 ? ' thread' : ' threads')
-      : S.tagFilter.size && dateOn ? 'nothing matches both'
-      : dateOn ? 'no activity in this window' : 'no thread carries all of these';
+    const kept = [...tagKeep].filter(b => b.type === 'thread');
+    const nt = kept.length;
+    if (nt && findOn) {
+      // a result page says how much there is to read, not just how many
+      // conversations survived
+      const hits = kept.reduce((s, b) => s + searchHitsIn(b.thread), 0);
+      n.textContent = hits + (hits === 1 ? ' match in ' : ' matches in ') +
+        nt + (nt === 1 ? ' thread' : ' threads');
+    } else {
+      n.textContent = nt ? nt + (nt === 1 ? ' thread' : ' threads')
+        : findOn ? 'nothing contains that'
+        : S.tagFilter.size && dateOn ? 'nothing matches both'
+        : dateOn ? 'no activity in this window' : 'no thread carries all of these';
+    }
     bar.appendChild(n);
     doc.appendChild(bar);
   }
@@ -1007,6 +1354,7 @@ function render() {
     el.dataset.key = block.key;
     el.innerHTML = md(block.text);
     highlightIn(el);
+  addCopyButtons(el);
     markExternalLinks(el);
     const btn = document.createElement('button');
     btn.className = 'addbtn';
@@ -1056,6 +1404,7 @@ function render() {
   renderConflicts();
   updateUnreadUI();
   buildOutline();
+  saveFocus(); // the settled value, after a vanished thread has been dropped
 
   // flash newly arrived comments
   for (const it of fresh) {
@@ -1301,10 +1650,16 @@ function buildItem(item, opts) {
     item.parent.children[item.parent.children.length - 1] === item;
   const unreplied = !(root.resolvable && effChecked(root)) &&
     isMe(item.author) && kids.length === 0 && lastAtLevel;
+  // search markers: a comment that matches, and one that merely holds matches
+  // further down — the second matters most when it is folded, since the fold
+  // is then hiding the only thing you were looking for
+  const isHit = itemMatchesSearch(item);
+  const hitsBelow = searchOn() ? searchHitsIn(item) - (isHit ? 1 : 0) : 0;
   el.className = 'citem' +
     (isUnread(item) ? ' unread' : '') +
     (collapsed ? ' collapsed' : '') +
     (unreplied ? ' unreplied' : '') +
+    (isHit ? ' hit' : hitsBelow ? ' hitdeep' : '') +
     (isMe(item.author) ? ' mine' : '');
   el.dataset.ikey = item.key;
   // timestamps are comment identity — expose each as a linkable anchor, so
@@ -1335,6 +1690,17 @@ function buildItem(item, opts) {
     el.appendChild(rail);
   }
 
+  // one fold action for the header band and the caret alike. Opening a
+  // comment that holds matches opens the way down to them as well — a real
+  // expansion, written like any other, so it survives the search being cleared
+  const toggleFold = () => {
+    const want = !collapsed;
+    S.collapsed.set(item.key, want);
+    persistCollapse(item.key, want);
+    if (!want && searchOn() && hitsBelow) expandToMatches(item);
+    render();
+  };
+
   const head = document.createElement('div');
   head.className = 'chead';
   // the header spans the card's padding (see .chead in the stylesheet), so
@@ -1342,9 +1708,7 @@ function buildItem(item, opts) {
   // keep their own action
   head.addEventListener('click', e => {
     if (e.target.closest('button, input, a')) return;
-    S.collapsed.set(item.key, !collapsed);
-    persistCollapse(item.key, !collapsed);
-    render();
+    toggleFold();
   });
   // hovering it tints the comment that will fold — the same whole-card
   // highlight the gutter strip gives, so the control reads as one thing
@@ -1355,11 +1719,7 @@ function buildItem(item, opts) {
   tw.className = 'twisty';
   tw.innerHTML = iconHTML('chevron-down');
   tw.title = collapsed ? 'Expand' : 'Collapse';
-  tw.addEventListener('click', () => {
-    S.collapsed.set(item.key, !collapsed);
-    persistCollapse(item.key, !collapsed);
-    render();
-  });
+  tw.addEventListener('click', toggleFold);
   // caret and gutter strip are one control: hovering the caret previews
   // the same fold the strip does
   if (!collapsed) {
@@ -1418,11 +1778,15 @@ function buildItem(item, opts) {
   // tags: chips after the time (the comment's own plus reader tags), and
   // a hover "+ tag" — on your own comment it lands in the text, on
   // another's it is a bare-tag reply of yours
-  if ((item.tags && item.tags.length) || !collapsed) {
+  if ((item.tags && item.tags.length) || (item.reactions && item.reactions.length) || !collapsed) {
     const ct = document.createElement('span');
     ct.className = 'ctags';
     for (const e of item.tags || []) ct.appendChild(tagChip(e, item));
-    if (!collapsed && !S.chat) ct.appendChild(tagAddButton(item));
+    for (const r of item.reactions || []) ct.appendChild(reactionChip(r, item));
+    if (!collapsed && !S.chat) {
+      ct.appendChild(reactAddButton(item));
+      ct.appendChild(tagAddButton(item));
+    }
     head.appendChild(ct);
   }
 
@@ -1453,6 +1817,22 @@ function buildItem(item, opts) {
   sp.className = 'spacer';
   head.appendChild(sp);
 
+  // the header carries the search marker, since the card's left edge belongs
+  // to the thread's own state. Folded, it counts everything the fold hides —
+  // its own body included, or a folded comment that matches shows nothing.
+  if (searchOn()) {
+    const shown = collapsed ? searchHitsIn(item) : (isHit ? 1 : 0);
+    if (shown) {
+      const hc = document.createElement('span');
+      hc.className = 'hitchip';
+      hc.innerHTML = iconHTML('search');
+      hc.appendChild(document.createTextNode(shown + (shown === 1 ? ' match' : ' matches')));
+      hc.title = collapsed
+        ? 'Open to go straight to ' + (shown === 1 ? 'it' : 'them')
+        : 'This comment contains the search term';
+      head.appendChild(hc);
+    }
+  }
   if (collapsed && st.count > 1) {
     const rc = document.createElement('span');
     rc.className = 'rcount';
@@ -1597,9 +1977,11 @@ function buildItem(item, opts) {
         pe.className = 'cpara';
         pe.innerHTML = md(chunk);
         highlightIn(pe);
+        addCopyButtons(pe);
         markExternalLinks(pe);
         if (chunk.indexOf('#') !== -1) linkTags(pe);
         if (chunk.indexOf('@') !== -1) linkMentions(pe);
+        highlightSearch(pe);
         body.appendChild(pe);
         // interject zone BETWEEN paragraphs only — a single-paragraph
         // comment has no in-between, so it gets none (reply covers it)
@@ -1953,6 +2335,7 @@ function buildEditor(key, target) {
       const titleText = titleIn ? titleIn.value.trim() : '';
       preview.innerHTML = md((titleText ? '**' + titleText + '**\n\n' : '') + (ta.value || '*nothing to preview*'));
       highlightIn(preview);
+      addCopyButtons(preview);
       markExternalLinks(preview);
       preview.style.display = '';
       ta.style.display = 'none';
@@ -2331,6 +2714,14 @@ function revealItem(it) {
   let root = it;
   while (root.parent) root = root.parent;
   if (root.time) S.reveal.add(root.time);
+  // …and past single-thread mode: in focus mode the board holds one thread,
+  // so a jump into another one used to land on nothing at all. Being sent to
+  // a comment moves the focus to its thread, and the parents unfolded above
+  // bring the comment itself into view.
+  if (S.focusThread && root.time && S.focusThread !== root.time) {
+    S.focusThread = root.time;
+    unreadCursor = -1; // a new thread starts its unread cycle at the top
+  }
   render();
   const el = $('[data-ikey="' + CSS.escape(it.key) + '"]');
   if (!el) return;
@@ -2698,9 +3089,10 @@ function showWhatsNew(mode) {
   if (sinceSeen) {
     const n = $('#notices .notice[data-key="whatsnew-seen"]');
     if (n) n.remove();
-    fetch('/api/whatsnew/ack?t=' + TOKEN, { method: 'POST' }).catch(() => {});
   }
-  fetch('/api/whatsnew?t=' + TOKEN + (sinceSeen ? '&since=seen' : '')).then(r => r.json()).then(j => {
+  // the ack rides WITH the read (&ack=1) — acking separately raced it, and a
+  // won race left this panel empty, which is how entries went missing
+  fetch('/api/whatsnew?t=' + TOKEN + (sinceSeen ? '&since=seen&ack=1' : '')).then(r => r.json()).then(j => {
     const body = panel.querySelector('.wnbody');
     body.innerHTML = '';
     if (j.ok === false) {
@@ -3140,6 +3532,15 @@ function restartRemark() {
       if (j.error) toast('warn', 'Restart failed: ' + String(j.error).replace(/[<>&]/g, ''));
     }).catch(() => {});
 }
+// every open window, not just this one: the mark goes down first so the others
+// pick it up on their next poll, then this window restarts itself
+function restartAllRemark() {
+  fetch('/api/restartall?t=' + TOKEN, { method: 'POST' })
+    .then(r => r.json()).then(j => {
+      if (j && j.error) { toast('warn', 'Restart all failed: ' + String(j.error).replace(/[<>&]/g, '')); return; }
+      restartRemark();
+    }).catch(() => {});
+}
 
 // toasts: noticeable but never in the way of writing — a fixed stack in the
 // corner; every notice is dismiss-only (the back-online one by spec, the
@@ -3179,7 +3580,16 @@ async function fetchPresence() {
     // one keyed notice with a Restart button per distinct build — dismissing
     // it covers that build only, the next install notifies again
     fetch('/api/update?t=' + TOKEN).then(x => x.json()).then(u => {
-      if (u && u.updated && u.stamp && u.stamp !== S.updateStamp) {
+      if (!u) return;
+      // another window asked for every window to restart: do it, without
+      // waiting to be clicked
+      if (u.restartAll && !S.restartingAll && !u.gateway) {
+        S.restartingAll = true;
+        toast('ok', '<b>Restarting on the new build</b> — asked for from another window.', 'update');
+        restartRemark();
+        return;
+      }
+      if (u.updated && u.stamp && u.stamp !== S.updateStamp) {
         S.updateStamp = u.stamp;
         // through the gateway (the phone) there is no Restart: the gateway
         // refuses process control from the network; restart it from a window
@@ -3188,7 +3598,8 @@ async function fetchPresence() {
             '<button class="tbtn" onclick="showWhatsNew()">What\'s new</button>'
           : '<b>remark was updated</b> — this window still runs the old build. ' +
             '<button class="tbtn" onclick="showWhatsNew()">What\'s new</button>' +
-            '<button class="tbtn" onclick="restartRemark()">Restart</button>', 'update');
+            '<button class="tbtn" onclick="restartRemark()">Restart</button>' +
+            '<button class="tbtn" onclick="restartAllRemark()">Restart all</button>', 'update');
       }
     }).catch(() => {});
     const r = await fetch('/api/presence?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN);
@@ -3603,8 +4014,7 @@ function buildOutline() {
         if (!marks.length && threadHiddenByResolved(th)) continue;
         // the filters narrow the outline too, or it would list threads the
         // board is not showing
-        if (!threadMatchesFilter(th)) continue;
-        if (!threadInDateRange(th)) continue;
+        if (!threadPassesFilters(th)) continue;
       }
       const trow = document.createElement('div');
       trow.className = 'otrow' + (marks.length ? ' bookmarked' : '') +
@@ -4348,13 +4758,47 @@ function wireTopbar() {
   // are visible, quiet/dark while they are filtered out
   const syncHideResolved = () => {
     hrBtn.innerHTML = iconHTML('check-check');
-    hrBtn.appendChild(document.createTextNode('Show resolved'));
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = 'Show resolved';
+    hrBtn.appendChild(lbl);
     hrBtn.classList.toggle('active', !S.hideResolved);
     hrBtn.title = S.hideResolved
       ? 'Resolved threads are hidden — click to show them'
       : 'Showing resolved threads — click to hide them';
   };
   syncHideResolved();
+  // the search box: typing narrows the board to threads containing the term
+  const sBox = $('#searchInput');
+  if (sBox) {
+    $('.searchbox .sicon').innerHTML = iconHTML('search');
+    let typing = null;
+    sBox.addEventListener('input', () => {
+      clearTimeout(typing); // a keystroke should not re-render the document
+      typing = setTimeout(() => setSearch(sBox.value), 140);
+    });
+    sBox.addEventListener('keydown', e => {
+      e.stopPropagation(); // the document's own shortcuts stay out of the box
+      if (e.key === 'Escape') { clearTimeout(typing); setSearch(''); sBox.blur(); }
+      if (e.key === 'Enter') {
+        clearTimeout(typing);
+        // Enter on an unchanged term walks the matches, as a find box does
+        if (sBox.value === S.search && searchOn()) jumpSearch(e.shiftKey ? -1 : 1);
+        else setSearch(sBox.value);
+      }
+    });
+    $('#searchClear').addEventListener('click', () => { setSearch(''); sBox.focus(); });
+    $('#searchPrev').addEventListener('click', e => { e.preventDefault(); jumpSearch(-1); });
+    $('#searchNext').addEventListener('click', e => { e.preventDefault(); jumpSearch(1); });
+    // Ctrl/Cmd+F belongs to the document's own search, not the browser's
+    document.addEventListener('keydown', e => {
+      if ((e.key === 'f' || e.key === 'F') && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        sBox.focus();
+        sBox.select(); // typing replaces the last term, as a find box should
+      }
+    });
+  }
   // date filter: presets you would reach for daily, plus a range you type.
   // It narrows whatever the other filters leave rather than replacing them.
   const dfBtn = $('#dateFilterBtn');
@@ -4366,11 +4810,13 @@ function wireTopbar() {
       : 'Show only threads with recent activity';
   };
   syncDateBtn();
+  // [label, days back] — the days are what gets remembered, so a preset means
+  // the same thing whenever the document is reopened
   const PRESETS = [
-    ['Today', () => [daysAgoStart(0), null, 'today']],
-    ['Since yesterday', () => [daysAgoStart(1), null, 'since yesterday']],
-    ['Last 7 days', () => [daysAgoStart(6), null, 'last 7 days']],
-    ['Last 30 days', () => [daysAgoStart(29), null, 'last 30 days']],
+    ['Today', 0, 'today'],
+    ['Since yesterday', 1, 'since yesterday'],
+    ['Last 7 days', 6, 'last 7 days'],
+    ['Last 30 days', 29, 'last 30 days'],
   ];
   let dfMenu = null;
   const closeDateMenu = () => { if (dfMenu) { dfMenu.remove(); dfMenu = null; } };
@@ -4380,10 +4826,15 @@ function wireTopbar() {
     dfMenu = document.createElement('div');
     dfMenu.className = 'datemenu';
     dfMenu.addEventListener('click', ev => ev.stopPropagation());
-    for (const [label, calc] of PRESETS) {
+    for (const [label, back, chip] of PRESETS) {
       const b = document.createElement('button');
       b.textContent = label;
-      b.addEventListener('click', () => { closeDateMenu(); setDateFilter(...calc()); syncDateBtn(); });
+      if (S.datePreset === back) b.classList.add('on');
+      b.addEventListener('click', () => {
+        closeDateMenu();
+        setDateFilter(daysAgoStart(back), null, chip, back);
+        syncDateBtn();
+      });
       dfMenu.appendChild(b);
     }
     const row = document.createElement('div');
@@ -4435,7 +4886,12 @@ function wireTopbar() {
   const segIcons = { inline: 'wrap-text', margin: 'panel-right' };
   for (const b of $$('#modeSeg button')) {
     b.innerHTML = iconHTML(segIcons[b.dataset.mode]);
-    b.appendChild(document.createTextNode(' ' + b.dataset.mode[0].toUpperCase() + b.dataset.mode.slice(1)));
+    // the label is its own element so a narrow toolbar can drop it and keep
+    // the icon, instead of crushing the control or wrapping its text
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = ' ' + b.dataset.mode[0].toUpperCase() + b.dataset.mode.slice(1);
+    b.appendChild(lbl);
   }
   const meIn = $('#meInput');
   meIn.value = S.me;
@@ -4454,17 +4910,22 @@ function wireTopbar() {
       render();
     });
   }
+  // both act on what is ON SCREEN. Acting on the whole file would fold
+  // threads a filter is hiding, which you would only discover later.
   $('#collapseAll').addEventListener('click', () => {
-    for (const b of S.parsed.blocks) if (b.type === 'thread') {
-      S.collapsed.set(b.thread.key, true);
-      persistCollapse(b.thread.key, true);
+    for (const th of visibleThreadRoots()) {
+      S.collapsed.set(th.key, true);
+      persistCollapse(th.key, true);
     }
     render();
   });
   $('#expandAll').addEventListener('click', () => {
-    for (const it of S.parsed.items) {
-      S.collapsed.set(it.key, false);
-      persistCollapse(it.key, false);
+    for (const th of visibleThreadRoots()) {
+      (function walk(it) {
+        S.collapsed.set(it.key, false);
+        persistCollapse(it.key, false);
+        it.children.forEach(walk);
+      })(th);
     }
     render();
   });
@@ -4522,10 +4983,21 @@ function handleLinkClick(e) {
           S.collapsed.set(p.key, false);
           persistCollapse(p.key, false);
         }
+        // the same rule revealItem follows: a link outranks the resolved
+        // filter and moves single-thread mode onto the thread it points at
+        const linkRoot = found[0];
+        if (linkRoot.time) S.reveal.add(linkRoot.time);
+        if (S.focusThread && linkRoot.time && S.focusThread !== linkRoot.time) {
+          S.focusThread = linkRoot.time;
+        }
         render();
         target = document.getElementById(want);
         if (!target) {
-          toast('warn', 'That comment is in a hidden resolved thread — turn on “Show resolved” to jump to it.');
+          // name what is actually hiding it rather than guessing "resolved"
+          const why = S.tagFilter.size ? 'the tag filter is hiding its thread — clear it to jump there'
+            : dateFilterOn() ? 'its thread is outside the date filter — clear it to jump there'
+            : 'its thread is not on the board — check the filters in the toolbar';
+          toast('warn', 'Cannot jump to that comment: ' + why + '.');
           return;
         }
       }
@@ -4641,6 +5113,8 @@ async function init() {
     S.collapsedSaved = JSON.parse(localStorage.getItem('remark:collapsed:' + S.path) || '{}');
   } catch (e) { S.collapsedSaved = {}; }
   loadBookmarks();
+  loadDateFilter(); // per document, like the bookmarks and the fold state
+  loadFocus();
   applyZoom();
   wireWindowChrome(); // the landing page has the toolbar too
   if (!S.path) { showLanding(); dismissSplash(); return; }

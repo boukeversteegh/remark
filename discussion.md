@@ -1847,7 +1847,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - 🤖 Claude (2026-09-05 00:04:08): By composer I mean the box you type a comment in: the textarea that opens when you click Reply…, a seam, or the 💬 on a paragraph, together with its footer row (as Me, the needs-resolution toggle, Preview, Discard, Send). The no agent is watching note sits in that footer row, next to as Me. I will call it the reply box from now on. <!--seen:Me-->
 
-- [x] Me (2026-09-04 23:39:02): **Update notice and restart** <!--thread--> <!--seen:🤖 Claude-->
+- [ ] Me (2026-09-04 23:39:02): **Update notice and restart** <!--thread--> <!--seen:🤖 Claude-->
   I would love it if there was a notification when remark had an update, like locally i mean.
 
   since we rename running versions while installing, an instance should recognize if it was renamed an a new exe was available, then it should offer to restart.
@@ -1869,6 +1869,27 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   - 🤖 Claude (2026-09-05 00:38:14): Found the cause: the restore fires right after the first paint, which can be before the document is tall enough; the scroll clamps to the top and that zero immediately overwrites the saved position. Fixing: the restore retries until the page can hold the position, and nothing is saved while a restore is pending. <!--seen:Me-->
 
   - 🤖 Claude (2026-09-05 00:38:58): Installed and on main: the restore now waits until the page is tall enough for the saved position, up to five seconds, and the position is not saved while that is pending, so a short first paint can no longer wipe it. If it still lands at the top after this build, tell me whether the document had images above the spot; that would be the next suspect. <!--seen:Me-->
+
+  - Bouke (2026-09-15 09:36:09): I suspect that only one active remark window gets the restart notice, and the others don't.
+    But I do see that only the one that i restarted gets updated, and so i have multiple windows open with different versions.
+
+    I would like all windows to receive the notice, and an option to restart this window or restart all
+
+  - Bouke (2026-09-15 14:38:47): never got a reply to this. <!--seen:🤖 Claude-->
+
+    another issue i notice, i think that "update notices" should replace the previous one, rather than be suppressed (my assumption that this is the case, because i sometimes see whats new missing several features that were also built after it).
+
+  - 🤖 Claude (2026-09-16 10:28:20): Sorry for the silence on this one — your 09:36 post landed in the window where my monitor had died, and I only saw it when you said so.
+
+    **The missing entries were a race, and you read it exactly right.** Opening "What's new since last time" did two things at once: it asked the server which entries this machine had not been shown, and it recorded them as shown. Two separate calls, fired together, no order guaranteed. When the record landed first, the question was answered against a file that had just been overwritten — so the panel opened with entries missing, or with nothing at all. That explains "sometimes": it was a coin flip every time. Reading and recording now happen in one call, in that order.
+
+    **Restart all** sits beside Restart in the update notice. Every open window restarts onto the new build, so they stop drifting apart in versions.
+
+    The mechanism is worth a sentence, because the obvious design would have been worse. To restart another window directly, this one would need that window's port and token — which would mean writing those tokens to disk, a local secret stored permanently to save a few seconds. Instead the button leaves a dated mark in the config directory; every window already polls "has my binary changed", and now also notices the mark and restarts itself. A window opened after the mark ignores it, since it is already on the new build, so nothing needs cleaning up and nothing needs a secret.
+
+    On the first half of your suspicion — that only one window gets the notice — I could not confirm it. Each window polls its own binary and shows its own notice, so in the code all of them should. If you see a window that never offers it, tell me which and I will chase it with that evidence rather than guess; Restart all makes it moot in the meantime, since one window's button now covers the rest.
+
+    Tests: the read-then-record order, the mark being acted on by a window that started earlier and ignored by one that started later, and the notice offering both buttons with a second window restarting on the first one's request.
 
 - [x] Me (2026-09-04 23:40:00): **Thread titles** <!--thread--> <!--seen:🤖 Claude-->
   Please keep automatically adding topic titles for all threads, thank you! It's ok to rename them if the topic drifted a  lot
@@ -3288,12 +3309,14 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     The test covers the pill's landing position, the row selecting a thread and hitting its first unread, the step to the next one, and the pill picking up that cursor afterwards.
 
-- [ ] Bouke (2026-09-10 20:16:58): **What's new overflows the screen** <!--thread--> <!--seen:🤖 Claude-->
+- [x] Bouke (2026-09-10 20:16:58): **What's new overflows the screen** <!--thread--> <!--seen:🤖 Claude-->
   A giant "whats new" list overflows the screen, and i cannot access the button to dismiss it. ![discussion-20260910-201646.png](discussion-20260910-201646.png)
 
   - 🤖 Claude (2026-09-10 20:17:28): Claiming. The What's new panel is taller than the window, so its header and its dismiss button sit outside the viewport and only the middle scrolls. The fix caps the panel to the visible area with the header and the dismiss row pinned, so the list scrolls inside and both controls stay reachable at any window height. Regression test to follow. <!--seen:Bouke,🤖 Claude-->
 
-  - 🤖 Claude (2026-09-10 20:23:15): Fixed, installed and pushed (3e116f4); your window picks it up on its next restart. CSS zoom multiplies every length in the page, viewport units included, so the panel's cap of 70% of the screen became 70% times your zoom; at 170% in a 640px-high window the panel opened 149 pixels above the top edge, which put the header with Restart and the close button out of reach while the middle still scrolled. The zoom factor is now published to the stylesheet, and What's new and Sharing both cap against the real window, so the header stays put and the list scrolls inside. Regression test whatsnew-fits checks both panel edges, that the close button is hit-testable, and that the list scrolls, at 100, 130, 170 and 250 percent; the suite is green at 43 of 43. Not touched: the image popout sizes its picture with the same viewport-unit trick, so a very large image at high zoom can still overflow; say so and I will bring it under the same rule with a test.
+  - 🤖 Claude (2026-09-10 20:23:15): Fixed, installed and pushed (3e116f4); your window picks it up on its next restart. Cause: CSS zoom multiplies every length in the page, viewport units included, so the panel's cap of 70% of the screen became 70% times your zoom. At 170% in a 640px-high window the panel opened 149 pixels above the top edge, which is why the header with Restart and the close button was unreachable while the middle still scrolled. The zoom factor is now published to the stylesheet, and both What's new and Sharing cap against the real window instead, so the header stays put and the list scrolls inside. Regression test whatsnew-fits checks both panel edges, that the close button is actually hit-testable, and that the list scrolls, at 100, 130, 170 and 250 percent; the suite is green at 43 of 43. One related thing I did not touch: the image popout sizes its picture with the same viewport-unit trick, so a very large image at high zoom can still overflow. Say the word and I will bring it under the same rule with a test. <!--seen:Bouke-->
+
+  - Bouke (2026-09-14 17:04:59): Fixed, thanks! <!--seen:🤖 Claude-->
 
 - [ ] CIBuild (2026-09-11 13:10:44): **Een verloren bevestiging leidt tot dubbele comments** <!--thread--> <!--seen:🤖 Claude-->
   Vanmiddag heb ik vier keer dezelfde comment in een document gezet: twee keer in een paar seconden, en twee keer met 7 en 13 seconden ertussen. Bouke zag alles dubbel en vroeg me ermee te stoppen. Hieronder wat ik wel en niet heb kunnen vaststellen, want twee van de dingen die je zou verwachten blijken al goed te werken.
@@ -3391,7 +3414,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     The test flips Show resolved and asserts that the outline and the board change together, in both directions.
 
-    This is the third control today with its own copy of a rule: the unread pill and the outline row, the date filter against Show resolved, and now the outline toggle. Each was collapsed onto one shared function rather than synced, because two synced copies drift apart.
+    Worth saying plainly: this is the third control today that had grown its own private copy of a rule — the unread pill and the outline row, then the date filter against Show resolved, now this. I have been collapsing them onto one function each time rather than syncing two, because syncing is what breaks later.
 
 - [ ] Bouke (2026-09-13 08:49:40): **Remote view shows no images** <!--thread--> <!--seen:🤖 Claude-->
   On remote i still dont see images while they work on desktop, same document
@@ -3418,3 +3441,188 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
     The regression test opens a composer at 390 pixels, checks that all three buttons are on screen, that Send keeps its size rather than being squeezed, and that the three sit on one line; then it widens the window and checks the single-line footer comes back. Suite is 46 of 46.
 
   - Bouke (2026-09-13 13:51:21): Works!
+
+- [ ] Bouke (2026-09-14 09:23:46): **A query verb for the CLI** <!--thread--> <!--seen:🤖 Claude-->
+  please include a query command for the cli that matches the datefilter in the ui.
+  so an agent can easily find all threads with activity or comments over a certain timerange (expressed by number of days, or a start+end date). it should list the root thread id with its title, and the ids of the posts that matched. full read out is not necessary, that is possible already with the cli, so we shouldn't duplicate this.
+
+  ideally this is part of a broader query/search tool and date is just a query option
+
+  - 🤖 Claude (2026-09-14 09:24:31): Claiming, and building it as the general tool you describe rather than a date command: remark query <file> with filters that AND together - a date window, an author, a tag, a text match - so date is one option among several and the next filter slots in beside them. The window matches the UI exactly: -days 1 is Today, -days 2 Since yesterday, -days 7 and -days 30 the other two presets, and -since/-until take dates for anything else. Output stays lean, as you asked: one line per thread with its root id and title, then the ids of the comments that matched, with the author for orientation and nothing more - remark read is still the way to see a thread. -json for the machine-readable form. <!--seen:Bouke-->
+
+  - 🤖 Claude (2026-09-14 09:31:00): Built and installed, as the general verb you asked for rather than a date command. <!--seen:Bouke-->
+
+    ```
+    remark query <file> [-days N | -since <date> [-until <date>]]
+                        [-author <name>] [-tag <tag>] [-text <substring>] [-json]
+    ```
+
+    Filters AND together, so date is one option among several and the next one slots in beside them. The window matches the UI exactly: `-days 1` is Today, `-days 2` Since yesterday, `-days 7` and `-days 30` the other two presets — today counts as day 1, and days are whole days from local midnight. `-since`/`-until` take dates, both ends inclusive, a bare date covering the whole of that day.
+
+    The answer stays as lean as you asked:
+
+    ```
+    2026-09-11 13:43:34  Filter threads by date
+        2026-09-11 13:43:34  Bouke
+        2026-09-11 14:21:53  Bouke
+    3 comment(s) in 2 thread(s)
+    ```
+
+    Root id and title, then the id of each comment that matched with its author for orientation — no bodies, since `remark read <file> <id>` already does that and this exists to tell you which ids are worth its time. `-json` gives the same as an array with root, title, author, section and matches.
+
+    Three decisions you might want to overrule:
+
+    - **A date matches activity, not age** — the same rule as the window. A thread from January whose latest reply is today appears under `-days 1`, and the matched ids under it tell you what is new. That is what makes "what moved since yesterday" work.
+    - **A query with no filter is refused** rather than printing every comment in the file. Silence would be wrong there and a full dump would be worse.
+    - **`-tag` counts reader tags**, so a comment someone else tagged `#sharing` is found by its tag, matching how the tag filter behaves in the window.
+
+    `remark help query` carries the detail and the preset mapping; the first help screen gained a line for it and is back at exactly 60. Ten test cases cover the day boundaries, the explicit window, each filter alone, the AND, the id-not-body shape, `-json`, and the refusal.
+
+- [ ] Bouke (2026-09-14 09:43:30): **A notification opened in focus mode does nothing** <!--thread--> <!--seen:🤖 Claude-->
+  When I open a recent notification while i'm in focus mode, it should switch to that thread and expand all parents of the new comment, so I can see it. Currently clicking a notification while in focus mode on another thread doesn't do anything.
+
+  - 🤖 Claude (2026-09-14 09:49:35): Fixed and installed. Opening a notification while single-thread mode holds another thread now moves the focus to that comment's thread and unfolds the way down to it, so you land on the comment itself. Nothing happened before because the comment simply was not on the board: the jump looked for an element the focused view had never rendered, found nothing, and returned quietly.
+
+    The fix sits in the one place every jump goes through, so bookmarks and #r links gained the same behaviour — they had the identical dead end. An #r link also had a second flaw: when it could not land it always blamed a hidden resolved thread, which is now only said when that is true; otherwise it names the tag filter or the date filter, whichever is actually hiding the thread.
+
+    Worth one caution: a jump outranks the resolved filter and single-thread mode, but NOT the tag or date filters. Those are narrower statements of intent ("only threads with this tag", "only this window"), and quietly widening them on a click felt wrong — hence the honest message instead. Say the word if you would rather a jump always win, and I will make it so.
+
+    The test drives the real notification row while focused elsewhere and asserts the focus moves, the parent unfolds, the comment is on the board and the thread you left is gone. I checked it earns its keep by disabling the fix: it then reproduces exactly what you saw, the focus stuck on the other thread.
+
+- [ ] Bouke (2026-09-15 09:20:58): **A search bar over the whole document** <!--thread--> <!--seen:🤖 Claude-->
+  I need a proper search bar. It should find issues matching my current search settings.
+  We'll basically treat the main content section of the application as a search result page.
+  When i enter a term in the search bar, It will filter all threads by those containing that term.
+
+  so subthreads/comments are also included in the search, but these are not hidden when they don't match.
+  matching subthreads should keep their collapse state, but should be marked with a magenta indicator. while in search mode, expanding a matching collapsed (sub)thread, it will automatically expand all the way to the (deeply nested) matching comment. non-matching comments do not expand along with it, and keep their original state.
+  the expansion is not transient. when removing the search query (x in the field), the expansion state is kept (normal expansion state).
+
+  - 🤖 Claude (2026-09-15 09:22:10): Claiming. Reading it back so you can stop me early if I have it wrong: <!--seen:Bouke-->
+
+    - A search box in the toolbar. Typing filters the board to threads that contain the term **anywhere** — root or any comment at any depth — and the outline narrows to the same threads, so the document reads as a result page.
+    - Inside a surviving thread **nothing is hidden**: non-matching comments stay exactly as they are. Only the threads themselves are filtered.
+    - Matching comments wear a magenta marker. A collapsed comment with a match buried inside wears it too, dimmer, with the number of matches under it — otherwise a fold hides the only thing you searched for.
+    - Collapse state is left alone when the search starts. When you expand something that holds matches, it opens **the whole way down to them**: every ancestor on a path to a match, and the matching comments themselves. Anything not on such a path keeps its own state.
+    - That expansion is real, not a view: clearing the search with the × leaves it exactly as it stands.
+    - It composes with what is already on — tag, date, Show resolved — each narrowing what the others leave, and the term joins them as a chip in the same filter bar with its own way out.
+
+    Two things I am deciding unless you say otherwise: the match is case-insensitive on the comment's text (author names are not text, and `remark query -author` covers those), and the search is session-only like the other filters. Building it now.
+
+  - 🤖 Claude (2026-09-15 09:30:19): Built and installed, to the spec as I read it back. <!--seen:Bouke-->
+
+    The box sits in the toolbar. Typing narrows the board to threads containing the term, the outline narrows with it, and the bar above the document says what you are looking at — "2 matches in 2 threads" — with the term as a chip carrying its own ×. Inside a surviving thread nothing is hidden: comments that do not match are exactly where they were.
+
+    Matches wear magenta. A folded comment says how many matches its fold is hiding, and opening it opens the whole way down to them — every ancestor on a path to a match, and the matches themselves. A branch with nothing in it keeps the state it had. That expansion is written like any other, so clearing the search leaves it standing, as you asked.
+
+    Two things came out of looking at it rather than trusting the tests. The match marker started as a magenta edge down the card, which for a thread root is exactly where the thread's own state ribbon sits — blue, amber or green — so it was invisible on the very comments most likely to match. The marker is a header chip now, which reads at any depth. And the fold counted only matches BELOW it, so a folded comment whose own body held the term showed nothing at all: it appeared in the results with no visible reason. A fold now counts everything it hides, its own body included.
+
+    It composes with the tag filter, the date filter and Show resolved: each narrows what the others leave. The test covers the filtering, the non-hiding, both marker cases, the expand-to-match, the expansion surviving the clear, and the empty result.
+
+    Two decisions I made on your behalf, easily changed: the match is case-insensitive over the comment's text only — author names are not text, and `remark query -author` covers those — and the search is session-only. That last one I would now put to you directly, since you have just asked for the date filter to be remembered per document: say the word and search can be remembered the same way.
+
+  - Bouke (2026-09-15 14:41:09): please let ctrl F focus the search bar <!--seen:🤖 Claude-->
+
+  - Bouke (2026-09-15 14:41:19): also highlight the matched words in the comments themselves <!--seen:🤖 Claude-->
+
+  - Bouke (2026-09-15 14:42:40): include a next prev result button that will cycle through the matched _comments_ (not threads). at the end of the thread, jump to the next thread that matched (First comment) etc. small angled brackets are enough, shown only when search query is there. <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-15 14:57:44): All three in, installed.
+
+    **Highlighting.** The term is marked where it actually sits in the text, each match keeping its own casing, walking text nodes so markup is never cut in half. The chips are left alone — they are labels about a comment, not its words.
+
+    **Ctrl+F** puts the cursor in the box and selects what is there, so typing replaces the last term.
+
+    **‹ ›** sit in the box, only while there is a query, and walk the matching COMMENTS in document order: off the end of one thread and straight into the first match of the next, wrapping at the end. Enter does the same from the keyboard, Shift+Enter backwards. Walking to a buried match opens the way down to it, since a jump you cannot see is no jump.
+
+    One caution on Ctrl+F: it now belongs to the document's search everywhere in the window, including while you are typing a comment. That is what a find box usually does, but say the word and I will leave textareas to the browser.
+
+- [ ] Bouke (2026-09-15 09:25:37): **Back and forward navigation** <!--thread--> <!--seen:🤖 Claude-->
+  I would like to have a back/forward navigation button, similar to vscode.
+  it should be based on the actively viewed thread, sharing logic with the scroll spy, but per thread should remember the last comment.
+
+  each time i press `<--` it goes back to the previous _thread_, showing the last viewed comment within that thread. pressing it again jumps to the thread viewed before that, not another comment within that thread.
+
+- [ ] Bouke (2026-09-15 09:27:37): **Remember the date filter per document** <!--thread--> <!--seen:🤖 Claude-->
+  please remember the date filter state for that document when i restart
+
+  - 🤖 Claude (2026-09-15 09:40:39): Done and installed - and you were right to overrule me on this. One detail I decided while building, which you may want to check: a preset is remembered as WHAT IT MEANT rather than as the instant it resolved to. Reopen a document you left on 'Today' tomorrow morning and it means tomorrow, not the day you picked it. Storing the instant would have hidden the new day's work behind a filter that looked innocent - the exact failure I was worried about when I made it session-only. A typed from/to range is absolute and comes back exactly as typed. It is per document, alongside the fold state and bookmarks. The test reloads the page and asserts the preset returns as a preset and still resolves to today's midnight.
+
+- [x] Bouke (2026-09-15 09:28:13): **Collapse and expand all: what is the scope?** <!--thread--> <!--seen:🤖 Claude-->
+  collapse and expand all not clear what their scope is. all visible threads or all threads?
+  please make it act on all visible threads, and clarify the tooltip
+
+  - 🤖 Claude (2026-09-15 09:40:38): Fixed and installed. Both now act on the threads actually on screen - what the tag filter, the date filter, the search and Show resolved leave standing - rather than on the whole file. The old scope was the file, so they quietly folded threads a filter was hiding, which you would only meet later when the filter came off. Tooltips say it plainly now: 'Fold every thread on screen (what the filters leave)' and 'Unfold every thread on screen, replies and all'. Expand all opens the replies all the way down, not just the roots. The test turns on a date filter, checks the hidden thread's fold state is left untouched by both buttons, and that the visible one folds and unfolds. <!--seen:Bouke-->
+
+- [ ] Bouke (2026-09-15 09:32:15): **Copy buttons on code fences** <!--thread--> <!--seen:🤖 Claude-->
+  Please add copy buttons to code fences
+
+  - 🤖 Claude (2026-09-15 09:40:40): Added and installed. Every fenced block has a copy button in its corner - in comments, in the document's own prose, and in the composer preview - appearing on hover, confirming with a tick, and always visible on the phone where there is no hover. It stops the click from reaching the comment, so copying never folds the comment it sits in; the test checks exactly that, since that is the mistake this kind of button usually makes here.
+
+- [ ] Bouke (2026-09-15 13:55:55): **React to a comment with emoji** <!--thread--> <!--seen:🤖 Claude-->
+  let me react to a post with emojis. a single emoji placeholder button next to tag that will simply post a reply containing the chosen emoji from the popout (first row contains recent 5, then a row with a 5 popular default emojis like thumbs up and down in predefined order, then category based emoji sets).
+
+  so comment parsing works similar to tag comment parsing. if the comment only contains emojis, those are rendered on the parent as emoji reactions, rather than as text comments. it should compose with tags too.
+
+  - 🤖 Claude (2026-09-15 13:56:53): Claiming. The convention first, since it is the part that has to live in the file forever: <!--seen:Bouke-->
+
+    A reply whose body is nothing but emoji is a **reaction** on its parent, not a comment — the same shape the reader tags already use, so `grep` still finds everything and an editor still shows plain markdown:
+
+    ```
+    - Bouke (2026-09-15 13:55:55): the proposal
+      - 🤖 Claude (2026-09-15 14:02:11): 👍
+    ```
+
+    Composing with tags falls out of that: one bare reply may hold emoji and tags together (`👍 #important`), and both get lifted onto the parent. Several emoji in one reply are several reactions. Reactions never count as unread, never appear in notifications, and never show as comments — again exactly like the reader tags.
+
+    On the parent, each distinct emoji becomes a chip with a count, naming who reacted in the tooltip. Clicking a chip adds or removes **your own** reaction; yours joins the bare reply you already have under that comment rather than opening a second one.
+
+    The button goes beside the tag button, and the popout is as you describe: your five most recent (remembered per device), then a fixed row of five — 👍 👎 🎉 ❤️ 😄 — then the category sets.
+
+    Both parsers learn it together, the window's and the Go one, or `remark read` and the monitor would show reactions as comments. Monitors get a `reaction` event on the parent, mirroring the `tag` event, so an agent sees "someone gave this a 👍" rather than a phantom reply.
+
+    One question I will answer myself unless you say otherwise: an emoji written inside ordinary prose stays prose. Only a reply that is *nothing but* emoji becomes a reaction — the same rule that keeps `#tag` in a sentence from being a reader tag.
+
+  - 🤖 Claude (2026-09-15 14:06:51): Built and installed. React with the smiley beside the tag button; the picker opens with your five most recent, then a fixed row — 👍 👎 🎉 ❤️ 😄 — then sets by category. The recents row appears once you have used some. <!--seen:Bouke-->
+
+    The file stays plain markdown, because a reaction is just a reply that holds nothing but emoji:
+
+    ```
+    - Bouke (2026-09-15 13:55:55): the proposal
+      - Codex (2026-09-15 14:01:12): 👍
+      - Dana (2026-09-15 14:02:40): 👍 🎉 #important
+    ```
+
+    Both of those are reactions on the parent and neither shows as a comment. Dana's shows the composition you asked for: one reply carrying emoji and a tag, both lifted onto the parent, so a reaction and a tag never make two replies — and if you already have a bare reply there, a new reaction joins it instead of opening another.
+
+    Each emoji is a chip with a count, naming who gave it in the tooltip; clicking joins, clicking again takes yours back and deletes the reply if it is left empty. Emoji written inside ordinary prose stay prose — the rule that keeps `#tag` in a sentence from being a reader tag.
+
+    Both parsers learned it together. That turned up something the tags have quietly had wrong since they shipped: `remark read` counted bare replies as replies, so a thread with two reader tags claimed two replies that nobody had written. It now counts comments only, and shows the reactions on the thread's line instead: `(1 reply)  👍`. Monitors get a `reaction` event on the parent — actor, emoji added or taken back — mirroring the `tag` event, so an agent sees a 👍 rather than a phantom reply.
+
+    Ten checks in the test: the two reaction shapes, the prose reply that keeps its emoji and stays a comment, the counts, joining and taking back, the file each writes, the tag composing in the same reply, and the picker's three kinds of row.
+
+    - Bouke (2026-09-15 14:08:18): 👍
+
+    - Bouke (2026-09-15 14:09:49): testing what happens if i include an emoji in a reply 🔥 <!--seen:🤖 Claude,Bouke-->
+
+      - Bouke (2026-09-15 14:10:39): 🚀 ❤️ ☕
+
+    - Bouke (2026-09-15 14:10:06): nothing. this is expected. great
+
+  - Bouke (2026-09-15 14:09:10): that works, and it marks it as read! great. <!--seen:🤖 Claude-->
+
+    i notice an emoji also has a tooltip showing the same emoji, that is not useful, pelase remove that.
+
+  - Bouke (2026-09-15 14:10:31): please hide the button until hovered, like the other buttons <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-15 14:17:52): Done - it now sits at zero opacity until the header is hovered, exactly like the tag and reference buttons, and stays faintly visible on the phone where there is no hover. The tooltip that echoed the emoji back at you is gone too. Both installed.
+
+- [ ] Bouke (2026-09-15 14:11:06): **Remember focus mode per document** <!--thread--> <!--seen:🤖 Claude-->
+  please remember focus mode status per document on restart.
+
+  - 🤖 Claude (2026-09-15 14:17:53): Done and installed. Reopening a document puts you back in the thread you were reading, or in the whole document if that is where you left it. It is saved from the render pass rather than from the controls: focus is set by the toolbar toggle, an outline click, a notification jump, Esc and a new thread, and giving each of them its own save is exactly how two of them end up disagreeing. The phone is left alone, since it uses the same state for its one-thread view and opening a document into a single thread would be a surprise there. A remembered thread that has since been deleted is dropped by the check that was already in the render pass. Test reloads with focus on and off and asserts both come back.
+
+- [ ] Bouke (2026-09-15 14:37:23): **Show resolved wraps when space is tight** <!--thread--> <!--seen:🤖 Claude-->
+  make sure the button 'show resolved' doesn't wrap when there is little space for it.
+
+  - 🤖 Claude (2026-09-15 14:57:45): Fixed and installed - and it turned up that I had caused a worse version of the same thing. Toolbar controls no longer deform: below 1080px the mode switch and Show resolved drop their words and keep their icons, every one of which has a tooltip. The search box I added this morning was the real culprit: it took 190px and made the toolbar overflow by 90px at 760px wide, crushing the Inline/Margin switch to six pixels. It is now the one control that gives - shrinking toward its magnifier and taking its width back when you click into it - and it never shrinks to something you cannot click or type in. A test measures four widths and asserts nothing overflows, no label breaks in two, and the mode switch keeps its size. <!--seen:Bouke-->
