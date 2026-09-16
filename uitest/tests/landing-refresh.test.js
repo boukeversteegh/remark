@@ -3,22 +3,19 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { assert, remarkExe } = require('../helpers');
+const { assert, remarkExe, gatewayPort } = require('../helpers');
 
-const GW_PORT = 7463;
+const GW_HINT = 7463; // a hint only: Windows may have that port range reserved
 
 module.exports = async ctx => {
   const cfg = path.join(ctx.tmp, 'config');
   const doc = ctx.fixture('landing-refresh.md', '# Fresh Document\n\ncontent.\n');
   const gw = spawn(remarkExe(), ['gateway'], {
-    env: { ...process.env, APPDATA: cfg, XDG_CONFIG_HOME: cfg, REMARK_GATEWAY_PORT: String(GW_PORT) },
+    env: { ...process.env, APPDATA: cfg, XDG_CONFIG_HOME: cfg, REMARK_GATEWAY_PORT: String(GW_HINT) },
     stdio: 'ignore',
   });
   try {
-    for (let i = 0; i < 40; i++) {
-      try { if ((await fetch(`http://127.0.0.1:${GW_PORT}/`)).status) break; } catch (e) { }
-      await new Promise(r => setTimeout(r, 250));
-    }
+    const GW_PORT = await gatewayPort(cfg, GW_HINT);
     const mk = await (await fetch(`http://127.0.0.1:7461/api/groups/new?t=${ctx.token}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Watchers' }),
     })).json();

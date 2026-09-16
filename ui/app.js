@@ -3089,9 +3089,10 @@ function showWhatsNew(mode) {
   if (sinceSeen) {
     const n = $('#notices .notice[data-key="whatsnew-seen"]');
     if (n) n.remove();
-    fetch('/api/whatsnew/ack?t=' + TOKEN, { method: 'POST' }).catch(() => {});
   }
-  fetch('/api/whatsnew?t=' + TOKEN + (sinceSeen ? '&since=seen' : '')).then(r => r.json()).then(j => {
+  // the ack rides WITH the read (&ack=1) — acking separately raced it, and a
+  // won race left this panel empty, which is how entries went missing
+  fetch('/api/whatsnew?t=' + TOKEN + (sinceSeen ? '&since=seen&ack=1' : '')).then(r => r.json()).then(j => {
     const body = panel.querySelector('.wnbody');
     body.innerHTML = '';
     if (j.ok === false) {
@@ -3531,6 +3532,15 @@ function restartRemark() {
       if (j.error) toast('warn', 'Restart failed: ' + String(j.error).replace(/[<>&]/g, ''));
     }).catch(() => {});
 }
+// every open window, not just this one: the mark goes down first so the others
+// pick it up on their next poll, then this window restarts itself
+function restartAllRemark() {
+  fetch('/api/restartall?t=' + TOKEN, { method: 'POST' })
+    .then(r => r.json()).then(j => {
+      if (j && j.error) { toast('warn', 'Restart all failed: ' + String(j.error).replace(/[<>&]/g, '')); return; }
+      restartRemark();
+    }).catch(() => {});
+}
 
 // toasts: noticeable but never in the way of writing — a fixed stack in the
 // corner; every notice is dismiss-only (the back-online one by spec, the
@@ -3570,7 +3580,16 @@ async function fetchPresence() {
     // one keyed notice with a Restart button per distinct build — dismissing
     // it covers that build only, the next install notifies again
     fetch('/api/update?t=' + TOKEN).then(x => x.json()).then(u => {
-      if (u && u.updated && u.stamp && u.stamp !== S.updateStamp) {
+      if (!u) return;
+      // another window asked for every window to restart: do it, without
+      // waiting to be clicked
+      if (u.restartAll && !S.restartingAll && !u.gateway) {
+        S.restartingAll = true;
+        toast('ok', '<b>Restarting on the new build</b> — asked for from another window.', 'update');
+        restartRemark();
+        return;
+      }
+      if (u.updated && u.stamp && u.stamp !== S.updateStamp) {
         S.updateStamp = u.stamp;
         // through the gateway (the phone) there is no Restart: the gateway
         // refuses process control from the network; restart it from a window
@@ -3579,7 +3598,8 @@ async function fetchPresence() {
             '<button class="tbtn" onclick="showWhatsNew()">What\'s new</button>'
           : '<b>remark was updated</b> — this window still runs the old build. ' +
             '<button class="tbtn" onclick="showWhatsNew()">What\'s new</button>' +
-            '<button class="tbtn" onclick="restartRemark()">Restart</button>', 'update');
+            '<button class="tbtn" onclick="restartRemark()">Restart</button>' +
+            '<button class="tbtn" onclick="restartAllRemark()">Restart all</button>', 'update');
       }
     }).catch(() => {});
     const r = await fetch('/api/presence?path=' + encodeURIComponent(S.path) + '&t=' + TOKEN);

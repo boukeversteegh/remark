@@ -1,12 +1,12 @@
-﻿// remote (group) viewers: pasting images is allowed within the group's
+// remote (group) viewers: pasting images is allowed within the group's
 // documents, everything else stays fenced, the Phone button is a green
 // connection light, and external links open in the reader's own browser
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { assert, assertEq, remarkExe } = require('../helpers');
+const { assert, assertEq, remarkExe, gatewayPort } = require('../helpers');
 
-const GW_PORT = 7462;
+const GW_HINT = 7462; // a hint only: Windows may have that port range reserved
 
 module.exports = async ctx => {
   const cfg = path.join(ctx.tmp, 'config');
@@ -27,14 +27,11 @@ module.exports = async ctx => {
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
 
   const gw = spawn(remarkExe(), ['gateway'], {
-    env: { ...process.env, APPDATA: cfg, XDG_CONFIG_HOME: cfg, REMARK_GATEWAY_PORT: String(GW_PORT) },
+    env: { ...process.env, APPDATA: cfg, XDG_CONFIG_HOME: cfg, REMARK_GATEWAY_PORT: String(GW_HINT) },
     stdio: 'ignore',
   });
   try {
-    for (let i = 0; i < 40; i++) {
-      try { if ((await fetch(`http://127.0.0.1:${GW_PORT}/`)).status) break; } catch (e) { }
-      await new Promise(r => setTimeout(r, 250));
-    }
+    const GW_PORT = await gatewayPort(cfg, GW_HINT);
     // a group with the fixture doc, created through the serve API (shared config)
     const mk = await (await fetch(`http://127.0.0.1:7461/api/groups/new?t=${ctx.token}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Testers' }),

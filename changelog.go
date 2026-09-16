@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 //go:embed CHANGELOG.md
@@ -113,6 +114,27 @@ func changelogUnseen() []changeEntry {
 func changelogAck() {
 	os.MkdirAll(filepath.Dir(changelogLastPath()), 0o755)
 	os.WriteFile(changelogLastPath(), []byte(changelogText), 0o644)
+}
+
+// changelogRestartPath marks "every window should restart": one file, written
+// by whichever window was asked. A window compares it against its own start
+// time, so a window opened afterwards ignores it and no cleanup is needed.
+// A marker beats calling the other windows directly — their ports and tokens
+// would have to live on disk for that, and this needs no secret at all.
+func changelogRestartPath() string {
+	return filepath.Join(filepath.Dir(prefsPath()), "restart-all")
+}
+
+func restartAllRequest() error {
+	os.MkdirAll(filepath.Dir(changelogRestartPath()), 0o755)
+	return os.WriteFile(changelogRestartPath(), []byte(time.Now().Format(time.RFC3339Nano)), 0o644)
+}
+
+// restartAllPending reports whether a restart was asked for after this process
+// started.
+func restartAllPending(since time.Time) bool {
+	st, err := os.Stat(changelogRestartPath())
+	return err == nil && st.ModTime().After(since)
 }
 
 func runChangelog() {

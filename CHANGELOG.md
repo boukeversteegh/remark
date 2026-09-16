@@ -7,6 +7,12 @@ eye; nothing depends on them.
 
 ## 2026-09-15
 
+### The gateway finds a port Windows will actually give it
+Windows reserves whole blocks of ports for Hyper-V and WSL, and those blocks move on every reboot. The gateway stepped upward one port at a time from its usual one, which can stay inside a reserved block the whole way, and then gave up with a bind error — sharing simply refusing to start, one morning, for no reason you could see. After ten tries it now asks the system for a port it knows is free and says which one it took.
+
+### Restart all windows, and a What's new that stops losing entries
+The update notice gained "Restart all" beside "Restart": every open window restarts onto the new build, so they stop drifting apart in versions. It works through a mark on disk that each window sees on its own poll, which means no window needs another's port or token. And "What's new since last time" was racing itself — it recorded the entries as shown at the same moment it asked for them, so whenever the record won, the panel opened with entries missing. It now reads and records in one call.
+
 ### Search: walk the matches, see them marked, reach it with Ctrl+F
 The term is now highlighted where it sits in the text, each match keeping its own casing. Ctrl+F puts the cursor in the box, and ‹ › beside it — shown only while searching — walk the matching comments in document order, crossing from the end of one thread to the first match in the next and wrapping at the end; Enter and Shift+Enter do the same from the keyboard. Walking to a buried match opens the way down to it.
 

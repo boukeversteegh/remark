@@ -1879,6 +1879,18 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     another issue i notice, i think that "update notices" should replace the previous one, rather than be suppressed (my assumption that this is the case, because i sometimes see whats new missing several features that were also built after it).
 
+  - 🤖 Claude (2026-09-16 10:28:20): Sorry for the silence on this one — your 09:36 post landed in the window where my monitor had died, and I only saw it when you said so.
+
+    **The missing entries were a race, and you read it exactly right.** Opening "What's new since last time" did two things at once: it asked the server which entries this machine had not been shown, and it recorded them as shown. Two separate calls, fired together, no order guaranteed. When the record landed first, the question was answered against a file that had just been overwritten — so the panel opened with entries missing, or with nothing at all. That explains "sometimes": it was a coin flip every time. Reading and recording now happen in one call, in that order.
+
+    **Restart all** sits beside Restart in the update notice. Every open window restarts onto the new build, so they stop drifting apart in versions.
+
+    The mechanism is worth a sentence, because the obvious design would have been worse. To restart another window directly, this one would need that window's port and token — which would mean writing those tokens to disk, a local secret stored permanently to save a few seconds. Instead the button leaves a dated mark in the config directory; every window already polls "has my binary changed", and now also notices the mark and restarts itself. A window opened after the mark ignores it, since it is already on the new build, so nothing needs cleaning up and nothing needs a secret.
+
+    On the first half of your suspicion — that only one window gets the notice — I could not confirm it. Each window polls its own binary and shows its own notice, so in the code all of them should. If you see a window that never offers it, tell me which and I will chase it with that evidence rather than guess; Restart all makes it moot in the meantime, since one window's button now covers the rest.
+
+    Tests: the read-then-record order, the mark being acted on by a window that started earlier and ignored by one that started later, and the notice offering both buttons with a second window restarting on the first one's request.
+
 - [x] Me (2026-09-04 23:40:00): **Thread titles** <!--thread--> <!--seen:🤖 Claude-->
   Please keep automatically adding topic titles for all threads, thank you! It's ok to rename them if the topic drifted a  lot
 
@@ -3571,4 +3583,4 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 - [ ] Bouke (2026-09-15 14:37:23): **Show resolved wraps when space is tight** <!--thread--> <!--seen:🤖 Claude-->
   make sure the button 'show resolved' doesn't wrap when there is little space for it.
 
-  - 🤖 Claude (2026-09-15 14:57:45): Fixed and installed - and it turned up that I had caused a worse version of the same thing. Toolbar controls no longer deform: below 1080px the mode switch and Show resolved drop their words and keep their icons, every one of which has a tooltip. The search box I added this morning was the real culprit: it took 190px and made the toolbar overflow by 90px at 760px wide, crushing the Inline/Margin switch to six pixels. It is now the one control that gives - shrinking toward its magnifier and taking its width back when you click into it - and it never shrinks to something you cannot click or type in. A test measures four widths and asserts nothing overflows, no label breaks in two, and the mode switch keeps its size.
+  - 🤖 Claude (2026-09-15 14:57:45): Fixed and installed - and it turned up that I had caused a worse version of the same thing. Toolbar controls no longer deform: below 1080px the mode switch and Show resolved drop their words and keep their icons, every one of which has a tooltip. The search box I added this morning was the real culprit: it took 190px and made the toolbar overflow by 90px at 760px wide, crushing the Inline/Margin switch to six pixels. It is now the one control that gives - shrinking toward its magnifier and taking its width back when you click into it - and it never shrinks to something you cannot click or type in. A test measures four widths and asserts nothing overflows, no label breaks in two, and the mode switch keeps its size. <!--seen:Bouke-->

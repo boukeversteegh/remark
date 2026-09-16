@@ -96,4 +96,24 @@ function assertEq(got, want, msg) {
   if (got !== want) throw new Error(`${msg}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
 }
 
-module.exports = { start, assert, assertEq, remarkExe };
+// The port a spawned gateway actually took. Windows reserves whole blocks of
+// ports (Hyper-V and WSL, and the blocks move on every reboot), so a hard-coded
+// port can become unbindable overnight — the gateway then picks a free one and
+// records it. Read the record instead of assuming.
+async function gatewayPort(cfgDir, hinted) {
+  const rec = require('path').join(cfgDir, 'remark', 'gateway.json');
+  const fs = require('fs');
+  for (let i = 0; i < 80; i++) {
+    try {
+      const port = JSON.parse(fs.readFileSync(rec, 'utf8')).port;
+      if (port) {
+        // it is listening once it answers, not merely once it has written
+        try { if ((await fetch(`http://127.0.0.1:${port}/`)).status) return port; } catch (e) { }
+      }
+    } catch (e) { }
+    await new Promise(r => setTimeout(r, 250));
+  }
+  throw new Error('the gateway never came up (hinted port ' + hinted + ')');
+}
+
+module.exports = { start, assert, assertEq, remarkExe, gatewayPort };
