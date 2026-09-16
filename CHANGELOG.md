@@ -5,6 +5,11 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-16
+
+### Writing is an operation, not a copy of the document
+Posting a comment used to upload the whole file: 519 KB for this discussion, every time, which a link away from the machine cannot carry, so a remote reader could read but never post. The API now exposes the write verbs the CLI has. A reply goes to /api/reply and a read-marker to /api/seen, each a few hundred bytes, and the window uses them. The whole-file write stays for the operations that have no verb yet: edits, deletes, new threads and tags.
+
 ## 2026-09-15
 
 ### The gateway finds a port Windows will actually give it

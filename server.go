@@ -91,6 +91,70 @@ type saveReq struct {
 // handlePostFile is a compare-and-swap write: it only writes if the file on
 // disk still matches baseHash; otherwise it returns 409 with the fresh
 // content so the client can re-apply its pending operations and retry.
+// handleVerbReply posts one reply: the path comes from the query, so the
+// gateway's sharing check covers it like every other document request, and
+// the body carries only the operation.
+func handleVerbReply(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Sel       string `json:"sel"`
+		As        string `json:"as"`
+		Text      string `json:"text"`
+		Subthread bool   `json:"subthread"`
+		Again     bool   `json:"again"`
+		Opener    bool   `json:"opener"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	path := r.URL.Query().Get("path")
+	if path == "" || req.Sel == "" || req.As == "" {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": "path, sel and as are required"})
+		return
+	}
+	mu := pathMutex(path)
+	mu.Lock()
+	defer mu.Unlock()
+	out, err := writeReply(writeArgs{
+		file: path, sel: req.Sel, as: req.As, text: req.Text,
+		subthread: req.Subthread, again: req.Again, opener: req.Opener,
+	})
+	if err != nil {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	jsonOut(w, http.StatusOK, out)
+}
+
+// handleVerbSeen moves one read-marker. A read-marker used to cost a copy
+// of the document; it costs its own size now.
+func handleVerbSeen(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Sel string `json:"sel"`
+		As  string `json:"as"`
+		On  *bool  `json:"on"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	path := r.URL.Query().Get("path")
+	if path == "" || req.Sel == "" || req.As == "" {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": "path, sel and as are required"})
+		return
+	}
+	on := req.On == nil || *req.On
+	mu := pathMutex(path)
+	mu.Lock()
+	defer mu.Unlock()
+	out, err := writeSeen(writeArgs{file: path, sel: req.Sel, as: req.As}, on)
+	if err != nil {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	jsonOut(w, http.StatusOK, out)
+}
+
 func handlePostFile(w http.ResponseWriter, r *http.Request) {
 	var req saveReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -439,6 +503,12 @@ func newMux() *http.ServeMux {
 	})
 	mux.HandleFunc("GET /api/file", authed(handleGetFile))
 	mux.HandleFunc("POST /api/file", authed(handlePostFile))
+	// the write verbs, as the CLI has them: a client says what to write,
+	// not what the whole file should now say. A comment costs its own size
+	// instead of a copy of the document, which is what a link away from the
+	// machine can actually carry.
+	mux.HandleFunc("POST /api/reply", authed(handleVerbReply))
+	mux.HandleFunc("POST /api/seen", authed(handleVerbSeen))
 	mux.HandleFunc("GET /api/events", authed(handleEvents))
 	mux.HandleFunc("GET /api/pickfile", authed(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, map[string]string{"path": pickFile(r.URL.Query().Get("dir"))})

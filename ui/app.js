@@ -712,10 +712,10 @@ function removeTag(item, e) {
         : { type: 'delete', hash: mine.hash, occ: mine.occ });
     }
   } else if (needNeg) {
-    ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me, text: '-#' + t, time: uniqueStamp(), opener: false });
+    ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, parentTime: item.time, author: S.me, text: '-#' + t, time: uniqueStamp(), opener: false });
     if (!seenByMe(item)) {
       S.optimisticSeen.set(item.key, true);
-      ops.push({ type: 'seen', hash: item.hash, occ: item.occ, reader: S.me, on: true });
+      ops.push({ type: 'seen', hash: item.hash, occ: item.occ, time: item.time, reader: S.me, on: true });
     }
   }
   if (ops.length) submitOps(ops);
@@ -758,11 +758,11 @@ function toggleReaction(item, emoji) {
   const had = mine && mine.bareEmoji.includes(emoji);
   reactRemember(emoji);
   if (!mine) {
-    const ops = [{ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me,
+    const ops = [{ type: 'reply', parentHash: item.hash, occ: item.occ, parentTime: item.time, author: S.me,
       text: emoji, time: uniqueStamp(), opener: false }];
     if (!seenByMe(item)) {
       S.optimisticSeen.set(item.key, true);
-      ops.push({ type: 'seen', hash: item.hash, occ: item.occ, reader: S.me, on: true });
+      ops.push({ type: 'seen', hash: item.hash, occ: item.occ, time: item.time, reader: S.me, on: true });
     }
     submitOps(ops);
     return;
@@ -910,10 +910,10 @@ function addTags(item, tags) {
       ops.push({ type: 'edit', hash: mine.hash, occ: mine.occ,
         text: bareReplyText(mine.bareEmoji || [], mine.bareTags.concat(add), mine.bareNegs) });
     } else {
-      ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, author: S.me, text: add.map(t => '#' + t).join(' '), time: uniqueStamp(), opener: false });
+      ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, parentTime: item.time, author: S.me, text: add.map(t => '#' + t).join(' '), time: uniqueStamp(), opener: false });
       if (!seenByMe(item)) {
         S.optimisticSeen.set(item.key, true);
-        ops.push({ type: 'seen', hash: item.hash, occ: item.occ, reader: S.me, on: true });
+        ops.push({ type: 'seen', hash: item.hash, occ: item.occ, time: item.time, reader: S.me, on: true });
       }
     }
   }
@@ -1486,7 +1486,7 @@ function wireResolve(btn, item, resolved) {
       }
       for (const it of unread) {
         S.optimisticSeen.set(it.key, true);
-        ops.push({ type: 'seen', hash: it.hash, occ: it.occ, reader: S.me, on: true });
+        ops.push({ type: 'seen', hash: it.hash, occ: it.occ, time: it.time, reader: S.me, on: true });
       }
       // resolving folds the thread away — that's the point of settling it.
       // Empty composers in the subtree close first (they'd invisibly pin it
@@ -1899,7 +1899,7 @@ function buildItem(item, opts) {
       : 'Unread — click to mark read (writes a seen-marker, just for you)';
     rdot.addEventListener('click', () => {
       S.optimisticSeen.set(item.key, !seen);
-      submitOps([{ type: 'seen', hash: item.hash, occ: item.occ, reader: S.me, on: !seen }]);
+      submitOps([{ type: 'seen', hash: item.hash, occ: item.occ, time: item.time, reader: S.me, on: !seen }]);
       render();
     });
     head.appendChild(rdot);
@@ -2475,7 +2475,7 @@ function buildEditor(key, target) {
         opener: opChk.checked,
       };
     } else if (isReply) {
-      op = { type: 'reply', parentHash: target.hash, occ: target.occ, author: S.me, text, time: uniqueStamp(), opener: opChk.checked };
+      op = { type: 'reply', parentHash: target.hash, occ: target.occ, parentTime: target.time, author: S.me, text, time: uniqueStamp(), opener: opChk.checked };
     } else {
       // find nearest preceding heading for the fallback anchor
       const bi = S.parsed.blocks.indexOf(target);
@@ -2506,7 +2506,7 @@ function buildEditor(key, target) {
     const seenTarget = isInterject ? target.item : (isReply ? target : null);
     if (seenTarget && !isMe(seenTarget.author) && !seenByMe(seenTarget)) {
       S.optimisticSeen.set(seenTarget.key, true);
-      ops.push({ type: 'seen', hash: seenTarget.hash, occ: seenTarget.occ, reader: S.me, on: true });
+      ops.push({ type: 'seen', hash: seenTarget.hash, occ: seenTarget.occ, time: seenTarget.time, reader: S.me, on: true });
     }
     // appending at a level answers the comment directly above: mark that
     // preceding sibling read too — but only when it is the ONLY unread
@@ -2544,13 +2544,63 @@ function submitOps(ops) {
   drain();
 }
 
+// reload the document after a verb wrote it: the server holds the truth and
+// the answer is one small request, not a copy of the file in each direction
+async function reloadDoc() {
+  const res = await api('GET', '/api/file?path=' + encodeURIComponent(S.path));
+  if (res.status !== 200) return false;
+  S.doc = { content: res.json.content, hash: res.json.hash };
+  detectEol();
+  render();
+  return true;
+}
+
+// Writing a comment is an OPERATION, so send the operation. The whole-file
+// write below costs a copy of the document per comment, which a link away
+// from this machine cannot carry; the verbs the CLI has say the same thing
+// in a few hundred bytes. Anything a verb cannot express falls through.
+async function drainByVerb() {
+  const r = S.queue[0];
+  if (!r || r.type !== 'reply' || !r.parentTime || r.afterPara) return false;
+  // a reply may come with the read-marker for what it answers; the verb
+  // writes that marker itself, so the pair is one call
+  const spare = S.queue.some(op => op !== r &&
+    !(op.type === 'seen' && op.hash === r.parentHash && op.reader === S.me && op.on));
+  if (spare) return false;
+  const res = await api('POST', '/api/reply?path=' + encodeURIComponent(S.path),
+    { sel: r.parentTime, as: r.author, text: r.text, opener: !!r.opener });
+  if (res.status !== 200) return false; // fall back to the whole-file write
+  S.queue = [];
+  await reloadDoc();
+  return true;
+}
+
+// read-markers are the most frequent write there is: one per comment read.
+// Each is its own small call, and a run of them is a run of calls, never a
+// copy of the document per mark.
+async function drainSeenByVerb() {
+  const q = S.queue;
+  if (!q.length || !q.every(op => op.type === 'seen' && op.time && op.reader === S.me)) return false;
+  for (const op of q) {
+    const res = await api('POST', '/api/seen?path=' + encodeURIComponent(S.path),
+      { sel: op.time, as: op.reader, on: !!op.on });
+    // your own comment carries no read-marker: the server says so, and that
+    // is not a failure worth falling back for
+    if (res.status !== 200 && !(res.json && /your own/.test(res.json.error || ''))) return false;
+  }
+  S.queue = [];
+  await reloadDoc();
+  return true;
+}
+
 async function drain() {
   if (S.saving || !S.queue.length) return;
   S.saving = true;
   setStatus('busy', 'saving…');
   try {
+    const byVerb = (await drainByVerb()) || (await drainSeenByVerb());
     let attempts = 0;
-    while (S.queue.length && attempts < 20) {
+    while (!byVerb && S.queue.length && attempts < 20) {
       attempts++;
       const base = S.doc;
       const { text, results } = RvParser.applyOps(normEol(base.content), S.queue);

@@ -37,7 +37,7 @@ var (
 
 type writeArgs struct {
 	file, sel, as, text, textFile, title, after, section, to string
-	end, plain, stdin, subthread, again, asJSON              bool
+	end, plain, stdin, subthread, again, asJSON, opener      bool
 }
 
 // writeRecentDuplicate finds a comment by `as` among candidates carrying the
@@ -98,7 +98,7 @@ func writeParseArgs(args []string) writeArgs {
 		if j := strings.Index(key, "="); j >= 0 {
 			key, val = key[:j], key[j+1:]
 		} else if key != "end" && key != "plain" && key != "stdin" && key != "subthread" &&
-			key != "again" && key != "json" && i+1 < len(args) {
+			key != "again" && key != "json" && key != "opener" && i+1 < len(args) {
 			i++
 			val = args[i]
 		}
@@ -127,6 +127,8 @@ func writeParseArgs(args []string) writeArgs {
 			a.subthread = true
 		case "again":
 			a.again = true
+		case "opener":
+			a.opener = true
 		case "json":
 			a.asJSON = true
 		default:
@@ -307,17 +309,15 @@ func writeLogNote(file, stamp string) {
 
 // writeWithRetry runs compute on the file's current content and writes the
 // result unless the file changed meanwhile, in which case it recomputes.
-func writeWithRetry(file string, compute func(content string) (string, error)) {
+func writeWithRetryErr(file string, compute func(content string) (string, error)) error {
 	for attempt := 0; attempt < 3; attempt++ {
 		b, err := os.ReadFile(file)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "remark:", err)
-			os.Exit(1)
+			return err
 		}
 		out, err := compute(string(b))
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "remark:", err)
-			os.Exit(1)
+			return err
 		}
 		// readParse strips a UTF-8 BOM for parsing; the file keeps its
 		// signature across every write
@@ -330,13 +330,19 @@ func writeWithRetry(file string, compute func(content string) (string, error)) {
 			continue
 		}
 		if err := os.WriteFile(file, []byte(out), 0o644); err != nil {
-			fmt.Fprintln(os.Stderr, "remark:", err)
-			os.Exit(1)
+			return err
 		}
-		return
+		return nil
 	}
-	fmt.Fprintln(os.Stderr, "remark: the file kept changing underneath — nothing written, try again")
-	os.Exit(1)
+	return fmt.Errorf("the file kept changing underneath — nothing written, try again")
+}
+
+// writeWithRetry is the CLI's form: any failure ends the command.
+func writeWithRetry(file string, compute func(content string) (string, error)) {
+	if err := writeWithRetryErr(file, compute); err != nil {
+		fmt.Fprintln(os.Stderr, "remark:", err)
+		os.Exit(1)
+	}
 }
 
 // remark dm <author> -as <name> [-to <sid>] [-text t | -file p | stdin]:
@@ -442,7 +448,17 @@ func runSeen(args []string) {
 		fmt.Fprintln(os.Stderr, "usage: remark seen <file> <selector> -as <name>")
 		os.Exit(2)
 	}
-	writeWithRetry(a.file, func(content string) (string, error) {
+	if _, err := writeSeen(a, true); err != nil {
+		fmt.Fprintln(os.Stderr, "remark seen: "+err.Error())
+		os.Exit(1)
+	}
+	fmt.Printf("marked %s seen by %s\n", a.sel, a.as)
+}
+
+// writeSeen moves one read-marker: the mark a reader leaves on somebody
+// else's comment. on=false takes it off again.
+func writeSeen(a writeArgs, on bool) (map[string]any, error) {
+	if err := writeWithRetryErr(a.file, func(content string) (string, error) {
 		lines, _, all := readParse(content)
 		hits := readSelect(all, a.sel)
 		switch {
@@ -455,10 +471,35 @@ func runSeen(args []string) {
 		if n.author == a.as {
 			return "", fmt.Errorf("that comment is your own — read-markers are for others' comments")
 		}
-		lines[n.start] = writeAddSeen(lines[n.start], a.as)
+		if on {
+			lines[n.start] = writeAddSeen(lines[n.start], a.as)
+		} else {
+			lines[n.start] = writeDropSeen(lines[n.start], a.as)
+		}
 		return strings.ReplaceAll(strings.Join(lines, "\n"), "\r\n", "\n"), nil
-	})
-	fmt.Printf("marked %s seen by %s\n", a.sel, a.as)
+	}); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true, "file": a.file, "target": a.sel, "as": a.as, "on": on}, nil
+}
+
+// writeDropSeen removes one name from a line's read-markers, keeping the
+// others and dropping the marker once it empties.
+func writeDropSeen(line, name string) string {
+	m := writeSeenRe.FindStringSubmatch(line)
+	if m == nil || name == "" {
+		return line
+	}
+	var keep []string
+	for _, n := range strings.Split(m[1], ",") {
+		if t := strings.TrimSpace(n); t != name && t != "" {
+			keep = append(keep, t)
+		}
+	}
+	if len(keep) == 0 {
+		return strings.TrimRight(strings.Replace(line, m[0], "", 1), " ")
+	}
+	return strings.Replace(line, m[0], "<!--seen:"+strings.Join(keep, ",")+"-->", 1)
 }
 
 // remark delete <file> <sel> -as <name>: removes YOUR OWN comment and its
@@ -520,14 +561,35 @@ func runReply(args []string) {
 		fmt.Fprintln(os.Stderr, "usage: remark reply <file> <selector> -as <name> [-text <text> | -file <path> | stdin]")
 		os.Exit(2)
 	}
-	body := writeBody(a)
+	a.text = writeBody(a)
+	out, err := writeReply(a)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "remark reply: "+err.Error())
+		os.Exit(1)
+	}
+	if a.asJSON {
+		writeJSONOut(out)
+		return
+	}
+	if out["duplicate"] == true {
+		fmt.Printf("already there: %s under %s at line %d — identical text from you within %s; -again posts it anyway\n",
+			out["time"], a.sel, out["line"], writeDupWindow)
+		return
+	}
+	fmt.Printf("replied %s %s %s at line %d\n", out["time"], out["placed"], a.sel, out["line"])
+}
+
+// writeReply posts one reply and reports what it did — the same answer the
+// CLI prints and the API returns. Writing a comment is an operation, not a
+// new copy of the whole file.
+func writeReply(a writeArgs) (map[string]any, error) {
+	body := a.text
 	if strings.TrimSpace(body) == "" {
-		fmt.Fprintln(os.Stderr, "remark reply: empty body (use -text, -file or stdin)")
-		os.Exit(2)
+		return nil, fmt.Errorf("empty body")
 	}
 	var stamp, placed, dup string
 	var line, dupLine int
-	writeWithRetry(a.file, func(content string) (string, error) {
+	if err := writeWithRetryErr(a.file, func(content string) (string, error) {
 		dup, dupLine = "", 0 // a retry of the write recomputes this
 		lines, _, all := readParse(content)
 		hits := readSelect(all, a.sel)
@@ -569,7 +631,7 @@ func runReply(args []string) {
 			}
 		}
 		stamp = writeUniqueStamp(content, time.Now())
-		item := writeItemLines(indent, false, a.as, stamp, "", body)
+		item := writeItemLines(indent, a.opener, a.as, stamp, "", body)
 		// the seen-marker goes on what you ANSWERED, wherever the reply lands
 		lines[target.start] = writeAddSeen(lines[target.start], a.as)
 		placed = "under"
@@ -583,27 +645,19 @@ func runReply(args []string) {
 		out := writeInsert(content, at, item)
 		line = strings.Count(out[:strings.Index(out, item[0])], "\n") + 1
 		return out, nil
-	})
+	}); err != nil {
+		return nil, err
+	}
 	if dup != "" {
 		// idempotent on purpose: the caller wanted these words under that
-		// comment, and they are. Same answer as a fresh write, so a harness
+		// comment, and they are. Same answer as a fresh write, so a caller
 		// that lost the first one can stop guessing.
-		if a.asJSON {
-			writeJSONOut(map[string]any{"ok": true, "duplicate": true, "time": dup,
-				"file": a.file, "target": a.sel, "line": dupLine})
-		} else {
-			fmt.Printf("already there: %s under %s at line %d — identical text from you within %s; -again posts it anyway\n",
-				dup, a.sel, dupLine, writeDupWindow)
-		}
-		return
+		return map[string]any{"ok": true, "duplicate": true, "time": dup,
+			"file": a.file, "target": a.sel, "line": dupLine}, nil
 	}
 	writeLogNote(a.file, stamp)
-	if a.asJSON {
-		writeJSONOut(map[string]any{"ok": true, "time": stamp, "file": a.file,
-			"target": a.sel, "line": line, "placed": placed})
-		return
-	}
-	fmt.Printf("replied %s %s %s at line %d\n", stamp, placed, a.sel, line)
+	return map[string]any{"ok": true, "time": stamp, "file": a.file,
+		"target": a.sel, "line": line, "placed": placed}, nil
 }
 
 func runThread(args []string) {
