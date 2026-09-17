@@ -438,6 +438,72 @@ func runEdit(args []string) {
 	fmt.Printf("titled %s at line %d\n", a.sel, line)
 }
 
+// writeEdit replaces one comment's body, keeping its bullet form, author,
+// stamp and first-line markers. opener, when given, changes the form: a
+// checkbox item carries its own resolution, a plain one carries none.
+// Children stay, in order, after the new body — an interjection's
+// interleaving is not reconstructed, which is what the window does too.
+func writeEdit(a writeArgs, opener *bool) (map[string]any, error) {
+	if strings.TrimSpace(a.text) == "" {
+		return nil, fmt.Errorf("empty body")
+	}
+	var line int
+	if err := writeWithRetryErr(a.file, func(content string) (string, error) {
+		lines, _, all := readParse(content)
+		hits := readSelect(all, a.sel)
+		switch {
+		case len(hits) == 0:
+			return "", fmt.Errorf("no comment matches %q", a.sel)
+		case len(hits) > 1:
+			return "", fmt.Errorf("%q is ambiguous — use an exact selector", a.sel)
+		}
+		n := hits[0]
+		if a.as != "" && n.author != a.as {
+			return "", fmt.Errorf("that comment is %s's, not yours", n.author)
+		}
+		if n.time == "" {
+			return "", fmt.Errorf("that comment has no stamp to write back")
+		}
+		// the markers on the first line belong to the comment, not to its
+		// words: they survive a rewrite of the text
+		head := lines[n.start]
+		var marks []string
+		for _, m := range editMarkRe.FindAllString(head, -1) {
+			marks = append(marks, m)
+		}
+		checkbox := n.resolvable
+		if opener != nil {
+			checkbox = *opener
+		}
+		item := writeItemLines(n.indent, checkbox, n.author, n.time, "", a.text)
+		if checkbox && n.checked {
+			item[0] = strings.Replace(item[0], "- [ ] ", "- [x] ", 1)
+		}
+		// writeItemLines adds the thread marker itself for a root checkbox;
+		// whatever it did not add comes back from the old line
+		for _, m := range marks {
+			if !strings.Contains(item[0], m) {
+				item[0] += " " + m
+			}
+		}
+		out := append([]string{}, lines[:n.start]...)
+		out = append(out, item...)
+		for _, c := range n.children {
+			out = append(out, "")
+			for l := c.start; l <= readSubtreeLast(lines, c); l++ {
+				out = append(out, lines[l])
+			}
+		}
+		end := readSubtreeLast(lines, n)
+		out = append(out, lines[end+1:]...)
+		line = n.start + 1
+		return strings.ReplaceAll(strings.Join(out, "\n"), "\r\n", "\n"), nil
+	}); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true, "file": a.file, "target": a.sel, "line": line}, nil
+}
+
 // remark seen <file> <sel> -as <name>: writes your read-marker on the
 // comment NOW. Do it the moment a comment reaches you — not when the work
 // it asks for is done; a long build must not look like an unread message.
@@ -511,8 +577,20 @@ func runDelete(args []string) {
 		fmt.Fprintln(os.Stderr, "usage: remark delete <file> <selector> -as <name>")
 		os.Exit(2)
 	}
+	out, err := writeDelete(a)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "remark delete: "+err.Error())
+		os.Exit(1)
+	}
+	fmt.Printf("deleted %s (%d line(s))\n", a.sel, out["removed"])
+}
+
+// writeDelete removes your own comment and its subtree. Someone else's
+// words are never yours to take, so a reply by another author blocks it
+// and the error names who and where.
+func writeDelete(a writeArgs) (map[string]any, error) {
 	var removed int
-	writeWithRetry(a.file, func(content string) (string, error) {
+	if err := writeWithRetryErr(a.file, func(content string) (string, error) {
 		lines, _, all := readParse(content)
 		hits := readSelect(all, a.sel)
 		switch {
@@ -525,10 +603,7 @@ func runDelete(args []string) {
 		if n.author != a.as {
 			return "", fmt.Errorf("that comment is by %q — only your own comments can be deleted", n.author)
 		}
-		end := readSubtreeEnd(n)
-		if end >= len(lines) {
-			end = len(lines) - 1
-		}
+		end := readSubtreeLast(lines, n)
 		// name what is in the way: "someone replied" leaves the caller
 		// guessing which comment and where, when the point is to decide
 		// whether to ask that person or to leave the whole thing alone
@@ -551,8 +626,10 @@ func runDelete(args []string) {
 		removed = end - start + 1
 		out := append(append([]string{}, lines[:start]...), lines[end+1:]...)
 		return strings.ReplaceAll(strings.Join(out, "\n"), "\r\n", "\n"), nil
-	})
-	fmt.Printf("deleted %s (%d line(s))\n", a.sel, removed)
+	}); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true, "file": a.file, "target": a.sel, "removed": removed}, nil
 }
 
 func runReply(args []string) {

@@ -285,6 +285,22 @@ func readIsCommentLine(l string) bool {
 	return ok && ts != ""
 }
 
+// readSubtreeLast returns the last line the subtree actually occupies.
+// readSubtreeEnd points AT the line that ends it — the next item, or the
+// end of the file — which is the right place to INSERT but one line too
+// far for anything that removes or rewrites a block. Blank separators
+// belong to neither block, so they are not included either.
+func readSubtreeLast(lines []string, n *readNode) int {
+	end := readSubtreeEnd(n) - 1
+	if end >= len(lines) {
+		end = len(lines) - 1
+	}
+	for end > n.start && strings.TrimSpace(lines[end]) == "" {
+		end--
+	}
+	return end
+}
+
 func readSubtreeEnd(n *readNode) int {
 	for len(n.children) > 0 {
 		n = n.children[len(n.children)-1]

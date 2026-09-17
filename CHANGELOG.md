@@ -5,6 +5,14 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-17
+
+### remark delete took the next thread's first line with it
+Deleting a comment that was followed by another comment removed that comment's opening line too, orphaning its body under the thread above. The subtree helper returns the line that ENDS a block, which is where an insertion goes and one line past what a removal may touch; delete treated it as the last line of its own block. The CLI, the window and an agent's delete all ran through it.
+
+### Editing and deleting are operations too
+The window sends /api/edit and /api/delete instead of uploading the document, so four of the writes a reader makes now cost their own size: replying, marking read, editing and deleting. New threads, tags and interjections still take the old path.
+
 ## 2026-09-16
 
 ### Writing is an operation, not a copy of the document

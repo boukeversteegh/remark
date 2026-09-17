@@ -683,8 +683,8 @@ function rewriteMyBare(item, mine, adds, negs) {
   // your 👍 away
   const text = bareReplyText(mine.bareEmoji || [], adds, negs);
   submitOps([text
-    ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
-    : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
+    ? { type: 'edit', hash: mine.hash, occ: mine.occ, time: mine.time, text }
+    : { type: 'delete', hash: mine.hash, occ: mine.occ, time: mine.time }]);
 }
 function removeTag(item, e) {
   const t = e.tag;
@@ -695,7 +695,7 @@ function removeTag(item, e) {
     let text = item.rawBody.replace(rx, '$1');
     text = text.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n')
       .replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
-    ops.push({ type: 'edit', hash: item.hash, occ: item.occ, text });
+    ops.push({ type: 'edit', hash: item.hash, occ: item.occ, time: item.time, text });
   }
   // the tag would survive without me (someone else's text or reader tag):
   // a "-#tag" in my bare reply removes it without touching their words
@@ -708,8 +708,8 @@ function removeTag(item, e) {
     if (adds.length !== mine.bareTags.length || negs.length !== mine.bareNegs.length) {
       const text = bareReplyText(mine.bareEmoji || [], adds, negs);
       ops.push(text
-        ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
-        : { type: 'delete', hash: mine.hash, occ: mine.occ });
+        ? { type: 'edit', hash: mine.hash, occ: mine.occ, time: mine.time, text }
+        : { type: 'delete', hash: mine.hash, occ: mine.occ, time: mine.time });
     }
   } else if (needNeg) {
     ops.push({ type: 'reply', parentHash: item.hash, occ: item.occ, parentTime: item.time, author: S.me, text: '-#' + t, time: uniqueStamp(), opener: false });
@@ -770,8 +770,8 @@ function toggleReaction(item, emoji) {
   const emoji2 = had ? mine.bareEmoji.filter(e => e !== emoji) : mine.bareEmoji.concat([emoji]);
   const text = bareReplyText(emoji2, mine.bareTags, mine.bareNegs);
   submitOps([text
-    ? { type: 'edit', hash: mine.hash, occ: mine.occ, text }
-    : { type: 'delete', hash: mine.hash, occ: mine.occ }]);
+    ? { type: 'edit', hash: mine.hash, occ: mine.occ, time: mine.time, text }
+    : { type: 'delete', hash: mine.hash, occ: mine.occ, time: mine.time }]);
 }
 function reactionChip(r, item) {
   const chip = document.createElement('button');
@@ -901,7 +901,7 @@ function addTags(item, tags) {
     const lines = item.rawBody.split('\n');
     const last = lines[lines.length - 1] || '';
     const text = item.rawBody + (RvParser.isBareTags(last) ? ' ' : (item.rawBody ? '\n\n' : '')) + add.map(t => '#' + t).join(' ');
-    ops.push({ type: 'edit', hash: item.hash, occ: item.occ, text });
+    ops.push({ type: 'edit', hash: item.hash, occ: item.occ, time: item.time, text });
     const pfx = item.author ? item.author + (item.time ? ' (' + item.time + ')' : '') + ': ' : '';
     S.collapsed.set(RvParser.hashText(RvParser.normalize(pfx + text)) + ':' + item.occ, false);
   } else {
@@ -2401,7 +2401,7 @@ function buildEditor(key, target) {
       yes.textContent = total === 1 ? 'Delete' : 'Delete ' + total;
       yes.addEventListener('click', () => {
         close(true);
-        submitOps([{ type: 'delete', hash: target.hash, occ: target.occ }]);
+        submitOps([{ type: 'delete', hash: target.hash, occ: target.occ, time: target.time }]);
       });
       row.appendChild(no);
       row.appendChild(yes);
@@ -2462,7 +2462,7 @@ function buildEditor(key, target) {
       if (text === target.rawBody && opChk.checked === !!target.resolvable) { close(true); return; }
       // no timestamp change on edit; hash/occ identify the PRE-edit item.
       // opener rewrites the item's form when the toggle moved.
-      op = { type: 'edit', hash: target.hash, occ: target.occ, text };
+      op = { type: 'edit', hash: target.hash, occ: target.occ, time: target.time, text };
       if (opChk.checked !== !!target.resolvable) op.opener = opChk.checked;
       // the edit changes the item's hash — keep its thread expanded under
       // the key the edited item will get
@@ -2578,6 +2578,28 @@ async function drainByVerb() {
 // read-markers are the most frequent write there is: one per comment read.
 // Each is its own small call, and a run of them is a run of calls, never a
 // copy of the document per mark.
+// editing and deleting your own comment: also operations, also small
+async function drainEditByVerb() {
+  const q = S.queue;
+  if (q.length !== 1) return false;
+  const op = q[0];
+  if (!op.time) return false;
+  let res = null;
+  if (op.type === 'edit') {
+    const body = { sel: op.time, as: S.me, text: op.text };
+    if (op.opener !== undefined) body.opener = op.opener;
+    res = await api('POST', '/api/edit?path=' + encodeURIComponent(S.path), body);
+  } else if (op.type === 'delete') {
+    res = await api('POST', '/api/delete?path=' + encodeURIComponent(S.path), { sel: op.time, as: S.me });
+  } else {
+    return false;
+  }
+  if (res.status !== 200) return false; // fall back to the whole-file write
+  S.queue = [];
+  await reloadDoc();
+  return true;
+}
+
 async function drainSeenByVerb() {
   const q = S.queue;
   if (!q.length || !q.every(op => op.type === 'seen' && op.time && op.reader === S.me)) return false;
@@ -2598,7 +2620,7 @@ async function drain() {
   S.saving = true;
   setStatus('busy', 'saving…');
   try {
-    const byVerb = (await drainByVerb()) || (await drainSeenByVerb());
+    const byVerb = (await drainByVerb()) || (await drainSeenByVerb()) || (await drainEditByVerb());
     let attempts = 0;
     while (!byVerb && S.queue.length && attempts < 20) {
       attempts++;

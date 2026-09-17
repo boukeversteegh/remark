@@ -347,7 +347,7 @@ func gatewayHandler(mux http.Handler) http.Handler {
 func gatewayGroupServe(mux http.Handler, grp gatewayGroup, w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Path
 	apiAllowed := map[string]bool{
-		"/api/file": true, "/api/reply": true, "/api/seen": true, "/api/events": true, "/api/uiready": true,
+		"/api/file": true, "/api/reply": true, "/api/seen": true, "/api/edit": true, "/api/delete": true, "/api/events": true, "/api/uiready": true,
 		"/api/presence": true, "/api/asset": true, "/api/image": true,
 		"/api/group": true, "/api/group/join": true,
 	}

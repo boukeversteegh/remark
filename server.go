@@ -155,6 +155,61 @@ func handleVerbSeen(w http.ResponseWriter, r *http.Request) {
 	jsonOut(w, http.StatusOK, out)
 }
 
+// handleVerbEdit rewrites one comment's body, and handleVerbDelete removes
+// a comment of your own with its subtree. Both name the document in the
+// query, so the gateway's sharing check covers them.
+func handleVerbEdit(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Sel    string `json:"sel"`
+		As     string `json:"as"`
+		Text   string `json:"text"`
+		Opener *bool  `json:"opener"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	path := r.URL.Query().Get("path")
+	if path == "" || req.Sel == "" {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": "path and sel are required"})
+		return
+	}
+	mu := pathMutex(path)
+	mu.Lock()
+	defer mu.Unlock()
+	out, err := writeEdit(writeArgs{file: path, sel: req.Sel, as: req.As, text: req.Text}, req.Opener)
+	if err != nil {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	jsonOut(w, http.StatusOK, out)
+}
+
+func handleVerbDelete(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Sel string `json:"sel"`
+		As  string `json:"as"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	path := r.URL.Query().Get("path")
+	if path == "" || req.Sel == "" || req.As == "" {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": "path, sel and as are required"})
+		return
+	}
+	mu := pathMutex(path)
+	mu.Lock()
+	defer mu.Unlock()
+	out, err := writeDelete(writeArgs{file: path, sel: req.Sel, as: req.As})
+	if err != nil {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	jsonOut(w, http.StatusOK, out)
+}
+
 func handlePostFile(w http.ResponseWriter, r *http.Request) {
 	var req saveReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -509,6 +564,8 @@ func newMux() *http.ServeMux {
 	// machine can actually carry.
 	mux.HandleFunc("POST /api/reply", authed(handleVerbReply))
 	mux.HandleFunc("POST /api/seen", authed(handleVerbSeen))
+	mux.HandleFunc("POST /api/edit", authed(handleVerbEdit))
+	mux.HandleFunc("POST /api/delete", authed(handleVerbDelete))
 	mux.HandleFunc("GET /api/events", authed(handleEvents))
 	mux.HandleFunc("GET /api/pickfile", authed(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, map[string]string{"path": pickFile(r.URL.Query().Get("dir"))})
