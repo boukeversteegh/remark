@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-17
 
+### Escape closes the picture and nothing else
+Dismissing the image popout with Escape also left focus mode, because the popout stopped the key's default action but let the key travel on to the handler that leaves a focused thread. Escape now belongs to the topmost thing on screen.
+
 ### A reply from the window lands where the window meant it
 Since replies started going through the reply verb, a reply typed in a comment's header landed at that comment's level instead of under it. The window picks the parent itself, the root for the thread's bottom slot and the comment for its header, while the verb has its own rule for the CLI, where a reply continues the conversation as a sibling. The window now says which it means. A test pins both placements.
 

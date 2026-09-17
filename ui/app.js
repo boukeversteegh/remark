@@ -3582,7 +3582,16 @@ function openLightbox(src, alt) {
   const up = e => { pts.delete(e.pointerId); if (pts.size < 2) lastDist = 0; };
   stage.addEventListener('pointerup', up);
   stage.addEventListener('pointercancel', up);
-  const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); close(); } };
+  // Esc belongs to the topmost thing on screen: swallow it here, or the
+  // same keypress also reaches focus mode and leaves the thread behind
+  // the picture
+  const onKey = e => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    close();
+  };
   const close = () => { lb.remove(); document.removeEventListener('keydown', onKey, true); };
   document.addEventListener('keydown', onKey, true);
   lb.querySelector('.lbclose').addEventListener('click', close);
