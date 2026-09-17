@@ -7,6 +7,9 @@ eye; nothing depends on them.
 
 ## 2026-09-17
 
+### A reply from the window lands where the window meant it
+Since replies started going through the reply verb, a reply typed in a comment's header landed at that comment's level instead of under it. The window picks the parent itself, the root for the thread's bottom slot and the comment for its header, while the verb has its own rule for the CLI, where a reply continues the conversation as a sibling. The window now says which it means. A test pins both placements.
+
 ### remark delete took the next thread's first line with it
 Deleting a comment that was followed by another comment removed that comment's opening line too, orphaning its body under the thread above. The subtree helper returns the line that ENDS a block, which is where an insertion goes and one line past what a removal may touch; delete treated it as the last line of its own block. The CLI, the window and an agent's delete all ran through it.
 

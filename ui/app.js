@@ -2567,8 +2567,12 @@ async function drainByVerb() {
   const spare = S.queue.some(op => op !== r &&
     !(op.type === 'seen' && op.hash === r.parentHash && op.reader === S.me && op.on));
   if (spare) return false;
+  // the window has already chosen the parent — the root for a reply typed
+  // in the thread's bottom slot, the comment itself for one typed in its
+  // header — so the verb must nest under exactly that comment rather than
+  // apply its own sibling rule, which would land the reply a level higher
   const res = await api('POST', '/api/reply?path=' + encodeURIComponent(S.path),
-    { sel: r.parentTime, as: r.author, text: r.text, opener: !!r.opener });
+    { sel: r.parentTime, as: r.author, text: r.text, opener: !!r.opener, subthread: true });
   if (res.status !== 200) return false; // fall back to the whole-file write
   S.queue = [];
   await reloadDoc();
