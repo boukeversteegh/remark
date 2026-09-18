@@ -2824,6 +2824,83 @@ function collectUnread(item, out) {
 // something you haven't read yet
 // a resolved root is not finished while any nested resolvable comment is
 // still open: the hide-resolved filter keeps such threads in view
+// folding, in three depths. Click still does what it always did; the
+// popover names the other two, because "fold" meant only the root level
+// and there was no way to ask for anything else.
+function foldAll(mode) {
+  const unreadBelow = it => isUnread(it) || it.children.some(unreadBelow);
+  for (const th of visibleThreadRoots()) {
+    (function walk(it, depth) {
+      let fold = depth === 0;                       // 'threads': roots only
+      if (mode === 'all') fold = true;
+      else if (mode === 'read') fold = !unreadBelow(it);
+      if (mode !== 'threads' || depth === 0) {
+        S.collapsed.set(it.key, fold);
+        persistCollapse(it.key, fold);
+      }
+      it.children.forEach(c => walk(c, depth + 1));
+    })(th, 0);
+  }
+  render();
+}
+
+// the fold button carries three actions: the click keeps the first, and
+// hovering or holding opens the rest. A popover, so the toolbar never moves
+function wireFoldButton() {
+  const btn = $('#collapseAll');
+  if (!btn) return;
+  const MODES = [
+    ['threads', 'Fold all threads', 'only the root level'],
+    ['all', 'Fold all comments', 'every level'],
+    ['read', 'Fold read comments', 'every level with nothing unread below'],
+  ];
+  let pop = null, hoverTimer = null, holdTimer = null, held = false;
+  const closePop = () => { if (pop) { pop.remove(); pop = null; } };
+  const openPop = () => {
+    if (pop) return;
+    pop = document.createElement('div');
+    pop.className = 'foldmenu';
+    for (const [mode, label, hint] of MODES) {
+      const row = document.createElement('button');
+      row.className = 'foldopt';
+      row.dataset.mode = mode;
+      row.innerHTML = iconHTML('chevrons-down-up');
+      const t = document.createElement('span');
+      t.className = 'foldlabel';
+      t.textContent = label;
+      const h = document.createElement('span');
+      h.className = 'foldhint';
+      h.textContent = hint;
+      t.appendChild(h);
+      row.appendChild(t);
+      row.addEventListener('click', e => { e.stopPropagation(); closePop(); foldAll(mode); });
+      pop.appendChild(row);
+    }
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    pop.style.top = Math.round(r.bottom + 6) + 'px';
+    pop.style.left = Math.round(Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+  };
+  btn.addEventListener('mouseenter', () => { hoverTimer = setTimeout(openPop, 500); });
+  btn.addEventListener('mouseleave', () => {
+    clearTimeout(hoverTimer);
+    setTimeout(() => { if (pop && !pop.matches(':hover') && !btn.matches(':hover')) closePop(); }, 250);
+  });
+  btn.addEventListener('pointerdown', () => { held = false; holdTimer = setTimeout(() => { held = true; openPop(); }, 450); });
+  btn.addEventListener('pointerup', () => clearTimeout(holdTimer));
+  btn.addEventListener('click', e => {
+    clearTimeout(hoverTimer);
+    clearTimeout(holdTimer);
+    if (held) { held = false; return; } // the hold opened the menu; the click is its release
+    closePop();
+    foldAll('threads');
+  });
+  document.addEventListener('click', e => {
+    if (pop && !e.target.closest('.foldmenu, #collapseAll')) closePop();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop) closePop(); });
+}
+
 function hasOpenNested(item) {
   return item.children.some(c => (c.resolvable && !effChecked(c)) || hasOpenNested(c));
 }
@@ -4997,13 +5074,7 @@ function wireTopbar() {
   }
   // both act on what is ON SCREEN. Acting on the whole file would fold
   // threads a filter is hiding, which you would only discover later.
-  $('#collapseAll').addEventListener('click', () => {
-    for (const th of visibleThreadRoots()) {
-      S.collapsed.set(th.key, true);
-      persistCollapse(th.key, true);
-    }
-    render();
-  });
+  wireFoldButton();
   $('#expandAll').addEventListener('click', () => {
     for (const th of visibleThreadRoots()) {
       (function walk(it) {

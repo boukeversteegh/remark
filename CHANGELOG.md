@@ -5,6 +5,11 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-18
+
+### Fold read comments, and fold every level
+The fold button carried one action that folded thread roots only. Hovering it, or holding it, now opens a popover with three: fold all threads, which is the old click and still the click; fold all comments, every level; and fold read comments, every level with nothing unread below it, which leaves the unread ones open. The popover floats, so the toolbar keeps its shape.
+
 ## 2026-09-17
 
 ### Escape closes the picture and nothing else
