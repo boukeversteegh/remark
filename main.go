@@ -132,6 +132,12 @@ func main() {
 	flag.Usage = func() { fmt.Fprint(os.Stderr, agentHelp) }
 	flag.Parse()
 
+	// a parent waiting on this window (Restart) reads its address here. Taken
+	// and cleared before any further window is spawned, so the answer comes
+	// from the process that was asked.
+	readyPath := os.Getenv(readyEnv)
+	os.Unsetenv(readyEnv)
+
 	// a positional that is not a .md file is almost always a mistyped
 	// subcommand — fail instead of opening a window on a nonexistent file
 	for _, a := range flag.Args() {
@@ -215,6 +221,14 @@ func main() {
 	}()
 
 	fmt.Println("remark listening on", u)
+
+	// the handshake, written once the listener is bound and the mux is
+	// serving — and deliberately BEFORE the window, because WebView2's
+	// startup is the slow part and readiness here means "this process is
+	// answering", which is the claim the old window needs before it goes
+	if readyPath != "" {
+		os.WriteFile(readyPath, []byte(ln.Addr().String()), 0o600)
+	}
 
 	switch {
 	case *noOpen:

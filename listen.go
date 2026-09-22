@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -40,14 +41,43 @@ func listenLocal(host string, preferred, tries int) (net.Listener, int, error) {
 	return ln, ln.Addr().(*net.TCPAddr).Port, nil
 }
 
-// spawnReplacement starts a process that is about to take this one's place,
-// and waits long enough to see whether it survives its own startup. Start()
-// returning nil only proves a process was CREATED: one that exits a
-// heartbeat later — because it could not bind a port, because its
-// executable was replaced mid-flight — leaves a user who pressed Restart
-// with a closed window and nothing to read. The caller must not exit until
-// this says the replacement is up.
-func spawnReplacement(cmd *exec.Cmd, grace time.Duration) error {
+// readyEnv names the file a spawned window writes its address to once it is
+// serving. Set only by spawnReplacement; a window started any other way
+// never looks for it.
+const readyEnv = "REMARK_READY"
+
+// spawnReplacement starts the process that is to take this one's place, and
+// waits for it to SAY it is serving — not merely to still exist.
+//
+// Two weaker tests were tried and both are wrong. Start() returning nil
+// proves a process was created and nothing else: one that exits a heartbeat
+// later, because it could not bind a port or because its executable moved
+// under it, leaves whoever pressed Restart with a closed window and nothing
+// to read. A grace period is no better in kind — it catches an early exit,
+// but a child still starting when the timer runs out is reported as up and
+// can fail the moment the old window is gone. Elapsed time is not evidence.
+//
+// So the child writes its address to a file and this waits for it, then
+// connects to prove the claim. If the deadline passes with the child alive
+// but silent, that is still a refusal: the caller keeps its window. Two
+// windows is a state a person can see and fix. Zero is the one that cost an
+// afternoon.
+func spawnReplacement(cmd *exec.Cmd, wait time.Duration) error {
+	f, err := os.CreateTemp("", "remark-ready-*")
+	if err != nil {
+		return err
+	}
+	path := f.Name()
+	f.Close()
+	os.Remove(path) // the child CREATES it; its appearance is the signal
+	defer os.Remove(path)
+
+	env := cmd.Env
+	if env == nil {
+		env = os.Environ()
+	}
+	cmd.Env = append(env, readyEnv+"="+path)
+
 	var errOut bytes.Buffer
 	if cmd.Stderr == nil {
 		cmd.Stderr = &errOut
@@ -55,20 +85,37 @@ func spawnReplacement(cmd *exec.Cmd, grace time.Duration) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
-	select {
-	case err := <-done:
-		why := strings.TrimSpace(errOut.String())
-		if why == "" {
-			why = "it exited immediately"
-			if err != nil {
-				why = "it exited immediately: " + err.Error()
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
+
+	deadline := time.Now().Add(wait)
+	for {
+		if b, err := os.ReadFile(path); err == nil && len(b) > 0 {
+			addr := strings.TrimSpace(string(b))
+			c, err := net.DialTimeout("tcp", addr, 2*time.Second)
+			if err == nil {
+				c.Close()
+				return nil // bound, accepting, and it said so itself
 			}
+			return fmt.Errorf("the new window reported %s but is not answering there: %v", addr, err)
 		}
-		return fmt.Errorf("the new window did not start — %s", why)
-	case <-time.After(grace):
-		return nil // still alive: it got past binding and is opening
+		select {
+		case err := <-exited:
+			why := strings.TrimSpace(errOut.String())
+			if why == "" {
+				why = "it exited during startup"
+				if err != nil {
+					why = "it exited during startup: " + err.Error()
+				}
+			}
+			return fmt.Errorf("the new window did not start — %s", why)
+		default:
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("the new window has not reported itself serving within %s — "+
+				"this one is staying open rather than closing on a maybe", wait)
+		}
+		time.Sleep(40 * time.Millisecond)
 	}
 }
 

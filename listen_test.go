@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -87,28 +88,94 @@ func occupyBlock(t *testing.T, n int) (int, []net.Listener) {
 	return 0, nil
 }
 
-// Start() succeeding says a process was created, nothing more. The window
-// must not stand down until the replacement has survived its own startup.
-func TestSpawnReplacementDetectsAnEarlyExit(t *testing.T) {
-	fail := exec.Command("sh", "-c", "echo could not bind a port 1>&2; exit 1")
-	live := exec.Command("sh", "-c", "sleep 5")
+// sh runs a one-line script in whatever shell this platform has.
+func sh(script, winScript string) *exec.Cmd {
 	if runtime.GOOS == "windows" {
-		fail = exec.Command("cmd", "/c", "echo could not bind a port 1>&2& exit 1")
-		live = exec.Command("cmd", "/c", "ping -n 6 127.0.0.1 > NUL")
+		return exec.Command("cmd", "/c", winScript)
 	}
+	return exec.Command("sh", "-c", script)
+}
 
-	err := spawnReplacement(fail, 1500*time.Millisecond)
+// Start() succeeding says a process was created, nothing more.
+func TestSpawnReplacementDetectsAnEarlyExit(t *testing.T) {
+	fail := sh("echo could not bind a port 1>&2; exit 1",
+		"echo could not bind a port 1>&2& exit 1")
+	err := spawnReplacement(fail, 2*time.Second)
 	if err == nil {
 		t.Fatal("a replacement that exited at once was reported as up")
 	}
 	if !strings.Contains(err.Error(), "did not start") || !strings.Contains(err.Error(), "bind a port") {
 		t.Errorf("the reason the user needs is the child's own words, not an exit code: %v", err)
 	}
+}
 
-	if err := spawnReplacement(live, 400*time.Millisecond); err != nil {
-		t.Errorf("a living replacement was called a failure: %v", err)
+// Raised by Codex, 2026-09-22: a grace period detects an early exit but
+// never establishes readiness. This child outlives the wait and then fails,
+// having signalled nothing — the case a timer calls a success and hands the
+// user a closed window.
+func TestSpawnReplacementRefusesASilentChild(t *testing.T) {
+	slow := sh("sleep 3; exit 1", "ping -n 4 127.0.0.1 > NUL& exit 1")
+	start := time.Now()
+	err := spawnReplacement(slow, 700*time.Millisecond)
+	if err == nil {
+		t.Fatal("a child that never said it was serving was reported as up")
+	}
+	if !strings.Contains(err.Error(), "staying open") {
+		t.Errorf("the old window has to be told it is keeping its place: %v", err)
+	}
+	if d := time.Since(start); d > 2*time.Second {
+		t.Errorf("waited %s — the refusal should come at the deadline, not at the child's death", d)
+	}
+	if slow.Process != nil {
+		slow.Process.Kill()
+	}
+}
+
+// The success path is a child that writes its address and answers there —
+// nothing weaker counts.
+func TestSpawnReplacementAcceptsAServingChild(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			c.Close()
+		}
+	}()
+
+	live := sh(`printf %s "$REMARK_ADDR" > "$REMARK_READY"; sleep 5`,
+		// leading redirect: a digit right before ">" is a file handle to cmd,
+		// and an address ends in one. No quotes either — Go escapes them for
+		// an argv cmd.exe does not parse that way.
+		`>%REMARK_READY% echo %REMARK_ADDR%& ping -n 6 127.0.0.1 > NUL`)
+	live.Env = append(os.Environ(), "REMARK_ADDR="+ln.Addr().String())
+	if err := spawnReplacement(live, 5*time.Second); err != nil {
+		t.Errorf("a child that reported itself serving was called a failure: %v", err)
 	}
 	if live.Process != nil {
 		live.Process.Kill()
+	}
+
+	// and a child that reports an address nothing is listening on is not up
+	dead, _ := net.Listen("tcp", "127.0.0.1:0")
+	gone := dead.Addr().String()
+	dead.Close()
+	liar := sh(`printf %s "$REMARK_ADDR" > "$REMARK_READY"; sleep 5`,
+		// leading redirect: a digit right before ">" is a file handle to cmd,
+		// and an address ends in one. No quotes either — Go escapes them for
+		// an argv cmd.exe does not parse that way.
+		`>%REMARK_READY% echo %REMARK_ADDR%& ping -n 6 127.0.0.1 > NUL`)
+	liar.Env = append(os.Environ(), "REMARK_ADDR="+gone)
+	if err := spawnReplacement(liar, 3*time.Second); err == nil {
+		t.Error("an address nobody answers at was taken at its word")
+	}
+	if liar.Process != nil {
+		liar.Process.Kill()
 	}
 }
