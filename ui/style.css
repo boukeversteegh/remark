@@ -1084,6 +1084,13 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
    editor sit above the strip (later in source, positioned), so the gutter
    beside them does nothing */
 .citem > .cfoot, .citem > .editor { position: relative; }
+/* the rail starts at a fixed offset, which clears the header row of an
+   untitled card — a title bar pushes that row down under it. Both bands are
+   positioned, and they come later in source order, so they take their own
+   clicks back. It never showed before because rail and caret did the same
+   thing; now the caret folds only the opening post and the confusion would
+   be a trap. */
+.citem > .chead, .citem > .ctitlebar { position: relative; }
 .citem.collapsed { padding-bottom: 9px; }
 .citem.collapsed > .cbody,
 .citem.collapsed > .citem,
@@ -1139,13 +1146,31 @@ h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -.014em; font
 }
 /* the thread's topic: its own line above the header row, primary */
 .ctitlebar {
+  display: flex; align-items: center; gap: 2px;
   font: 560 16px/1.3 var(--font-display); letter-spacing: -.01em; color: var(--fg);
-  padding: 2px 0 7px 4px; /* the caret glyph's left edge, not the card's */
-  cursor: pointer; /* it folds the thread, like the band around it */
+  padding: 2px 0 7px 0;
+  cursor: pointer; /* it folds the whole thread, like its handle */
   margin-bottom: 7px; border-bottom: 1px solid var(--border-soft);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.ctitlebar .ttext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* the thread's own handle, above the one that folds just the opening post */
+.ctitlebar .twisty.tfold {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border: 0; border-radius: 6px; flex: none; padding: 0;
+  background: none; color: var(--faint); cursor: pointer;
+  transition: transform .15s ease, color .12s, background .12s;
+}
+.ctitlebar .twisty.tfold:hover { color: var(--accent); background: var(--accent-soft); }
+.citem.collapsed > .ctitlebar .twisty.tfold { transform: rotate(-90deg); }
 .citem.collapsed .ctitlebar { padding-bottom: 4px; margin-bottom: 4px; }
+
+/* the opening post folded on its own: the title, the header row and every
+   reply stay — only this comment's text is put away */
+.citem.bodyfold > .cbody,
+.citem.bodyfold > .igap,
+.citem.bodyfold > .crail { display: none; }
+.citem.bodyfold > .chead .twisty { transform: rotate(-90deg); }
+.citem.bodyfold > .chead { margin-bottom: 2px; }
 .chead .snippet {
   color: var(--muted); overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; min-width: 0; flex: 0 1 auto; cursor: default; font-size: 12.5px;

@@ -1611,7 +1611,9 @@ function persistCollapse(key, val) {
   try {
     const valid = new Set(S.parsed.items.map(i => i.key));
     const out = {};
-    for (const k in S.collapsedSaved) if (valid.has(k)) out[k] = S.collapsedSaved[k];
+    for (const k in S.collapsedSaved) {
+      if (valid.has(k.startsWith(BODYFOLD) ? k.slice(BODYFOLD.length) : k)) out[k] = S.collapsedSaved[k];
+    }
     S.collapsedSaved = out;
     localStorage.setItem('remark:collapsed:' + S.path, JSON.stringify(out));
   } catch (e) { /* storage full/blocked: state stays session-only */ }
@@ -1631,6 +1633,43 @@ function toggleBookmark(time) {
   if (S.bookmarks.has(time)) S.bookmarks.delete(time); else S.bookmarks.add(time);
   try { localStorage.setItem('remark:bookmarks:' + S.path, JSON.stringify([...S.bookmarks])); } catch (e) {}
   render();
+}
+
+// A titled thread has two folds, and they are not the same question. The
+// header handle puts the whole thread away; the handle beside the opening
+// post puts away only ITS text, leaving the title, the replies and the
+// thread's shape on screen. A long opening post is the thing that keeps a
+// board from being compact even after everything read is folded.
+//
+// They are separate keys in the same store, so folding the thread and
+// opening it again gives the opening post back the way it was left. An
+// untitled thread keeps its single handle: there is no header row to hang a
+// second one on.
+const BODYFOLD = 'body:';
+function canFoldBody(item) {
+  return !!item.title && !item.parent && !S.chat;
+}
+function isBodyFolded(item) {
+  if (!canFoldBody(item)) return false;
+  // never fold away what you are being shown: an open composer in this
+  // body, a search match in it, or the comment a jump just landed on
+  if (S.editorsOpen.has('edit:' + item.key)) return false;
+  for (const k of S.editorsOpen) if (k.startsWith('ipara:' + item.key + ':')) return false;
+  if (searchOn() && itemMatchesSearch(item)) return false;
+  if (item.time && S.reveal.has(item.time)) return false;
+  const key = BODYFOLD + item.key;
+  const manual = S.collapsed.get(key);
+  if (manual !== undefined) return manual;
+  if (S.collapsedSaved && key in S.collapsedSaved) {
+    const saved = S.collapsedSaved[key];
+    S.collapsed.set(key, saved);
+    return saved;
+  }
+  return false; // an opening post opens open
+}
+function setBodyFold(item, val) {
+  S.collapsed.set(BODYFOLD + item.key, val);
+  persistCollapse(BODYFOLD + item.key, val);
 }
 
 function isCollapsed(item) {
@@ -1654,6 +1693,9 @@ function isCollapsed(item) {
 function buildItem(item, opts) {
   const st = threadStats(item);
   const collapsed = isCollapsed(item);
+  // a titled opening post: the handle in its header row folds the text only
+  const bodyFold = canFoldBody(item);
+  const bodyFolded = !collapsed && isBodyFolded(item);
   const el = document.createElement('div');
   // your own comment with no reply yet (no child, nothing after it at its
   // level) wears an amber edge while the thread is unresolved — a
@@ -1675,6 +1717,7 @@ function buildItem(item, opts) {
   el.className = 'citem' +
     (isUnread(item) ? ' unread' : '') +
     (collapsed ? ' collapsed' : '') +
+    (bodyFolded ? ' bodyfold' : '') +
     (unreplied ? ' unreplied' : '') +
     (isHit ? ' hit' : hitsBelow ? ' hitdeep' : '') +
     (isMe(item.author) ? ' mine' : '');
@@ -1693,12 +1736,15 @@ function buildItem(item, opts) {
   if (!collapsed) {
     const rail = document.createElement('div');
     rail.className = 'crail';
-    rail.title = 'Collapse';
+    rail.title = bodyFold ? 'Hide this post (the thread stays open)' : 'Collapse';
     rail.addEventListener('mouseenter', () => el.classList.add('railhot'));
     rail.addEventListener('mouseleave', () => el.classList.remove('railhot'));
     rail.addEventListener('click', () => {
-      S.collapsed.set(item.key, true);
-      persistCollapse(item.key, true);
+      if (bodyFold) setBodyFold(item, true);
+      else {
+        S.collapsed.set(item.key, true);
+        persistCollapse(item.key, true);
+      }
       render();
       // land on the header of what was just folded, not a random spot below
       const hd = item.time && document.getElementById('r' + item.time.replace(/\D/g, ''));
@@ -1717,6 +1763,12 @@ function buildItem(item, opts) {
     if (!want && searchOn() && hitsBelow) expandToMatches(item);
     render();
   };
+  // on a titled opening post the header row's handle is the SMALL fold: its
+  // own text, nothing else. The title bar above carries the thread's. With
+  // the thread already folded the header row is all there is, so it goes
+  // back to opening the thread — the small fold has nothing to act on.
+  const headFoldsBody = bodyFold && !collapsed;
+  const toggleHead = headFoldsBody ? () => { setBodyFold(item, !bodyFolded); render(); } : toggleFold;
 
   const head = document.createElement('div');
   head.className = 'chead';
@@ -1725,7 +1777,7 @@ function buildItem(item, opts) {
   // keep their own action
   head.addEventListener('click', e => {
     if (e.target.closest('button, input, a')) return;
-    toggleFold();
+    toggleHead();
   });
   // hovering it tints the comment that will fold — the same whole-card
   // highlight the gutter strip gives, so the control reads as one thing
@@ -1735,8 +1787,10 @@ function buildItem(item, opts) {
   const tw = document.createElement('button');
   tw.className = 'twisty';
   tw.innerHTML = iconHTML('chevron-down');
-  tw.title = collapsed ? 'Expand' : 'Collapse';
-  tw.addEventListener('click', toggleFold);
+  tw.title = headFoldsBody
+    ? (bodyFolded ? 'Show this post' : 'Hide this post (the thread stays open)')
+    : (collapsed ? 'Expand' : 'Collapse');
+  tw.addEventListener('click', toggleHead);
   // caret and gutter strip are one control: hovering the caret previews
   // the same fold the strip does
   if (!collapsed) {
@@ -1807,27 +1861,41 @@ function buildItem(item, opts) {
     head.appendChild(ct);
   }
 
+  const snippetEl = () => {
+    const snip = document.createElement('span');
+    snip.className = 'snippet';
+    snip.textContent = item.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 80);
+    return snip;
+  };
   if (item.title) {
     // the topic is the primary thing: its own line above the header row,
     // larger, in the display font; the header keeps author, time, badges
     const tt = document.createElement('div');
     tt.className = 'ctitlebar';
-    tt.textContent = item.title;
+    // the title bar carries the THREAD's handle, of its own, because the
+    // one in the header row below now means the opening post alone
+    const tfw = document.createElement('button');
+    tfw.className = 'twisty tfold';
+    tfw.innerHTML = iconHTML('chevron-down');
+    tfw.title = collapsed ? 'Open this thread' : 'Fold this whole thread';
+    tfw.addEventListener('click', e => { e.stopPropagation(); toggleFold(); });
+    tt.appendChild(tfw);
+    const tx = document.createElement('span');
+    tx.className = 'ttext';
+    tx.textContent = item.title;
+    tt.appendChild(tx);
     tt.title = item.title;
-    // the title is the biggest thing on the card — it collapses the
-    // thread just like the header row under it
+    // the title is the biggest thing on the card — clicking it does what
+    // its handle does
     tt.addEventListener('click', e => {
       if (e.target.closest('button, input, a')) return;
-      S.collapsed.set(item.key, !collapsed);
-      persistCollapse(item.key, !collapsed);
-      render();
+      toggleFold();
     });
     el.appendChild(tt); // before the head, which is appended later
+    // folded text: say what is behind it, the way a folded comment does
+    if (bodyFolded) head.appendChild(snippetEl());
   } else if (collapsed) {
-    const snip = document.createElement('span');
-    snip.className = 'snippet';
-    snip.textContent = item.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 80);
-    head.appendChild(snip);
+    head.appendChild(snippetEl());
   }
 
   const sp = document.createElement('span');
@@ -2857,6 +2925,13 @@ function foldAll(mode) {
       }
       it.children.forEach(c => walk(c, depth + 1));
     })(th, 0);
+    // A thread held open by an unread reply still showed its opening post in
+    // full, which is what kept "fold read" from making the board compact.
+    // Fold that text too when it is read — the replies you have not seen
+    // stay exactly where they were.
+    if (mode !== 'threads' && canFoldBody(th)) {
+      setBodyFold(th, mode === 'all' || !isUnread(th));
+    }
   }
   render();
 }
