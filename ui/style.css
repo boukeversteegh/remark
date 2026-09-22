@@ -733,6 +733,9 @@ body.chat #main { padding-bottom: 150px; }
 .prow.inst { padding-left: 24px; }
 .prow .pdup { flex: none; font-size: 10.5px; color: #b58407; background: rgba(210, 153, 34, .16); padding: 0 6px; border-radius: 999px; }
 .prow.alias .ptag { flex: none; color: var(--faint); font-size: 10.5px; letter-spacing: .04em; }
+/* what the date filter left out — the list never shrinks without saying so */
+.prow.pnote { color: var(--faint); font-size: 11px; font-style: italic; cursor: pointer; }
+.prow.pnote:hover { color: var(--muted); }
 .pmenu {
   position: absolute; right: 4px; top: 100%; z-index: 30; min-width: 170px;
   background: var(--card); border: 1px solid var(--border); border-radius: 10px;

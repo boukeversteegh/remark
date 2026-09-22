@@ -446,19 +446,36 @@ function commentTimeMs(it) {
   return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)).getTime();
 }
 function dateFilterOn() { return S.dateFrom != null || S.dateTo != null; }
+// one instant against the window — threads ask it of their comments, the
+// Authors panel of a name's last heartbeat
+function msInDateRange(ms) {
+  return !isNaN(ms) && (S.dateFrom == null || ms >= S.dateFrom) && (S.dateTo == null || ms <= S.dateTo);
+}
+function stampMs(s) { return commentTimeMs({ time: s || '' }); }
 function threadInDateRange(root) {
   if (!dateFilterOn()) return true;
   let hit = false;
   (function walk(it) {
     if (hit) return;
-    const ms = commentTimeMs(it);
-    if (!isNaN(ms) && (S.dateFrom == null || ms >= S.dateFrom) && (S.dateTo == null || ms <= S.dateTo)) {
+    if (msInDateRange(commentTimeMs(it))) {
       hit = true;
       return;
     }
     it.children.forEach(walk);
   })(root);
   return hit;
+}
+// Every name with a sign of life inside the date window: a comment, a reply,
+// a reaction — anything of theirs the window actually contains.
+function authorsInDateRange() {
+  const seen = new Set();
+  (function walk(items) {
+    for (const it of items || []) {
+      if (it.author && msInDateRange(commentTimeMs(it))) seen.add(normName(it.author));
+      walk(it.children);
+    }
+  })((S.parsed && S.parsed.items) || []);
+  return seen;
 }
 // midnight boundaries, so "today" means the whole day and not the last 24h
 function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
@@ -2998,11 +3015,22 @@ function buildPresence() {
   }
   for (const [k, n] of liveCount) if (rows.has(k)) rows.get(k).instances = n;
   const nameOf = ([k, r]) => display.get(r.nameKey || k) || '';
-  const sorted = [...rows.entries()].sort((a, b) =>
+  const all = [...rows.entries()].sort((a, b) =>
     (b[1].isMe ? 1 : 0) - (a[1].isMe ? 1 : 0) ||
     (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0) ||
     nameOf(a).localeCompare(nameOf(b)) ||
     (a[1].inst ? 1 : 0) - (b[1].inst ? 1 : 0));
+  // With a date filter on, the panel answers the same question the board
+  // does: who is part of THIS window. An offline name with nothing in range
+  // is not being hidden for leaving — there is simply nothing of theirs on
+  // screen to attribute. Online names stay whatever the filter says: "is
+  // anyone listening right now" is a question about now, not about the
+  // window, and it is the panel's main job.
+  const active = dateFilterOn() ? authorsInDateRange() : null;
+  const inWindow = (k, r) => !active || r.online || r.isMe ||
+    active.has(r.nameKey || k) || msInDateRange(stampMs(r.lastSeen)) || msInDateRange(stampMs(r.acted));
+  const sorted = all.filter(([k, r]) => inWindow(k, r));
+  const hidden = all.length - sorted.length;
   const closeMenus = () => wrap.querySelectorAll('.pmenu').forEach(m => m.remove());
   for (const [k, r] of sorted) {
     const nk = r.nameKey || k; // the name this row belongs to (instances share it)
@@ -3125,6 +3153,15 @@ function buildPresence() {
       ar.appendChild(un);
       wrap.appendChild(ar);
     }
+  }
+  // never a silent shrink: say what the filter took, and let the line clear it
+  if (hidden) {
+    const note = document.createElement('div');
+    note.className = 'prow pnote';
+    note.textContent = hidden + (hidden === 1 ? ' author' : ' authors') + ' outside ' + dateRangeLabel();
+    note.dataset.tip = 'Offline, with nothing inside the date filter. Click to show everyone again.';
+    note.addEventListener('click', () => setDateFilter(null, null, ''));
+    wrap.appendChild(note);
   }
   return wrap;
 }

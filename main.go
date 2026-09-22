@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -150,19 +149,13 @@ func main() {
 		token = hex.EncodeToString(b)
 	}
 
-	var ln net.Listener
-	var err error
-	p := *port
-	for i := 0; i < 20; i++ {
-		ln, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
-		if err == nil {
-			break
-		}
-		p++
-	}
+	ln, p, err := listenLocal("127.0.0.1", *port, 20)
 	if ln == nil {
 		fmt.Fprintln(os.Stderr, "remark: could not bind a port:", err)
 		os.Exit(1)
+	}
+	if p >= *port+20 || p < *port {
+		fmt.Fprintln(os.Stderr, "remark:", excludedRangeNote(*port, 20, p))
 	}
 
 	// multiple documents (or globs), like monitor takes them: this process
