@@ -38,6 +38,8 @@ Denied — these would never deliver:
 remark monitor discussion.md -as Claude
 "C:\Users\you\AppData\Local\Programs\remark\remark.exe" monitor D:/p/TODO.md -as Bot -mine
 cd /project && remark monitor notes.md
+remark monitor notes.md &
+bash -lc 'cd /p && remark monitor notes.md'
 ```
 
 Allowed — none of these launch a monitor:
@@ -46,11 +48,29 @@ Allowed — none of these launch a monitor:
 remark help monitor
 remark read notes.md
 echo "remark monitor notes.md"
+echo remark monitor notes.md
 grep -r "remark monitor" docs/
 remark query notes.md -text "remark monitor"
+myremark monitor notes.md
 ```
 
 To run one from a shell deliberately, include `REMARK_HOOK_OK` in the command.
+
+## How it decides, and what it deliberately misses
+
+The command is tokenised the way a shell would tokenise it, and the question
+asked of the tokens: is the program **in command position** one whose basename
+is `remark`, and is the next word `monitor`? Matching text in the raw string
+gets this wrong in both directions — `echo remark monitor x` puts the words
+after whitespace, `myremark monitor x` ends in the right letters, and stripping
+quoted spans to find the executable would destroy `remark "monitor" x`, which
+really does start one.
+
+Everything the reader cannot work out is **allowed**: an unterminated quote, a
+`$VAR` or `$(…)` where the program or the verb belongs, a wrapper it does not
+model (`timeout`, `xargs`, `watch`). Missing a launch costs what the mistake
+already cost before this existed. Blocking a command that was never a monitor
+costs the agent its work, which is worse.
 
 The matching lives in `remark hook claude`, not in this file, so it can be
 tested and corrected without anyone editing JSON. Its decision table is in
