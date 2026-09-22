@@ -24,6 +24,11 @@ Deleting a comment that was followed by another comment removed that comment's o
 ### Editing and deleting are operations too
 The window sends /api/edit and /api/delete instead of uploading the document, so four of the writes a reader makes now cost their own size: replying, marking read, editing and deleting. New threads, tags and interjections still take the old path.
 
+## 2026-09-22
+
+### A Claude Code plugin that refuses a monitor started from a shell
+remark monitor is a stream, and started from an ordinary shell call it is either killed when that call times out or has its output held until it dies — either way the comments never arrive, and nothing about the failure is visible from the outside. A plugin under claude-plugin/ carries a PreToolUse guard that catches it before it happens: remark hook claude reads the tool call and denies a monitor launch with an explanation pointing at the streaming tool. It recognises quoted Windows paths and chained commands, and leaves alone anything that merely mentions the words — remark help monitor, an echo, a grep, a -text search. Include REMARK_HOOK_OK in a command to run one from a shell deliberately. The plugin starts nothing on installation: which document an agent follows, under which name, stays a decision someone makes.
+
 ## 2026-09-16
 
 ### Writing is an operation, not a copy of the document

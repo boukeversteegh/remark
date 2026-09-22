@@ -32,9 +32,8 @@ Reading and watching:
 
 Writing — the verbs:
   remark reply <file> <sel> [-subthread] [-json] -as <name> [-text|-file]
-                                 answer AT THE TARGET'S OWN LEVEL, stamped
-                                 and seen-marked; -subthread nests. The same
-                                 words twice is a no-op; -json gives fields
+                                 answer AT THE TARGET'S LEVEL, stamped and
+                                 seen-marked; -subthread nests, a repost no-ops
   remark thread <file> -as <name> [-title t] [-plain] [-json]
                  (-after <sel> | -section <h> | -end) [-text|-file|stdin]
                                  open a new thread root
@@ -52,6 +51,7 @@ Sharing and the rest:
   remark gateway [status|stop|add|remove|qr|rotate]   phone and group
                                  access (groups: remark help sharing)
   remark changelog | install     what this build changed; onto your PATH
+  remark hook claude             guard: refuses a monitor run from a shell
   remark help [topic]            format, monitor, sharing, query
 
 The five rules that matter (the long form: remark help format):
