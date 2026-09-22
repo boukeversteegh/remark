@@ -81,6 +81,48 @@ module.exports = async ctx => {
   assert(!p.bodyfold && p.bodyVisible === !p.collapsed,
     'and has no second state of its own: ' + JSON.stringify(p));
 
+  // Reported by Bouke, 2026-09-22: the toggle did nothing on his board.
+  // revealItem marks a thread's ROOT for a jump to ANY comment in it and the
+  // mark lasts the session, so on a board navigated by jumping every opening
+  // post was pinned open — the click saved a state the render ignored.
+  // Being sent somewhere keeps the post open until you say otherwise; asking
+  // wins from then on.
+  await page.evaluate(() => {
+    const root = S.parsed.items.find(i => i.title && !i.parent);
+    revealItem(root.children.find(c => c.time) || root);
+  });
+  await page.waitForTimeout(400);
+  s = await state();
+  assert(s.bodyVisible, 'a jump opens the post it sent you to: ' + JSON.stringify(s));
+  await card(0).locator('.citem > .chead .twisty').first().click();
+  await page.waitForTimeout(300);
+  s = await state();
+  assert(s.bodyfold && !s.bodyVisible, 'and folding it afterwards still works: ' + JSON.stringify(s));
+
+  // the same for a search match. Drop the session's choice but keep what
+  // was persisted — the state a reopened window starts from, where a post
+  // folded yesterday must still open for today's search.
+  await page.evaluate(() => {
+    for (const k of [...S.collapsed.keys()]) if (k.startsWith('body:')) S.collapsed.delete(k);
+    S.reveal.clear(); // a window that has not jumped anywhere yet
+    render();
+  });
+  await page.waitForTimeout(300);
+  s = await state();
+  assert(!s.bodyVisible, 'the fold was persisted, not just remembered: ' + JSON.stringify(s));
+  await page.evaluate(() => setSearch('opening'));
+  await page.waitForTimeout(400);
+  s = await state();
+  assert(s.bodyVisible, 'a match in the post opens it: ' + JSON.stringify(s));
+  await card(0).locator('.citem > .chead .twisty').first().click();
+  await page.waitForTimeout(300);
+  s = await state();
+  assert(s.bodyfold && !s.bodyVisible, 'and it can still be folded over a match: ' + JSON.stringify(s));
+  await page.evaluate(() => setSearch(''));
+  await page.waitForTimeout(300);
+  await card(0).locator('.citem > .chead .twisty').first().click();
+  await page.waitForTimeout(300);
+
   // "fold read" on a thread held open by an unread reply: the opening post
   // is read, so it folds; the reply you have not seen stays where it was.
   // Before this, such a thread stayed open at full height and the fold

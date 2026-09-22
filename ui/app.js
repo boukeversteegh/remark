@@ -1651,20 +1651,24 @@ function canFoldBody(item) {
 }
 function isBodyFolded(item) {
   if (!canFoldBody(item)) return false;
-  // never fold away what you are being shown: an open composer in this
-  // body, a search match in it, or the comment a jump just landed on
+  // a composer you opened in this body is never hidden — you would be
+  // typing into nothing
   if (S.editorsOpen.has('edit:' + item.key)) return false;
   for (const k of S.editorsOpen) if (k.startsWith('ipara:' + item.key + ':')) return false;
-  if (searchOn() && itemMatchesSearch(item)) return false;
-  if (item.time && S.reveal.has(item.time)) return false;
+  // ASKING OUTRANKS EVERYTHING BELOW. The guards after this one exist so a
+  // fold never hides what you were just sent to; they must not turn into a
+  // refusal to fold at all. revealItem marks a thread's ROOT for any jump to
+  // any comment in it and the mark lasts the session, so a board navigated
+  // by jumping had every opening post pinned open, the click saving a state
+  // the render ignored. Reported by Bouke, diagnosed by Codex, 2026-09-22.
   const key = BODYFOLD + item.key;
   const manual = S.collapsed.get(key);
   if (manual !== undefined) return manual;
-  if (S.collapsedSaved && key in S.collapsedSaved) {
-    const saved = S.collapsedSaved[key];
-    S.collapsed.set(key, saved);
-    return saved;
-  }
+  // unasked, a jump or a search match keeps the post open: it is the thing
+  // you were sent to read
+  if (searchOn() && itemMatchesSearch(item)) return false;
+  if (item.time && S.reveal.has(item.time)) return false;
+  if (S.collapsedSaved && key in S.collapsedSaved) return S.collapsedSaved[key];
   return false; // an opening post opens open
 }
 function setBodyFold(item, val) {

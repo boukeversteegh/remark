@@ -80,6 +80,14 @@ async function start() {
       return page;
     },
     async stop() {
+      // a gateway the suite started outlives the server that spawned it, and
+      // three of them accumulated across runs are enough to fail sharepanel
+      // for reasons that have nothing to do with the code under test. Ask
+      // this run's own server to stop it — never search the machine for
+      // "remark gateway", which would take down the one the human is using.
+      try {
+        await fetch(`http://127.0.0.1:${PORT}/api/gateway/stop?t=${TOKEN}`, { method: 'POST' });
+      } catch (e) { /* no gateway, or the server is already gone */ }
       try { await browser.close(); } catch (e) { }
       try { server.kill(); } catch (e) { }
       // give the process a beat to let go of the tmp dir, then clean up
