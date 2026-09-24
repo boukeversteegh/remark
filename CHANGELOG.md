@@ -24,6 +24,13 @@ Deleting a comment that was followed by another comment removed that comment's o
 ### Editing and deleting are operations too
 The window sends /api/edit and /api/delete instead of uploading the document, so four of the writes a reader makes now cost their own size: replying, marking read, editing and deleting. New threads, tags and interjections still take the old path.
 
+## 2026-09-24
+
+### An agent row knows which session is behind it
+A monitor started by Claude Code can say so, and say which conversation: the harness exports its session id, and the monitor inherits it — no process-tree archaeology, no guessing from the name someone typed after `-as`. An agent's row in the Authors panel now carries a Claude badge, and opening it shows what bringing that session back would take: the session id, the directory it ran in, each startup override, and the `claude --resume …` line, ready to copy.
+
+It is laid out to be checked rather than trusted, because the ways this goes quietly wrong are all silent ones. **An unset variable is a value**: a config directory that was unset when the agent started must stay unset, or a resume inherits whichever one the resuming process happens to have and starts a Claude that runs fine and is the wrong one — so set and unset are recorded as distinct states and both are shown. **A credential is never stored**: anything whose NAME could be a secret is recorded as present-and-withheld, before its value is read, because the record reaches a file, a window, and in a group other people. **A pid is not an identity**: the Claude process is recorded with its start time, so "still running" means the same process rather than the same number — this project has already acted once on a recycled pid. That matters here beyond tidiness: a stopped monitor is not an ended session, and offering to resume one whose Claude is still up would run a single conversation twice. The panel distinguishes the two, and says plainly when it cannot tell.
+
 ## 2026-09-22
 
 ### Restart comes back

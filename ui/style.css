@@ -732,6 +732,31 @@ body.chat #main { padding-bottom: 150px; }
 /* a second live instance of a name: its own row, tucked under the name */
 .prow.inst { padding-left: 24px; }
 .prow .pdup { flex: none; font-size: 10.5px; color: #b58407; background: rgba(210, 153, 34, .16); padding: 0 6px; border-radius: 999px; }
+/* which harness is behind an agent — it says so itself, in its own env */
+.prow .pharness {
+  flex: none; font-size: 11px; line-height: 1; cursor: pointer;
+  color: #d97757; background: rgba(217, 119, 87, .14);
+  padding: 3px 5px; border-radius: 6px;
+}
+.prow .pharness:hover { background: rgba(217, 119, 87, .26); }
+/* the session card: everything a resume would reproduce, laid out to be
+   checked rather than trusted */
+.pmenu.hcard { min-width: 260px; max-width: 340px; padding-bottom: 6px; }
+.hcard .hline { display: flex; gap: 8px; padding: 2px 10px; font-size: 11px; align-items: baseline; }
+.hcard .hkey { color: var(--faint); flex: none; min-width: 92px; }
+.hcard .hval { color: var(--fg); word-break: break-all; font-family: var(--font-mono); font-size: 10.5px; }
+.hcard .hsecret .hval { color: var(--faint); font-style: italic; font-family: inherit; }
+.hcard .hsub {
+  padding: 7px 10px 3px; font-size: 10px; color: var(--faint);
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.hcard .hnote { padding: 3px 10px; font-size: 10.5px; color: var(--faint); cursor: default; }
+.hcard .hcmd {
+  margin: 7px 10px 2px; padding: 5px 7px; border-radius: 6px; cursor: pointer;
+  background: var(--code-bg); font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--fg); word-break: break-all;
+}
+.hcard .hcmd:hover { background: var(--border-soft); }
 .prow.alias .ptag { flex: none; color: var(--faint); font-size: 10.5px; letter-spacing: .04em; }
 /* what the date filter left out — the list never shrinks without saying so */
 .prow.pnote { color: var(--faint); font-size: 11px; font-style: italic; cursor: pointer; }

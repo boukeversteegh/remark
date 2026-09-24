@@ -3018,6 +3018,88 @@ function threadOpen(item) {
   return item.children.some(threadOpen);
 }
 
+// What is known about the agent session behind a row, laid out so the human
+// can CHECK it rather than trust it. Everything a resume would reproduce is
+// shown — the session, the directory, and each startup override with its
+// set/unset state — because a wrong config directory produces a Claude that
+// starts fine and is the wrong one.
+function harnessCard(r) {
+  const h = r.harness || {};
+  const card = document.createElement('div');
+  card.className = 'pmenu hcard';
+  const head = document.createElement('div');
+  head.className = 'pmhead';
+  head.textContent = 'Claude Code' + (h.version ? ' ' + h.version : '');
+  card.appendChild(head);
+
+  const line = (label, value, tip) => {
+    const d = document.createElement('div');
+    d.className = 'hline';
+    const l = document.createElement('span');
+    l.className = 'hkey';
+    l.textContent = label;
+    const v = document.createElement('span');
+    v.className = 'hval';
+    v.textContent = value;
+    if (tip) v.dataset.tip = tip;
+    d.appendChild(l);
+    d.appendChild(v);
+    card.appendChild(d);
+    return d;
+  };
+  line('session', h.session || '—', 'The conversation id. It survives a resume unchanged.');
+  line('directory', h.cwd || r.cwd || '—');
+  // the distinction that decides whether resuming is safe: a stopped monitor
+  // is not an ended session, and resuming a live one would run it twice
+  const state = h.pid
+    ? (r.harnessLive === 'yes' ? 'still running'
+      : r.harnessLive === 'no' ? 'exited'
+      : 'unknown')
+    : 'not recorded';
+  line('claude process', h.pid ? state + ' (pid ' + h.pid + ')' : state,
+    r.harnessLive === '' || !h.pid
+      ? 'Cannot be confirmed: without a recorded start time a live pid may be an unrelated process wearing a recycled number.'
+      : r.harnessLive === 'yes'
+        ? 'The session is still open. Resuming would run one conversation twice.'
+        : 'That process is gone — the same pid now would be a different program.');
+  if (r.lastTurn) line('last turn', r.lastTurn, 'When the session last wrote to its transcript.');
+
+  const set = (h.env || []).filter(e => e.set);
+  const eh = document.createElement('div');
+  eh.className = 'hsub';
+  eh.textContent = set.length ? 'startup overrides' : 'no startup overrides — defaults throughout';
+  card.appendChild(eh);
+  for (const e of set) {
+    line(e.name, e.secret ? 'set — value withheld' : e.value,
+      e.secret ? 'A credential. remark never stores its value; set it yourself when resuming.' : null)
+      .classList.add(e.secret ? 'hsecret' : 'hplain');
+  }
+  // an unset variable is a value too: resuming must not hand Claude one it
+  // never had
+  const unset = (h.env || []).filter(e => !e.set).map(e => e.name);
+  if (unset.length) {
+    const u = document.createElement('div');
+    u.className = 'hnote';
+    u.textContent = unset.length + ' unset, and must stay unset';
+    u.dataset.tip = unset.join(', ');
+    card.appendChild(u);
+  }
+
+  const cmd = document.createElement('div');
+  cmd.className = 'hcmd';
+  cmd.textContent = 'claude --resume ' + (h.session || '<session>');
+  cmd.dataset.tip = 'Run this in the directory above, with the overrides above. Click to copy.';
+  cmd.addEventListener('click', e => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(cmd.textContent).then(
+      () => toast('ok', 'Copied — run it in <code>' + String(h.cwd || '').replace(/[<>&]/g, '') + '</code>'),
+      () => toast('warn', 'Could not access the clipboard'));
+  });
+  card.appendChild(cmd);
+  setTimeout(() => document.addEventListener('click', () => card.remove(), { once: true }), 0);
+  return card;
+}
+
 // "who's here": every author seen in the document plus everyone announced
 // via a presence heartbeat, with a clear online/offline signal — its main
 // job is answering "is the agent actually listening right now?"
@@ -3082,7 +3164,8 @@ function buildPresence() {
       liveCount.set(k, n);
       if (n > 1) {
         rows.set(k + '#' + (p.sid || n), { nameKey: k, inst: true, online: true, stalled: p.stalled,
-          lastSeen: p.lastSeen, acted: p.acted, cwd: p.cwd, sid: p.sid });
+          lastSeen: p.lastSeen, acted: p.acted, cwd: p.cwd, sid: p.sid,
+          harness: p.harness, harnessLive: p.harnessLive, lastTurn: p.lastTurn });
         continue;
       }
     }
@@ -3090,7 +3173,11 @@ function buildPresence() {
     rows.set(k, { ...r, online: r.online || p.online, stalled: p.stalled, lastSeen: p.lastSeen,
       acted: (r.acted && (!p.acted || r.acted > p.acted)) ? r.acted : p.acted,
       cwd: p.online ? (p.cwd || r.cwd) : (r.cwd || p.cwd),
-      sid: p.online ? (p.sid || r.sid) : r.sid });
+      sid: p.online ? (p.sid || r.sid) : r.sid,
+      // the session outlives its monitor: an offline row keeps what it knows
+      harness: p.harness || r.harness,
+      harnessLive: p.harness ? p.harnessLive : r.harnessLive,
+      lastTurn: p.harness ? p.lastTurn : r.lastTurn });
   }
   for (const [k, n] of liveCount) if (rows.has(k)) rows.get(k).instances = n;
   const nameOf = ([k, r]) => display.get(r.nameKey || k) || '';
@@ -3129,6 +3216,18 @@ function buildPresence() {
     if (r.sid) tipBits.push('instance ' + r.sid);
     if (tipBits.length) nm.dataset.tip = tipBits.join(' · ');
     row.appendChild(nm);
+    // which harness is behind an agent — a monitor started by Claude Code
+    // says so in its own environment, so the row can show it rather than
+    // guess from the name someone typed after -as
+    if (r.harness && r.harness.tool === 'claude-code') {
+      const hb = document.createElement('span');
+      hb.className = 'ptag pharness';
+      hb.textContent = '✳';
+      hb.dataset.tip = 'Claude Code' + (r.harness.version ? ' ' + r.harness.version : '') +
+        (r.harness.session ? ' · session ' + r.harness.session : '');
+      hb.addEventListener('click', e => { e.stopPropagation(); closeMenus(); row.appendChild(harnessCard(r)); });
+      row.appendChild(hb);
+    }
     if (r.instances > 1 || r.inst) {
       // two live monitors under one name: allowed, never silent — the
       // file cannot tell their comments apart, so the human should know
