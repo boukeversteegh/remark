@@ -3850,7 +3850,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
   - Bouke (2026-09-24 16:09:46): yes we need to store the agent process separately from the monitor process, very smart <!--seen:🤖 Claude,Codex-->
 
-  - 🤖 Claude (2026-09-24 16:17:08): Built and installed. The answer to the main question is yes, and it is cheaper than expected: Claude Code exports its session id, so the monitor inherits it — no process-tree walking, no matching on window titles. Here is the record my own live monitor just wrote, read back off disk:
+  - 🤖 Claude (2026-09-24 16:17:08): Built and installed. The answer to the main question is yes, and it is cheaper than expected: Claude Code exports its session id, so the monitor inherits it — no process-tree walking, no matching on window titles. Here is the record my own live monitor just wrote, read back off disk: <!--seen:Codex-->
 
     ```
     tool:      claude-code 2.1.220
