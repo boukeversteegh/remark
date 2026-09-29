@@ -3212,7 +3212,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
 - [ ] Bouke (2026-09-10 09:20:45): monitor -h doesn't explain what monitor is for and how to use it (main help does, separate help document does. i think this should just all be in monitor, and if it doesn't fit, at least pointers to the canonical help should exist) <!--thread-->
 
-- [ ] Bouke (2026-09-10 09:26:44): **remark reply should post a sibling, not a subthread** <!--thread-->
+- [x] Bouke (2026-09-10 09:26:44): **remark reply should post a sibling, not a subthread** <!--thread-->
   agents keep posting comments as subthreads to my posts. the ui already guides users to linear replies unless a user explicitly clicks reply within the comment's header.
   i want to make the same distinction for agents.
 
@@ -3227,7 +3227,7 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
 
     - 🤖 Claude (2026-09-10 13:25:01): Sorry: your post at 09:26 was never delivered to me. My monitor had died, I restarted it at 10:24, and a restarted monitor does not replay what it missed; that gap is mine to fix, not yours to re-ping. Claiming and building now. The design as I read it: remark reply defaults to a SIBLING of the target, at the same level, after the target's subtree, under the target's parent; a root thread has no parent, so a reply to it stays a child; an interjection counts as parentless too, since its parent is the text anchor, so it keeps receiving children only. -subthread opts into nesting, and the help says when to use it: answering an older comment buried among newer ones, a side-note or FYI, something off the main line, or anything that would derail the current flow. The monitor guidance will also name the comment id to reply with. <!--seen:Bouke-->
 
-  - 🤖 Claude (2026-09-10 13:33:34): Built and installed as specified. `remark reply` now places a reply as a SIBLING of the comment it answers, at that comment's level after the last comment there, so stamps stay in order and a conversation continues in a line instead of a staircase. Two cases nest because there is no level to continue: a thread root and an interjection, whose parent is the paragraph it is anchored to; both keep receiving children only, as the window already does.
+  - 🤖 Claude (2026-09-10 13:33:34): Built and installed as specified. `remark reply` now places a reply as a SIBLING of the comment it answers, at that comment's level after the last comment there, so stamps stay in order and a conversation continues in a line instead of a staircase. Two cases nest because there is no level to continue: a thread root and an interjection, whose parent is the paragraph it is anchored to; both keep receiving children only, as the window already does. <!--seen:Bouke-->
 
     `-subthread` opts into nesting, and the help says when to use it: an aside or FYI, an off-topic point, or an answer to an older comment buried among newer ones. The command reports which it did — "replied … beside …" or "… under …".
 
@@ -3626,3 +3626,63 @@ emark.exe` is the stale build in your checkout, and rebuilding from that checkou
   make sure the button 'show resolved' doesn't wrap when there is little space for it.
 
   - 🤖 Claude (2026-09-15 14:57:45): Fixed and installed - and it turned up that I had caused a worse version of the same thing. Toolbar controls no longer deform: below 1080px the mode switch and Show resolved drop their words and keep their icons, every one of which has a tooltip. The search box I added this morning was the real culprit: it took 190px and made the toolbar overflow by 90px at 760px wide, crushing the Inline/Margin switch to six pixels. It is now the one control that gives - shrinking toward its magnifier and taking its width back when you click into it - and it never shrinks to something you cannot click or type in. A test measures four widths and asserts nothing overflows, no label breaks in two, and the mode switch keeps its size. <!--seen:Bouke-->
+
+- [ ] 🤖 Claude (2026-09-17 14:40:38): **remark delete could take the next comment's first line** <!--thread-->
+  Fixed and installed, and worth knowing if you have used the verb: deleting a comment that had another comment after it removed that comment's opening line too, leaving its body orphaned under the thread above. Reproduced from the CLI before any change:
+
+  ```
+  deleted 2026-09-01 10:01:00 (3 line(s))
+  - [ ] Bob (2026-09-01 10:00:00): **B** open <!--thread-->
+
+    body
+  ```
+
+  The **Next** thread's root line is gone there and its body dangles. One helper was used with two meanings: it returns the line that ENDS a block, which is where an insertion belongs and one line past what a removal may touch. Insert callers were right, delete was not, so the CLI, the window and any agent's delete all did this. A new helper returns the last line a block actually occupies, the destructive paths use it, and a regression test fails on the old behaviour. Installed as af4289d.
+
+  If a thread of yours lost its first line recently, this is why, and the words are in git history.
+
+- [ ] Bouke (2026-09-17 14:44:15): i posted a reply using the new version (i think the one that uses reply endpoints rather than posting the whole doc), but the reply ended up one level higher than i expected. <!--thread--> <!--seen:🤖 Claude-->
+
+  we had very specific semantics about when somethign should be posted as a sibling at the current level vs nested, and tests for those i think, but they have been now lost. so i think the wiring for various reply boxes has been done wrong now. i hope i dont need to respec every reply behavior for the UI, please read prior discussions and reconstruct the rules.
+
+  in general, the replybox acts as a visual marker for where the reply will show up after sending. so that is a good general catch all test. if you open a reply to a nested comment and the actual message shows up somewhere completely different, this is the bug. i have not noticed any bug with where the reply boxes show up.
+
+  - 🤖 Claude (2026-09-17 14:49:58): My regression, fixed and installed (e024952); restart your window. You were right about the semantics: they were intact, but two of them were competing. The window picks the parent itself, the root for a reply typed in the thread's bottom slot and the comment itself for one typed in its header, and then writes the reply under that parent. The reply verb has its own rule, the one you asked for on 09-10, where a reply continues the conversation as a sibling of what it answers. Routing the window through the verb let the verb decide, so a reply typed in a comment's header came out at that comment's level, one higher than you meant. The window now says which placement it wants. <!--seen:Bouke-->
+
+    The tests did not catch it because nothing checked where a reply written from the window LANDS. placement.test.js checks that existing nesting renders correctly, which is a different question. The new test writes a reply from each of the two affordances and compares the indent in the file; it fails on the old behaviour with 2 where 4 is meant. Suite is 54 of 54.
+
+- [ ] Bouke (2026-09-17 15:46:24): **Escape in the image popout exits focus mode** <!--thread--> <!--seen:🤖 Claude-->
+  when click a picture to see it larger, escape should dismiss the modal rather than disabling focus mode
+
+  - 🤖 Claude (2026-09-17 15:46:51): Claiming. The popout's Escape handler prevents the default but lets the event travel on, so the focus-mode handler sees the same keypress. It will swallow it instead, with a test that presses Escape with both open. <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-17 15:51:48): Fixed, installed and pushed (da98f8c); restart the window. The popout stopped the key's default action but let the key carry on, so the handler that leaves a focused thread saw the same Escape and the thread went with the picture. Escape now belongs to the topmost thing on screen: the popout swallows it, and everything underneath keeps its state.
+
+    The test opens a picture inside a focused thread, presses Escape once, then checks that the picture closed and the focus stayed. Without the fix it reports focus false where true is meant. Suite is 55 of 55.
+
+- [ ] Bouke (2026-09-18 10:29:35): **Fold read comments, and fold every level** <!--thread--> <!--seen:🤖 Claude-->
+  small feature request, a button to "fold all read comments" as opposed to fold all.
+  this helps me to focus on the unread messages. please make it appear when hovering or holding the fold button for longer. when held, the button expands into two options (popover, no layout shift), with text next to the icon explaining the option. this is actually different from the current button which only works on the thread level, to make it consistent lets also include an option to fold all levels.
+
+  so something like this:
+
+  ```
+  [^]
+  [^] Fold all threads (this folds only the root level)
+  [^] Fold all comments (this folds every level)
+  [^] Fold read comments (this folds every level that doesn't have unread comments)
+  ```
+
+  - 🤖 Claude (2026-09-18 10:30:06): Claiming, and building it as you spelled it out: the fold button keeps its click, and a hover or a long press opens a popover with the three options, icon plus text, positioned so nothing on the toolbar moves. <!--seen:🤖 Claude-->
+
+  - 🤖 Claude (2026-09-18 10:36:46): Built, installed and pushed (874e369); restart the window. The click still folds thread roots, exactly as before. Hovering the button for half a second, or holding it, opens a popover with the three depths, each an icon with its name and a line saying what it does:
+
+    - Fold all threads, only the root level
+    - Fold all comments, every level
+    - Fold read comments, every level with nothing unread below
+
+    The third is the one you asked for: a thread or a comment folds only when nothing under it is unread, so what is left open is what you have not read. All three act on what is on screen, so a filter's hidden threads are left alone, which is how the button already behaved.
+
+    The popover is positioned over the document rather than inside the toolbar, so nothing shifts; the test checks that by measuring the neighbouring button before and after it opens. Suite is 56 of 56.
+
+    One thing I could not show you: a screenshot. The hover needs half a second and the headless capture fires before that, so rather than hand you a picture of a closed menu I am describing it. If the wording or the order is off, say so and I will change it.
