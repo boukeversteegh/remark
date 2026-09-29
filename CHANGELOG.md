@@ -5,6 +5,11 @@ entries a running instance does not know: it asks the newer binary for its
 list and subtracts its own, keyed on entry titles only. Dates are for the
 eye; nothing depends on them.
 
+## 2026-09-29
+
+### Opening a thread is an API verb
+POST /api/thread opens a thread over the API, with the anchors the CLI has: after a comment, at a section's end, or at the end of the file. The window still uploads the document when you start a thread, because its third anchor is a prose paragraph and no verb can name one yet; a stable server-side name for a paragraph belongs with the document structure work.
+
 ## 2026-09-18
 
 ### Fold read comments, and fold every level

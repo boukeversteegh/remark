@@ -210,6 +210,47 @@ func handleVerbDelete(w http.ResponseWriter, r *http.Request) {
 	jsonOut(w, http.StatusOK, out)
 }
 
+// handleVerbThread opens a new thread. The anchor names where it goes:
+// after a comment, at the end of a section, or at the end of the file.
+func handleVerbThread(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		As      string `json:"as"`
+		Text    string `json:"text"`
+		Title   string `json:"title"`
+		After   string `json:"after"`
+		Section string `json:"section"`
+		End     bool   `json:"end"`
+		Plain   bool   `json:"plain"`
+		Again   bool   `json:"again"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	path := r.URL.Query().Get("path")
+	if path == "" || req.As == "" {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": "path and as are required"})
+		return
+	}
+	if req.After == "" && req.Section == "" && !req.End {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": "one of after, section or end is required"})
+		return
+	}
+	mu := pathMutex(path)
+	mu.Lock()
+	defer mu.Unlock()
+	out, err := writeThread(writeArgs{
+		file: path, as: req.As, text: req.Text, title: req.Title,
+		after: req.After, section: req.Section, end: req.End,
+		plain: req.Plain, again: req.Again,
+	})
+	if err != nil {
+		jsonOut(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	jsonOut(w, http.StatusOK, out)
+}
+
 func handlePostFile(w http.ResponseWriter, r *http.Request) {
 	var req saveReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -566,6 +607,7 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("POST /api/seen", authed(handleVerbSeen))
 	mux.HandleFunc("POST /api/edit", authed(handleVerbEdit))
 	mux.HandleFunc("POST /api/delete", authed(handleVerbDelete))
+	mux.HandleFunc("POST /api/thread", authed(handleVerbThread))
 	mux.HandleFunc("GET /api/events", authed(handleEvents))
 	mux.HandleFunc("GET /api/pickfile", authed(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, map[string]string{"path": pickFile(r.URL.Query().Get("dir"))})

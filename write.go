@@ -743,14 +743,38 @@ func runThread(args []string) {
 		fmt.Fprintln(os.Stderr, "usage: remark thread <file> -as <name> [-title <t>] [-plain] (-after <selector> | -section <heading> | -end) [-text <text> | -file <path> | stdin]")
 		os.Exit(2)
 	}
-	body := writeBody(a)
-	if strings.TrimSpace(body) == "" && a.title == "" {
+	a.text = writeBody(a)
+	if strings.TrimSpace(a.text) == "" && a.title == "" {
 		fmt.Fprintln(os.Stderr, "remark thread: empty body (use -text, -file, stdin or -title)")
 		os.Exit(2)
 	}
+	out, err := writeThread(a)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "remark thread: "+err.Error())
+		os.Exit(1)
+	}
+	if a.asJSON {
+		writeJSONOut(out)
+		return
+	}
+	if out["duplicate"] == true {
+		fmt.Printf("already there: %s at line %d — identical text from you within %s; -again opens it anyway\n",
+			out["time"], out["line"], writeDupWindow)
+		return
+	}
+	fmt.Printf("opened %s at line %d\n", out["time"], out["line"])
+}
+
+// writeThread opens a new thread and reports where it landed, the same
+// answer the CLI prints and the API returns.
+func writeThread(a writeArgs) (map[string]any, error) {
+	body := a.text
+	if strings.TrimSpace(body) == "" && a.title == "" {
+		return nil, fmt.Errorf("empty body")
+	}
 	var stamp, dup string
 	var line, dupLine int
-	writeWithRetry(a.file, func(content string) (string, error) {
+	if err := writeWithRetryErr(a.file, func(content string) (string, error) {
 		dup, dupLine = "", 0
 		lines, roots, all := readParse(content)
 		// the same guard the reply verb has: a thread opened twice because a
@@ -803,20 +827,12 @@ func runThread(args []string) {
 		out := writeInsert(strings.ReplaceAll(content, "\r\n", "\n"), at, item)
 		line = strings.Count(out[:strings.Index(out, item[0])], "\n") + 1
 		return out, nil
-	})
+	}); err != nil {
+		return nil, err
+	}
 	if dup != "" {
-		if a.asJSON {
-			writeJSONOut(map[string]any{"ok": true, "duplicate": true, "time": dup, "file": a.file, "line": dupLine})
-		} else {
-			fmt.Printf("already there: %s at line %d — identical text from you within %s; -again opens it anyway\n",
-				dup, dupLine, writeDupWindow)
-		}
-		return
+		return map[string]any{"ok": true, "duplicate": true, "time": dup, "file": a.file, "line": dupLine}, nil
 	}
 	writeLogNote(a.file, stamp)
-	if a.asJSON {
-		writeJSONOut(map[string]any{"ok": true, "time": stamp, "file": a.file, "line": line})
-		return
-	}
-	fmt.Printf("opened %s at line %d\n", stamp, line)
+	return map[string]any{"ok": true, "time": stamp, "file": a.file, "line": line}, nil
 }
