@@ -485,25 +485,12 @@ func runGateway(args []string) {
 			rec.Port = n
 		}
 	}
-	var ln net.Listener
-	var err error
 	want := rec.Port
-	for i := 0; i < 10; i++ {
-		ln, err = net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", rec.Port))
-		if err == nil {
-			break
-		}
-		rec.Port++
-	}
-	if ln == nil {
-		// Windows reserves whole BLOCKS of ports (Hyper-V and WSL take ranges
-		// that move on every reboot), so walking upwards can stay inside one
-		// the entire way. Let the OS name a port it knows is free.
-		ln, err = net.Listen("tcp", "0.0.0.0:0")
-		if err == nil {
-			rec.Port = ln.Addr().(*net.TCPAddr).Port
-			fmt.Fprintf(os.Stderr, "remark gateway: ports %d-%d are not available on this machine — using %d\n",
-				want, want+9, rec.Port)
+	ln, got, err := listenLocal("0.0.0.0", want, 10)
+	if ln != nil {
+		rec.Port = got
+		if got >= want+10 || got < want {
+			fmt.Fprintln(os.Stderr, "remark gateway:", excludedRangeNote(want, 10, got))
 		}
 	}
 	if ln == nil {

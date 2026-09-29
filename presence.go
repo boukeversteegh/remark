@@ -45,6 +45,10 @@ type presenceInfo struct {
 	// Stalled: the process is alive but its stdout writes have been blocked
 	// for a while — the reader (the agent's harness) isn't draining the pipe
 	Stalled bool `json:"stalled,omitempty"`
+	// Harness: which agent harness started this monitor and what it would
+	// take to resume that conversation (see harness.go). Absent for a
+	// monitor started from an ordinary shell, which is not a session.
+	Harness *harnessInfo `json:"harness,omitempty"`
 }
 
 func presenceDir() string {
@@ -91,6 +95,9 @@ func presenceAnnounce(name, kind string, patterns, files []string, stop <-chan s
 	info.Cwd, _ = os.Getwd()
 	info.Sid = presenceNewSid()
 	presenceOwnSid = info.Sid
+	if kind == "agent" {
+		info.Harness = harnessDetect()
+	}
 	for _, p := range patterns {
 		info.Scope = append(info.Scope, presenceNormPath(p))
 	}
@@ -201,6 +208,43 @@ type presenceEntry struct {
 	Acted     string `json:"acted,omitempty"`     // last own comment/seen-marker in THIS file
 	Cwd       string `json:"cwd,omitempty"`       // where the monitor runs
 	Sid       string `json:"sid,omitempty"`       // the instance; two same-name rows differ here
+	// Harness describes the agent session behind an agent row: which tool,
+	// which conversation, and what resuming it would take. Never carries a
+	// secret's value — see harness.go.
+	Harness *harnessInfo `json:"harness,omitempty"`
+	// HarnessLive answers a question a stopped monitor cannot: is the agent
+	// process that started it STILL RUNNING? A monitor can be killed, or
+	// simply never restarted after a disconnect, while its session sits
+	// there waiting. Resuming then would start a second copy of one
+	// conversation, so the two states must not be confused (Codex,
+	// 2026-09-24). "" is unknown and must not be read as either.
+	HarnessLive string `json:"harnessLive,omitempty"` // "yes" | "no" | ""
+	// LastTurn is when that session last wrote to its transcript — a
+	// liveness signal that outlives the monitor and owes nothing to pids.
+	LastTurn string `json:"lastTurn,omitempty"`
+}
+
+// harnessAlive reports whether the recorded harness process is still the
+// process that was recorded. A pid that is alive but was created at a
+// different time is a DIFFERENT program wearing a recycled number, which is
+// exactly how this project once killed an unrelated process. Without a
+// recorded start time nothing can be confirmed, so the answer is "".
+func harnessAlive(h *harnessInfo) string {
+	if h == nil || h.PID <= 0 {
+		return ""
+	}
+	if !pidAlive(h.PID) {
+		return "no"
+	}
+	if h.PIDStart == "" {
+		return "" // alive, but we cannot say it is the same one
+	}
+	if now := pidStartTime(h.PID); now != "" && now != h.PIDStart {
+		return "no" // same number, different process
+	} else if now == "" {
+		return ""
+	}
+	return "yes"
 }
 
 // presenceList returns everyone whose scope covers the given document,
@@ -238,6 +282,15 @@ func presenceList(file string) []presenceEntry {
 		entry := presenceEntry{Name: info.Name, Kind: info.Kind,
 			Online: alive, LastSeen: info.Started,
 			Delivered: info.Delivered[target], Acted: info.Acted[target], Cwd: info.Cwd, Sid: info.Sid}
+		if info.Harness != nil {
+			entry.Harness = info.Harness
+			entry.HarnessLive = harnessAlive(info.Harness)
+			if t := harnessTranscript(info.Harness); t != "" {
+				if st, err := os.Stat(t); err == nil {
+					entry.LastTurn = st.ModTime().Format("2006-01-02 15:04:05")
+				}
+			}
+		}
 		// every LIVE process is its own row (an instance, not a name): two
 		// monitors called X show as two X. Dead traces of a name collapse
 		// into one offline row, dropped when a live one exists.

@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -33,6 +32,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "install" {
 		runInstall()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "hook" {
+		runHook(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "read" {
@@ -129,6 +132,12 @@ func main() {
 	flag.Usage = func() { fmt.Fprint(os.Stderr, agentHelp) }
 	flag.Parse()
 
+	// a parent waiting on this window (Restart) reads its address here. Taken
+	// and cleared before any further window is spawned, so the answer comes
+	// from the process that was asked.
+	readyPath := os.Getenv(readyEnv)
+	os.Unsetenv(readyEnv)
+
 	// a positional that is not a .md file is almost always a mistyped
 	// subcommand — fail instead of opening a window on a nonexistent file
 	for _, a := range flag.Args() {
@@ -146,19 +155,13 @@ func main() {
 		token = hex.EncodeToString(b)
 	}
 
-	var ln net.Listener
-	var err error
-	p := *port
-	for i := 0; i < 20; i++ {
-		ln, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
-		if err == nil {
-			break
-		}
-		p++
-	}
+	ln, p, err := listenLocal("127.0.0.1", *port, 20)
 	if ln == nil {
 		fmt.Fprintln(os.Stderr, "remark: could not bind a port:", err)
 		os.Exit(1)
+	}
+	if p >= *port+20 || p < *port {
+		fmt.Fprintln(os.Stderr, "remark:", excludedRangeNote(*port, 20, p))
 	}
 
 	// multiple documents (or globs), like monitor takes them: this process
@@ -218,6 +221,14 @@ func main() {
 	}()
 
 	fmt.Println("remark listening on", u)
+
+	// the handshake, written once the listener is bound and the mux is
+	// serving — and deliberately BEFORE the window, because WebView2's
+	// startup is the slow part and readiness here means "this process is
+	// answering", which is the claim the old window needs before it goes
+	if readyPath != "" {
+		os.WriteFile(readyPath, []byte(ln.Addr().String()), 0o600)
+	}
 
 	switch {
 	case *noOpen:

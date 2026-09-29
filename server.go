@@ -878,7 +878,11 @@ func newMux() *http.ServeMux {
 		if p := r.URL.Query().Get("path"); p != "" {
 			args = append(args, p)
 		}
-		if err := exec.Command(exe, args...).Start(); err != nil {
+		// Stand down only once the replacement says it is serving. A window
+		// that closes and never comes back is the worst outcome here — worse
+		// than not restarting at all, because it takes away the way anything
+		// else gets tested.
+		if err := spawnReplacement(exec.Command(exe, args...), 10*time.Second); err != nil {
 			jsonOut(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}

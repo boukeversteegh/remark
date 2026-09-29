@@ -1,0 +1,9 @@
+{
+  "name": "remark",
+  "description": "Guards against starting `remark monitor` from a shell call, where its comments would never reach you.",
+  "version": "0.1.0",
+  "author": {
+    "name": "remark"
+  },
+  "homepage": "https://github.com/boukeversteegh/remark"
+}

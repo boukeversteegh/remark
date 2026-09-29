@@ -446,19 +446,36 @@ function commentTimeMs(it) {
   return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)).getTime();
 }
 function dateFilterOn() { return S.dateFrom != null || S.dateTo != null; }
+// one instant against the window — threads ask it of their comments, the
+// Authors panel of a name's last heartbeat
+function msInDateRange(ms) {
+  return !isNaN(ms) && (S.dateFrom == null || ms >= S.dateFrom) && (S.dateTo == null || ms <= S.dateTo);
+}
+function stampMs(s) { return commentTimeMs({ time: s || '' }); }
 function threadInDateRange(root) {
   if (!dateFilterOn()) return true;
   let hit = false;
   (function walk(it) {
     if (hit) return;
-    const ms = commentTimeMs(it);
-    if (!isNaN(ms) && (S.dateFrom == null || ms >= S.dateFrom) && (S.dateTo == null || ms <= S.dateTo)) {
+    if (msInDateRange(commentTimeMs(it))) {
       hit = true;
       return;
     }
     it.children.forEach(walk);
   })(root);
   return hit;
+}
+// Every name with a sign of life inside the date window: a comment, a reply,
+// a reaction — anything of theirs the window actually contains.
+function authorsInDateRange() {
+  const seen = new Set();
+  (function walk(items) {
+    for (const it of items || []) {
+      if (it.author && msInDateRange(commentTimeMs(it))) seen.add(normName(it.author));
+      walk(it.children);
+    }
+  })((S.parsed && S.parsed.items) || []);
+  return seen;
 }
 // midnight boundaries, so "today" means the whole day and not the last 24h
 function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
@@ -1594,7 +1611,9 @@ function persistCollapse(key, val) {
   try {
     const valid = new Set(S.parsed.items.map(i => i.key));
     const out = {};
-    for (const k in S.collapsedSaved) if (valid.has(k)) out[k] = S.collapsedSaved[k];
+    for (const k in S.collapsedSaved) {
+      if (valid.has(k.startsWith(BODYFOLD) ? k.slice(BODYFOLD.length) : k)) out[k] = S.collapsedSaved[k];
+    }
     S.collapsedSaved = out;
     localStorage.setItem('remark:collapsed:' + S.path, JSON.stringify(out));
   } catch (e) { /* storage full/blocked: state stays session-only */ }
@@ -1614,6 +1633,47 @@ function toggleBookmark(time) {
   if (S.bookmarks.has(time)) S.bookmarks.delete(time); else S.bookmarks.add(time);
   try { localStorage.setItem('remark:bookmarks:' + S.path, JSON.stringify([...S.bookmarks])); } catch (e) {}
   render();
+}
+
+// A titled thread has two folds, and they are not the same question. The
+// header handle puts the whole thread away; the handle beside the opening
+// post puts away only ITS text, leaving the title, the replies and the
+// thread's shape on screen. A long opening post is the thing that keeps a
+// board from being compact even after everything read is folded.
+//
+// They are separate keys in the same store, so folding the thread and
+// opening it again gives the opening post back the way it was left. An
+// untitled thread keeps its single handle: there is no header row to hang a
+// second one on.
+const BODYFOLD = 'body:';
+function canFoldBody(item) {
+  return !!item.title && !item.parent && !S.chat;
+}
+function isBodyFolded(item) {
+  if (!canFoldBody(item)) return false;
+  // a composer you opened in this body is never hidden — you would be
+  // typing into nothing
+  if (S.editorsOpen.has('edit:' + item.key)) return false;
+  for (const k of S.editorsOpen) if (k.startsWith('ipara:' + item.key + ':')) return false;
+  // ASKING OUTRANKS EVERYTHING BELOW. The guards after this one exist so a
+  // fold never hides what you were just sent to; they must not turn into a
+  // refusal to fold at all. revealItem marks a thread's ROOT for any jump to
+  // any comment in it and the mark lasts the session, so a board navigated
+  // by jumping had every opening post pinned open, the click saving a state
+  // the render ignored. Reported by Bouke, diagnosed by Codex, 2026-09-22.
+  const key = BODYFOLD + item.key;
+  const manual = S.collapsed.get(key);
+  if (manual !== undefined) return manual;
+  // unasked, a jump or a search match keeps the post open: it is the thing
+  // you were sent to read
+  if (searchOn() && itemMatchesSearch(item)) return false;
+  if (item.time && S.reveal.has(item.time)) return false;
+  if (S.collapsedSaved && key in S.collapsedSaved) return S.collapsedSaved[key];
+  return false; // an opening post opens open
+}
+function setBodyFold(item, val) {
+  S.collapsed.set(BODYFOLD + item.key, val);
+  persistCollapse(BODYFOLD + item.key, val);
 }
 
 function isCollapsed(item) {
@@ -1637,6 +1697,9 @@ function isCollapsed(item) {
 function buildItem(item, opts) {
   const st = threadStats(item);
   const collapsed = isCollapsed(item);
+  // a titled opening post: the handle in its header row folds the text only
+  const bodyFold = canFoldBody(item);
+  const bodyFolded = !collapsed && isBodyFolded(item);
   const el = document.createElement('div');
   // your own comment with no reply yet (no child, nothing after it at its
   // level) wears an amber edge while the thread is unresolved — a
@@ -1658,6 +1721,7 @@ function buildItem(item, opts) {
   el.className = 'citem' +
     (isUnread(item) ? ' unread' : '') +
     (collapsed ? ' collapsed' : '') +
+    (bodyFolded ? ' bodyfold' : '') +
     (unreplied ? ' unreplied' : '') +
     (isHit ? ' hit' : hitsBelow ? ' hitdeep' : '') +
     (isMe(item.author) ? ' mine' : '');
@@ -1676,12 +1740,15 @@ function buildItem(item, opts) {
   if (!collapsed) {
     const rail = document.createElement('div');
     rail.className = 'crail';
-    rail.title = 'Collapse';
+    rail.title = bodyFold ? 'Hide this post (the thread stays open)' : 'Collapse';
     rail.addEventListener('mouseenter', () => el.classList.add('railhot'));
     rail.addEventListener('mouseleave', () => el.classList.remove('railhot'));
     rail.addEventListener('click', () => {
-      S.collapsed.set(item.key, true);
-      persistCollapse(item.key, true);
+      if (bodyFold) setBodyFold(item, true);
+      else {
+        S.collapsed.set(item.key, true);
+        persistCollapse(item.key, true);
+      }
       render();
       // land on the header of what was just folded, not a random spot below
       const hd = item.time && document.getElementById('r' + item.time.replace(/\D/g, ''));
@@ -1700,6 +1767,12 @@ function buildItem(item, opts) {
     if (!want && searchOn() && hitsBelow) expandToMatches(item);
     render();
   };
+  // on a titled opening post the header row's handle is the SMALL fold: its
+  // own text, nothing else. The title bar above carries the thread's. With
+  // the thread already folded the header row is all there is, so it goes
+  // back to opening the thread — the small fold has nothing to act on.
+  const headFoldsBody = bodyFold && !collapsed;
+  const toggleHead = headFoldsBody ? () => { setBodyFold(item, !bodyFolded); render(); } : toggleFold;
 
   const head = document.createElement('div');
   head.className = 'chead';
@@ -1708,7 +1781,7 @@ function buildItem(item, opts) {
   // keep their own action
   head.addEventListener('click', e => {
     if (e.target.closest('button, input, a')) return;
-    toggleFold();
+    toggleHead();
   });
   // hovering it tints the comment that will fold — the same whole-card
   // highlight the gutter strip gives, so the control reads as one thing
@@ -1718,8 +1791,10 @@ function buildItem(item, opts) {
   const tw = document.createElement('button');
   tw.className = 'twisty';
   tw.innerHTML = iconHTML('chevron-down');
-  tw.title = collapsed ? 'Expand' : 'Collapse';
-  tw.addEventListener('click', toggleFold);
+  tw.title = headFoldsBody
+    ? (bodyFolded ? 'Show this post' : 'Hide this post (the thread stays open)')
+    : (collapsed ? 'Expand' : 'Collapse');
+  tw.addEventListener('click', toggleHead);
   // caret and gutter strip are one control: hovering the caret previews
   // the same fold the strip does
   if (!collapsed) {
@@ -1790,27 +1865,41 @@ function buildItem(item, opts) {
     head.appendChild(ct);
   }
 
+  const snippetEl = () => {
+    const snip = document.createElement('span');
+    snip.className = 'snippet';
+    snip.textContent = item.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 80);
+    return snip;
+  };
   if (item.title) {
     // the topic is the primary thing: its own line above the header row,
     // larger, in the display font; the header keeps author, time, badges
     const tt = document.createElement('div');
     tt.className = 'ctitlebar';
-    tt.textContent = item.title;
+    // the title bar carries the THREAD's handle, of its own, because the
+    // one in the header row below now means the opening post alone
+    const tfw = document.createElement('button');
+    tfw.className = 'twisty tfold';
+    tfw.innerHTML = iconHTML('chevron-down');
+    tfw.title = collapsed ? 'Open this thread' : 'Fold this whole thread';
+    tfw.addEventListener('click', e => { e.stopPropagation(); toggleFold(); });
+    tt.appendChild(tfw);
+    const tx = document.createElement('span');
+    tx.className = 'ttext';
+    tx.textContent = item.title;
+    tt.appendChild(tx);
     tt.title = item.title;
-    // the title is the biggest thing on the card — it collapses the
-    // thread just like the header row under it
+    // the title is the biggest thing on the card — clicking it does what
+    // its handle does
     tt.addEventListener('click', e => {
       if (e.target.closest('button, input, a')) return;
-      S.collapsed.set(item.key, !collapsed);
-      persistCollapse(item.key, !collapsed);
-      render();
+      toggleFold();
     });
     el.appendChild(tt); // before the head, which is appended later
+    // folded text: say what is behind it, the way a folded comment does
+    if (bodyFolded) head.appendChild(snippetEl());
   } else if (collapsed) {
-    const snip = document.createElement('span');
-    snip.className = 'snippet';
-    snip.textContent = item.bodyMd.split('\n')[0].replace(/[#*_`>\[\]]/g, '').slice(0, 80);
-    head.appendChild(snip);
+    head.appendChild(snippetEl());
   }
 
   const sp = document.createElement('span');
@@ -2840,6 +2929,13 @@ function foldAll(mode) {
       }
       it.children.forEach(c => walk(c, depth + 1));
     })(th, 0);
+    // A thread held open by an unread reply still showed its opening post in
+    // full, which is what kept "fold read" from making the board compact.
+    // Fold that text too when it is read — the replies you have not seen
+    // stay exactly where they were.
+    if (mode !== 'threads' && canFoldBody(th)) {
+      setBodyFold(th, mode === 'all' || !isUnread(th));
+    }
   }
   render();
 }
@@ -2922,6 +3018,88 @@ function threadOpen(item) {
   return item.children.some(threadOpen);
 }
 
+// What is known about the agent session behind a row, laid out so the human
+// can CHECK it rather than trust it. Everything a resume would reproduce is
+// shown — the session, the directory, and each startup override with its
+// set/unset state — because a wrong config directory produces a Claude that
+// starts fine and is the wrong one.
+function harnessCard(r) {
+  const h = r.harness || {};
+  const card = document.createElement('div');
+  card.className = 'pmenu hcard';
+  const head = document.createElement('div');
+  head.className = 'pmhead';
+  head.textContent = 'Claude Code' + (h.version ? ' ' + h.version : '');
+  card.appendChild(head);
+
+  const line = (label, value, tip) => {
+    const d = document.createElement('div');
+    d.className = 'hline';
+    const l = document.createElement('span');
+    l.className = 'hkey';
+    l.textContent = label;
+    const v = document.createElement('span');
+    v.className = 'hval';
+    v.textContent = value;
+    if (tip) v.dataset.tip = tip;
+    d.appendChild(l);
+    d.appendChild(v);
+    card.appendChild(d);
+    return d;
+  };
+  line('session', h.session || '—', 'The conversation id. It survives a resume unchanged.');
+  line('directory', h.cwd || r.cwd || '—');
+  // the distinction that decides whether resuming is safe: a stopped monitor
+  // is not an ended session, and resuming a live one would run it twice
+  const state = h.pid
+    ? (r.harnessLive === 'yes' ? 'still running'
+      : r.harnessLive === 'no' ? 'exited'
+      : 'unknown')
+    : 'not recorded';
+  line('claude process', h.pid ? state + ' (pid ' + h.pid + ')' : state,
+    r.harnessLive === '' || !h.pid
+      ? 'Cannot be confirmed: without a recorded start time a live pid may be an unrelated process wearing a recycled number.'
+      : r.harnessLive === 'yes'
+        ? 'The session is still open. Resuming would run one conversation twice.'
+        : 'That process is gone — the same pid now would be a different program.');
+  if (r.lastTurn) line('last turn', r.lastTurn, 'When the session last wrote to its transcript.');
+
+  const set = (h.env || []).filter(e => e.set);
+  const eh = document.createElement('div');
+  eh.className = 'hsub';
+  eh.textContent = set.length ? 'startup overrides' : 'no startup overrides — defaults throughout';
+  card.appendChild(eh);
+  for (const e of set) {
+    line(e.name, e.secret ? 'set — value withheld' : e.value,
+      e.secret ? 'A credential. remark never stores its value; set it yourself when resuming.' : null)
+      .classList.add(e.secret ? 'hsecret' : 'hplain');
+  }
+  // an unset variable is a value too: resuming must not hand Claude one it
+  // never had
+  const unset = (h.env || []).filter(e => !e.set).map(e => e.name);
+  if (unset.length) {
+    const u = document.createElement('div');
+    u.className = 'hnote';
+    u.textContent = unset.length + ' unset, and must stay unset';
+    u.dataset.tip = unset.join(', ');
+    card.appendChild(u);
+  }
+
+  const cmd = document.createElement('div');
+  cmd.className = 'hcmd';
+  cmd.textContent = 'claude --resume ' + (h.session || '<session>');
+  cmd.dataset.tip = 'Run this in the directory above, with the overrides above. Click to copy.';
+  cmd.addEventListener('click', e => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(cmd.textContent).then(
+      () => toast('ok', 'Copied — run it in <code>' + String(h.cwd || '').replace(/[<>&]/g, '') + '</code>'),
+      () => toast('warn', 'Could not access the clipboard'));
+  });
+  card.appendChild(cmd);
+  setTimeout(() => document.addEventListener('click', () => card.remove(), { once: true }), 0);
+  return card;
+}
+
 // "who's here": every author seen in the document plus everyone announced
 // via a presence heartbeat, with a clear online/offline signal — its main
 // job is answering "is the agent actually listening right now?"
@@ -2986,7 +3164,8 @@ function buildPresence() {
       liveCount.set(k, n);
       if (n > 1) {
         rows.set(k + '#' + (p.sid || n), { nameKey: k, inst: true, online: true, stalled: p.stalled,
-          lastSeen: p.lastSeen, acted: p.acted, cwd: p.cwd, sid: p.sid });
+          lastSeen: p.lastSeen, acted: p.acted, cwd: p.cwd, sid: p.sid,
+          harness: p.harness, harnessLive: p.harnessLive, lastTurn: p.lastTurn });
         continue;
       }
     }
@@ -2994,15 +3173,30 @@ function buildPresence() {
     rows.set(k, { ...r, online: r.online || p.online, stalled: p.stalled, lastSeen: p.lastSeen,
       acted: (r.acted && (!p.acted || r.acted > p.acted)) ? r.acted : p.acted,
       cwd: p.online ? (p.cwd || r.cwd) : (r.cwd || p.cwd),
-      sid: p.online ? (p.sid || r.sid) : r.sid });
+      sid: p.online ? (p.sid || r.sid) : r.sid,
+      // the session outlives its monitor: an offline row keeps what it knows
+      harness: p.harness || r.harness,
+      harnessLive: p.harness ? p.harnessLive : r.harnessLive,
+      lastTurn: p.harness ? p.lastTurn : r.lastTurn });
   }
   for (const [k, n] of liveCount) if (rows.has(k)) rows.get(k).instances = n;
   const nameOf = ([k, r]) => display.get(r.nameKey || k) || '';
-  const sorted = [...rows.entries()].sort((a, b) =>
+  const all = [...rows.entries()].sort((a, b) =>
     (b[1].isMe ? 1 : 0) - (a[1].isMe ? 1 : 0) ||
     (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0) ||
     nameOf(a).localeCompare(nameOf(b)) ||
     (a[1].inst ? 1 : 0) - (b[1].inst ? 1 : 0));
+  // With a date filter on, the panel answers the same question the board
+  // does: who is part of THIS window. An offline name with nothing in range
+  // is not being hidden for leaving — there is simply nothing of theirs on
+  // screen to attribute. Online names stay whatever the filter says: "is
+  // anyone listening right now" is a question about now, not about the
+  // window, and it is the panel's main job.
+  const active = dateFilterOn() ? authorsInDateRange() : null;
+  const inWindow = (k, r) => !active || r.online || r.isMe ||
+    active.has(r.nameKey || k) || msInDateRange(stampMs(r.lastSeen)) || msInDateRange(stampMs(r.acted));
+  const sorted = all.filter(([k, r]) => inWindow(k, r));
+  const hidden = all.length - sorted.length;
   const closeMenus = () => wrap.querySelectorAll('.pmenu').forEach(m => m.remove());
   for (const [k, r] of sorted) {
     const nk = r.nameKey || k; // the name this row belongs to (instances share it)
@@ -3022,6 +3216,18 @@ function buildPresence() {
     if (r.sid) tipBits.push('instance ' + r.sid);
     if (tipBits.length) nm.dataset.tip = tipBits.join(' · ');
     row.appendChild(nm);
+    // which harness is behind an agent — a monitor started by Claude Code
+    // says so in its own environment, so the row can show it rather than
+    // guess from the name someone typed after -as
+    if (r.harness && r.harness.tool === 'claude-code') {
+      const hb = document.createElement('span');
+      hb.className = 'ptag pharness';
+      hb.textContent = '✳';
+      hb.dataset.tip = 'Claude Code' + (r.harness.version ? ' ' + r.harness.version : '') +
+        (r.harness.session ? ' · session ' + r.harness.session : '');
+      hb.addEventListener('click', e => { e.stopPropagation(); closeMenus(); row.appendChild(harnessCard(r)); });
+      row.appendChild(hb);
+    }
     if (r.instances > 1 || r.inst) {
       // two live monitors under one name: allowed, never silent — the
       // file cannot tell their comments apart, so the human should know
@@ -3125,6 +3331,15 @@ function buildPresence() {
       ar.appendChild(un);
       wrap.appendChild(ar);
     }
+  }
+  // never a silent shrink: say what the filter took, and let the line clear it
+  if (hidden) {
+    const note = document.createElement('div');
+    note.className = 'prow pnote';
+    note.textContent = hidden + (hidden === 1 ? ' author' : ' authors') + ' outside ' + dateRangeLabel();
+    note.dataset.tip = 'Offline, with nothing inside the date filter. Click to show everyone again.';
+    note.addEventListener('click', () => setDateFilter(null, null, ''));
+    wrap.appendChild(note);
   }
   return wrap;
 }

@@ -2,7 +2,10 @@
 
 package main
 
-import "syscall"
+import (
+	"fmt"
+	"syscall"
+)
 
 const (
 	processQueryLimitedInformation = 0x1000
@@ -21,4 +24,23 @@ func pidAlive(pid int) bool {
 		return false
 	}
 	return code == stillActive
+}
+
+// pidStartTime identifies a process beyond its number. Windows hands pids
+// back out, and this project has already acted on a recycled one: a record
+// saying "pid 17496, since 2026-09-10" pointed at an unrelated process by the
+// time anyone read it. A pid plus a creation time is an identity; a pid alone
+// is a coincidence waiting to happen. "" means unknown, which callers must
+// treat as "cannot confirm" rather than as a match.
+func pidStartTime(pid int) string {
+	h, err := syscall.OpenProcess(processQueryLimitedInformation, false, uint32(pid))
+	if err != nil {
+		return ""
+	}
+	defer syscall.CloseHandle(h)
+	var creation, exit, kernel, user syscall.Filetime
+	if err := syscall.GetProcessTimes(h, &creation, &exit, &kernel, &user); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%d", creation.Nanoseconds())
 }

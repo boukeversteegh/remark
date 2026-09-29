@@ -29,7 +29,8 @@ module.exports = async ctx => {
   // the window renders both as real title bars
   const page = await ctx.open(doc);
   const bars = await page.evaluate(() =>
-    [...document.querySelectorAll('.ctitlebar')].map(x => x.textContent));
+    // .ttext, not the bar: the bar also carries the thread's fold handle
+    [...document.querySelectorAll('.ctitlebar .ttext')].map(x => x.textContent));
   assert(bars.includes('Proper Title') && bars.includes('Second Title'),
     'titles render as title bars: ' + JSON.stringify(bars));
   await page.close();

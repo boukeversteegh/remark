@@ -25,7 +25,7 @@ module.exports = async ctx => {
   const r = await page.evaluate(() => ({
     h1: !!document.querySelector('#doc h1'),
     sections: [...document.querySelectorAll('#outline [data-spy]')].length,
-    threadTitle: (document.querySelector('.thread .ctitlebar') || {}).textContent,
+    threadTitle: (document.querySelector('.thread .ctitlebar .ttext') || {}).textContent,
     cards: document.querySelectorAll('.citem').length,
     pill: !!document.querySelector('.thread .rstat'),
   }));
